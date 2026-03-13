@@ -1,0 +1,6 @@
+{% extends "layouts/base.jinja" %}
+{% block body %}
+{% with name=name, fields=fields, timestamps=timestamps, soft_delete=soft_delete %}
+{% include "molecules/drizzle/table_body.jinja" %}
+{% endwith %}
+{% endblock %}

@@ -1,0 +1,6 @@
+{% extends "layouts/component.jinja" %}
+{% block body %}
+{% with name=name, fields=fields %}
+{% include "molecules/form/form_component.jinja" %}
+{% endwith %}
+{% endblock %}

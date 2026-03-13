@@ -1,0 +1,8 @@
+{{ "import { relations } from 'drizzle-orm/sqlite-core'" | collect_import }}
+
+export const {{ table_name }}Relations = relations({{ table_name }}, ({ one }) => ({
+  {{ field.name }}: one({{ field.references }}, {
+    fields: [{{ table_name }}.{{ field.name }}],
+    references: [{{ field.references }}.id],
+  }),
+}));

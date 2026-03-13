@@ -73,14 +73,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_snake_case_filter() {
-        let mut env = build_engine(Path::new("."));
-        env.add_template("test", "{{ name | snake_case }}").unwrap();
-        let template = env.get_template("test").unwrap();
+    fn test_query_key_with_params() {
+        let mut env = build_engine(Path::new("templates"));
+        env.add_template(
+            "query_key",
+            include_str!("../../templates/atoms/query/query_key.jinja"),
+        )
+        .unwrap();
+        let template = env.get_template("query_key").unwrap();
+
         let result = template
-            .render(minijinja::context!(name => "HelloWorld"))
+            .render(minijinja::context!(
+                name => "product",
+                params => serde_json::json!(["id"])
+            ))
             .unwrap();
-        assert_eq!(result, "hello_world");
+
+        assert!(result.contains("productQueryKey"));
+        assert!(result.contains("\"id\""));
     }
 
     #[test]
@@ -96,14 +106,47 @@ mod tests {
     }
 
     #[test]
-    fn test_camel_case_filter() {
-        let mut env = build_engine(Path::new("."));
-        env.add_template("test", "{{ name | camel_case }}").unwrap();
-        let template = env.get_template("test").unwrap();
+    fn test_form_field_switch() {
+        let mut env = build_engine(Path::new("templates"));
+        env.add_template(
+            "field_switch",
+            include_str!("../../templates/atoms/form/field_switch.jinja"),
+        )
+        .unwrap();
+        let template = env.get_template("field_switch").unwrap();
+
+        let field = serde_json::json!({
+            "name": "active",
+            "type": "boolean",
+            "required": false
+        });
+
         let result = template
-            .render(minijinja::context!(name => "hello_world"))
+            .render(minijinja::context!(field => field, form => serde_json::json!({})))
             .unwrap();
-        assert_eq!(result, "helloWorld");
+
+        assert!(result.contains("id=\"active\""));
+    }
+
+    #[test]
+    fn test_query_key() {
+        let mut env = build_engine(Path::new("templates"));
+        env.add_template(
+            "query_key",
+            include_str!("../../templates/atoms/query/query_key.jinja"),
+        )
+        .unwrap();
+        let template = env.get_template("query_key").unwrap();
+
+        let result = template
+            .render(minijinja::context!(
+                name => "products",
+                params => serde_json::json!([])
+            ))
+            .unwrap();
+
+        assert!(result.contains("productsQueryKey"));
+        assert!(result.contains("['products']"));
     }
 
     #[test]
@@ -118,16 +161,28 @@ mod tests {
     }
 
     #[test]
-    fn test_import_collector() {
+    fn test_drizzle_column_atom_string() {
         reset_import_collector();
 
-        let mut env = build_engine(Path::new("."));
-        env.add_template("test", "{{ 'import foo from \"foo\"' | collect_import }}\n{{ 'import bar from \"bar\"' | collect_import }}\n{{ render_imports() }}").unwrap();
-        let template = env.get_template("test").unwrap();
-        let result = template.render(minijinja::context!()).unwrap();
+        let mut env = build_engine(Path::new("templates"));
+        env.add_template(
+            "column",
+            include_str!("../../templates/atoms/drizzle/column.jinja"),
+        )
+        .unwrap();
+        let template = env.get_template("column").unwrap();
 
-        assert!(result.contains("import foo from \"foo\""));
-        assert!(result.contains("import bar from \"bar\""));
+        let field = serde_json::json!({
+            "name": "title",
+            "type": "string",
+            "required": true
+        });
+
+        let result = template
+            .render(minijinja::context!(field => field))
+            .unwrap();
+
+        assert!(result.contains("title: text('title').notNull()"));
 
         reset_import_collector();
     }
@@ -146,5 +201,193 @@ mod tests {
         assert!(lines[0].contains("react") || lines[1].contains("react"));
 
         reset_import_collector();
+    }
+
+    #[test]
+    fn test_drizzle_column_atom_with_reference() {
+        reset_import_collector();
+
+        let mut env = build_engine(Path::new("templates"));
+        env.add_template(
+            "column",
+            include_str!("../../templates/atoms/drizzle/column.jinja"),
+        )
+        .unwrap();
+        let template = env.get_template("column").unwrap();
+
+        let field = serde_json::json!({
+            "name": "categoryId",
+            "type": "id",
+            "references": "categories"
+        });
+
+        let result = template
+            .render(minijinja::context!(field => field))
+            .unwrap();
+
+        assert!(result.contains("categoryId"));
+        assert!(result.contains("references(() => categories.id"));
+
+        reset_import_collector();
+    }
+
+    #[test]
+    fn test_drizzle_timestamp_cols() {
+        reset_import_collector();
+
+        let mut env = build_engine(Path::new("templates"));
+        env.add_template(
+            "timestamp_cols",
+            include_str!("../../templates/atoms/drizzle/timestamp_cols.jinja"),
+        )
+        .unwrap();
+        let template = env.get_template("timestamp_cols").unwrap();
+
+        let result = template.render(minijinja::context!()).unwrap();
+
+        assert!(result.contains("createdAt"));
+        assert!(result.contains("updatedAt"));
+
+        reset_import_collector();
+    }
+
+    #[test]
+    fn test_drizzle_soft_delete_col() {
+        reset_import_collector();
+
+        let mut env = build_engine(Path::new("templates"));
+        env.add_template(
+            "soft_delete",
+            include_str!("../../templates/atoms/drizzle/soft_delete_col.jinja"),
+        )
+        .unwrap();
+        let template = env.get_template("soft_delete").unwrap();
+
+        let result = template.render(minijinja::context!()).unwrap();
+
+        assert!(result.contains("deletedAt"));
+
+        reset_import_collector();
+    }
+
+    #[test]
+    fn test_drizzle_table_body() {
+        reset_import_collector();
+
+        let mut env = build_engine(Path::new("templates"));
+        env.add_template(
+            "table_body",
+            include_str!("../../templates/molecules/drizzle/table_body.jinja"),
+        )
+        .unwrap();
+        env.add_template(
+            "atoms/drizzle/column",
+            include_str!("../../templates/atoms/drizzle/column.jinja"),
+        )
+        .unwrap();
+        env.add_template(
+            "atoms/drizzle/timestamp_cols",
+            include_str!("../../templates/atoms/drizzle/timestamp_cols.jinja"),
+        )
+        .unwrap();
+        let template = env.get_template("table_body").unwrap();
+
+        let fields = serde_json::json!([
+            {"name": "title", "type": "string", "required": true},
+            {"name": "price", "type": "number", "required": true}
+        ]);
+
+        let result = template
+            .render(minijinja::context!(
+                name => "products",
+                fields => fields,
+                timestamps => true,
+                soft_delete => false
+            ))
+            .unwrap();
+
+        assert!(result.contains("sqliteTable"));
+        assert!(result.contains("export const products"));
+        assert!(result.contains("export type Product"));
+
+        reset_import_collector();
+    }
+
+    #[test]
+    fn test_zod_field_rule_string() {
+        reset_import_collector();
+
+        let mut env = build_engine(Path::new("templates"));
+        env.add_template(
+            "field_rule",
+            include_str!("../../templates/atoms/zod/field_rule.jinja"),
+        )
+        .unwrap();
+        let template = env.get_template("field_rule").unwrap();
+
+        let field = serde_json::json!({
+            "name": "title",
+            "type": "string",
+            "required": true
+        });
+
+        let result = template
+            .render(minijinja::context!(field => field))
+            .unwrap();
+
+        assert!(result.contains("title: z.string()"));
+
+        reset_import_collector();
+    }
+
+    #[test]
+    fn test_zod_field_rule_email() {
+        reset_import_collector();
+
+        let mut env = build_engine(Path::new("templates"));
+        env.add_template(
+            "field_rule",
+            include_str!("../../templates/atoms/zod/field_rule.jinja"),
+        )
+        .unwrap();
+        let template = env.get_template("field_rule").unwrap();
+
+        let field = serde_json::json!({
+            "name": "email",
+            "type": "email",
+            "required": false
+        });
+
+        let result = template
+            .render(minijinja::context!(field => field))
+            .unwrap();
+
+        assert!(result.contains("email: z.string().email().optional()"));
+
+        reset_import_collector();
+    }
+
+    #[test]
+    fn test_form_field_input() {
+        let mut env = build_engine(Path::new("templates"));
+        env.add_template(
+            "field_input",
+            include_str!("../../templates/atoms/form/field_input.jinja"),
+        )
+        .unwrap();
+        let template = env.get_template("field_input").unwrap();
+
+        let field = serde_json::json!({
+            "name": "title",
+            "type": "string",
+            "required": true
+        });
+
+        let result = template
+            .render(minijinja::context!(field => field, form => serde_json::json!({})))
+            .unwrap();
+
+        assert!(result.contains("id=\"title\""));
+        assert!(result.contains("name=\"title\""));
     }
 }

@@ -1,0 +1,6 @@
+{% extends "layouts/base.jinja" %}
+{% block body %}
+{% with name=name, operations=operations %}
+{% include "molecules/query/hooks_block.jinja" %}
+{% endwith %}
+{% endblock %}
