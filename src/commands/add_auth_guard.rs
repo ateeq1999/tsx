@@ -4,7 +4,7 @@ use crate::utils::paths::find_project_root;
 use std::fs;
 use std::path::PathBuf;
 
-pub fn add_auth_guard(args: AddAuthGuardArgs, _overwrite: bool) -> CommandResult {
+pub fn add_auth_guard(args: AddAuthGuardArgs, _overwrite: bool, dry_run: bool) -> CommandResult {
     let root = match find_project_root() {
         Ok(r) => r,
         Err(e) => return CommandResult::err("add:auth-guard", e.to_string()),
@@ -43,6 +43,13 @@ pub fn add_auth_guard(args: AddAuthGuardArgs, _overwrite: bool) -> CommandResult
         "export const Route = createFileRoute",
         &format!("export const Route = createFileRoute{}", guard_code),
     );
+
+    if dry_run {
+        return CommandResult::ok(
+            "add:auth-guard",
+            vec![route_file.to_string_lossy().to_string()],
+        );
+    }
 
     match fs::write(&route_file, &modified) {
         Ok(_) => CommandResult::ok(

@@ -1,11 +1,12 @@
 use crate::output::CommandResult;
 use crate::render::engine::{build_engine, reset_import_collector};
 use crate::schemas::AddSchemaArgs;
+use crate::utils::format::format_typescript;
 use crate::utils::paths::{find_project_root, resolve_output_path};
 use crate::utils::write::{write_file, WriteOutcome};
 use std::path::PathBuf;
 
-pub fn add_schema(args: AddSchemaArgs, overwrite: bool) -> CommandResult {
+pub fn add_schema(args: AddSchemaArgs, overwrite: bool, dry_run: bool) -> CommandResult {
     let root = match find_project_root() {
         Ok(r) => r,
         Err(e) => return CommandResult::err("add:schema", e.to_string()),
@@ -31,18 +32,27 @@ pub fn add_schema(args: AddSchemaArgs, overwrite: bool) -> CommandResult {
         Err(e) => return CommandResult::err("add:schema", format!("Render error: {}", e)),
     };
 
-    let output_path = resolve_output_path(&root, &format!("db/schema/{}.ts", args.name));
-
-    let outcome = match write_file(&output_path, &rendered, overwrite) {
-        Ok(o) => o,
-        Err(e) => return CommandResult::err("add:schema", format!("Write error: {}", e)),
+    let formatted = match format_typescript(&rendered) {
+        Ok(f) => f,
+        Err(_) => rendered,
     };
 
-    let files_created = match outcome {
-        WriteOutcome::Created | WriteOutcome::Overwritten => {
-            vec![output_path.to_string_lossy().to_string()]
+    let output_path = resolve_output_path(&root, &format!("db/schema/{}.ts", args.name));
+
+    let files_created = if dry_run {
+        vec![output_path.to_string_lossy().to_string()]
+    } else {
+        let outcome = match write_file(&output_path, &formatted, overwrite) {
+            Ok(o) => o,
+            Err(e) => return CommandResult::err("add:schema", format!("Write error: {}", e)),
+        };
+
+        match outcome {
+            WriteOutcome::Created | WriteOutcome::Overwritten => {
+                vec![output_path.to_string_lossy().to_string()]
+            }
+            WriteOutcome::Skipped => vec![],
         }
-        WriteOutcome::Skipped => vec![],
     };
 
     CommandResult::ok("add:schema", files_created)

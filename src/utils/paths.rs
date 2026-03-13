@@ -14,13 +14,14 @@ pub fn find_project_root() -> Result<PathBuf> {
             break;
         }
 
-        current_dir = current_dir
-            .parent()
-            .context("Failed to get parent directory")?
-            .to_path_buf();
+        if let Some(parent) = current_dir.parent() {
+            current_dir = parent.to_path_buf();
+        } else {
+            break;
+        }
     }
 
-    anyhow::bail!("Could not find project root (package.json not found)")
+    anyhow::bail!("Could not find project root: no package.json found. Run this command from a project directory.")
 }
 
 pub fn resolve_output_path(root: &Path, relative: &str) -> PathBuf {

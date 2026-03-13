@@ -1,8 +1,9 @@
 use anyhow::Result;
+use std::io::Write;
 use std::process::{Command, Stdio};
 
-pub fn format_typescript(_content: &str) -> Result<String> {
-    let result = Command::new("npx")
+pub fn format_typescript(content: &str) -> Result<String> {
+    let mut child = Command::new("npx")
         .args([
             "prettier",
             "--parser",
@@ -13,25 +14,26 @@ pub fn format_typescript(_content: &str) -> Result<String> {
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .output();
+        .spawn()?;
 
-    match result {
-        Ok(output) => {
-            if output.status.success() {
-                Ok(String::from_utf8_lossy(&output.stdout).to_string())
-            } else {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                anyhow::bail!("Prettier formatting failed: {}", stderr)
-            }
-        }
-        Err(e) => {
-            anyhow::bail!("Failed to run Prettier: {}. Is Prettier installed?", e)
-        }
+    child
+        .stdin
+        .as_mut()
+        .unwrap()
+        .write_all(content.as_bytes())?;
+
+    let output = child.wait_with_output()?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("Prettier formatting failed: {}", stderr)
     }
 }
 
-pub fn format_tsx(_content: &str) -> Result<String> {
-    let result = Command::new("npx")
+pub fn format_tsx(content: &str) -> Result<String> {
+    let mut child = Command::new("npx")
         .args([
             "prettier",
             "--parser",
@@ -42,20 +44,21 @@ pub fn format_tsx(_content: &str) -> Result<String> {
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .output();
+        .spawn()?;
 
-    match result {
-        Ok(output) => {
-            if output.status.success() {
-                Ok(String::from_utf8_lossy(&output.stdout).to_string())
-            } else {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                anyhow::bail!("Prettier formatting failed: {}", stderr)
-            }
-        }
-        Err(e) => {
-            anyhow::bail!("Failed to run Prettier: {}. Is Prettier installed?", e)
-        }
+    child
+        .stdin
+        .as_mut()
+        .unwrap()
+        .write_all(content.as_bytes())?;
+
+    let output = child.wait_with_output()?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("Prettier formatting failed: {}", stderr)
     }
 }
 
