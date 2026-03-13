@@ -1,6 +1,6 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum FieldType {
     String,
@@ -16,7 +16,7 @@ pub enum FieldType {
     Password,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct FieldSchema {
     pub name: String,
     #[serde(rename = "type")]
@@ -32,7 +32,7 @@ fn default_true() -> bool {
     true
 }
 
-#[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum Operation {
     List,

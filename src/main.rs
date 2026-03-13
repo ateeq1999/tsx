@@ -105,18 +105,100 @@ fn parse_json(s: &str) -> Result<serde_json::Value, String> {
 fn main() {
     let cli = Cli::parse();
 
+    if cli.dry_run {
+        println!("Dry run mode - no files will be written");
+    }
+
     match cli.command {
-        Command::Init { .. } => println!("not yet implemented"),
-        Command::AddFeature { .. } => println!("not yet implemented"),
-        Command::AddSchema { .. } => println!("not yet implemented"),
-        Command::AddServerFn { .. } => println!("not yet implemented"),
-        Command::AddQuery { .. } => println!("not yet implemented"),
-        Command::AddForm { .. } => println!("not yet implemented"),
-        Command::AddTable { .. } => println!("not yet implemented"),
-        Command::AddPage { .. } => println!("not yet implemented"),
-        Command::AddAuth { .. } => println!("not yet implemented"),
-        Command::AddAuthGuard { .. } => println!("not yet implemented"),
-        Command::AddMigration => println!("not yet implemented"),
-        Command::AddSeed { .. } => println!("not yet implemented"),
+        Command::Init { name } => {
+            use tsx::commands::init;
+            let result = init::init(name);
+            result.print();
+        }
+        Command::AddFeature { json } => {
+            use tsx::commands::add_feature;
+            use tsx::schemas::AddFeatureArgs;
+
+            let args: AddFeatureArgs = json.map(|j| serde_json::from_str(&j).unwrap()).unwrap();
+            let result = add_feature::add_feature(args, cli.overwrite);
+            result.print();
+        }
+        Command::AddSchema { json } => {
+            use tsx::commands::add_schema;
+            use tsx::schemas::AddSchemaArgs;
+
+            let args: AddSchemaArgs = json.map(|j| serde_json::from_str(&j).unwrap()).unwrap();
+            let result = add_schema::add_schema(args, cli.overwrite);
+            result.print();
+        }
+        Command::AddServerFn { json } => {
+            use tsx::commands::add_server_fn;
+            use tsx::schemas::AddServerFnArgs;
+
+            let args: AddServerFnArgs = json.map(|j| serde_json::from_str(&j).unwrap()).unwrap();
+            let result = add_server_fn::add_server_fn(args, cli.overwrite);
+            result.print();
+        }
+        Command::AddQuery { json } => {
+            use tsx::commands::add_query;
+            use tsx::schemas::AddQueryArgs;
+
+            let args: AddQueryArgs = json.map(|j| serde_json::from_str(&j).unwrap()).unwrap();
+            let result = add_query::add_query(args, cli.overwrite);
+            result.print();
+        }
+        Command::AddForm { json } => {
+            use tsx::commands::add_form;
+            use tsx::schemas::AddFormArgs;
+
+            let args: AddFormArgs = json.map(|j| serde_json::from_str(&j).unwrap()).unwrap();
+            let result = add_form::add_form(args, cli.overwrite);
+            result.print();
+        }
+        Command::AddTable { json } => {
+            use tsx::commands::add_table;
+            use tsx::schemas::AddFormArgs;
+
+            let args: AddFormArgs = json.map(|j| serde_json::from_str(&j).unwrap()).unwrap();
+            let result = add_table::add_table(args, cli.overwrite);
+            result.print();
+        }
+        Command::AddPage { json } => {
+            use tsx::commands::add_page;
+            use tsx::schemas::AddPageArgs;
+
+            let args: AddPageArgs = json.map(|j| serde_json::from_str(&j).unwrap()).unwrap();
+            let result = add_page::add_page(args, cli.overwrite);
+            result.print();
+        }
+        Command::AddAuth { json } => {
+            use tsx::commands::add_auth;
+            use tsx::schemas::AddAuthArgs;
+
+            let args: AddAuthArgs = json.map(|j| serde_json::from_str(&j).unwrap()).unwrap();
+            let result = add_auth::add_auth(args, cli.overwrite);
+            result.print();
+        }
+        Command::AddAuthGuard { json } => {
+            use tsx::commands::add_auth_guard;
+            use tsx::schemas::AddAuthGuardArgs;
+
+            let args: AddAuthGuardArgs = json.map(|j| serde_json::from_str(&j).unwrap()).unwrap();
+            let result = add_auth_guard::add_auth_guard(args, cli.overwrite);
+            result.print();
+        }
+        Command::AddMigration => {
+            use tsx::commands::add_migration;
+            let result = add_migration::add_migration();
+            result.print();
+        }
+        Command::AddSeed { json } => {
+            use tsx::commands::add_seed;
+            use tsx::schemas::AddSeedArgs;
+
+            let args: AddSeedArgs = json.map(|j| serde_json::from_str(&j).unwrap()).unwrap();
+            let result = add_seed::add_seed(args, cli.overwrite);
+            result.print();
+        }
     }
 }
