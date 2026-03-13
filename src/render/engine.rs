@@ -38,6 +38,8 @@ fn render_imports() -> String {
 pub fn build_engine(templates_dir: &Path) -> minijinja::Environment<'static> {
     let mut env = minijinja::Environment::new();
 
+    let embedded_templates = crate::render::embedded::get_embedded_templates();
+
     if templates_dir.exists() {
         let templates_dir = templates_dir.to_path_buf();
         env.set_loader(move |name| {
@@ -47,6 +49,17 @@ pub fn build_engine(templates_dir: &Path) -> minijinja::Environment<'static> {
                 std::fs::read_to_string(&path).map(Some).map_err(|e| {
                     Error::new(minijinja::ErrorKind::InvalidOperation, format!("{}", e))
                 })
+            } else if let Some(content) = embedded_templates.get(name) {
+                Ok(Some(content.to_string()))
+            } else {
+                Ok(None)
+            }
+        });
+    } else {
+        let embedded_templates = embedded_templates;
+        env.set_loader(move |name| {
+            if let Some(content) = embedded_templates.get(name) {
+                Ok(Some(content.to_string()))
             } else {
                 Ok(None)
             }

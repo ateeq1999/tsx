@@ -12,7 +12,7 @@ pub fn add_query(args: AddQueryArgs, overwrite: bool) -> CommandResult {
     };
 
     let templates_dir = get_templates_dir(&root);
-    let mut engine = build_engine(&templates_dir);
+    let engine = build_engine(&templates_dir);
 
     reset_import_collector();
 

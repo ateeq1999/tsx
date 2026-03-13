@@ -1,6 +1,5 @@
 use crate::output::CommandResult;
 use crate::schemas::AddFeatureArgs;
-use std::process::Command;
 
 pub fn add_feature(args: AddFeatureArgs, overwrite: bool) -> CommandResult {
     let mut files_created = Vec::new();

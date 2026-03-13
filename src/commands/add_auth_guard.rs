@@ -4,7 +4,7 @@ use crate::utils::paths::find_project_root;
 use std::fs;
 use std::path::PathBuf;
 
-pub fn add_auth_guard(args: AddAuthGuardArgs, overwrite: bool) -> CommandResult {
+pub fn add_auth_guard(args: AddAuthGuardArgs, _overwrite: bool) -> CommandResult {
     let root = match find_project_root() {
         Ok(r) => r,
         Err(e) => return CommandResult::err("add:auth-guard", e.to_string()),

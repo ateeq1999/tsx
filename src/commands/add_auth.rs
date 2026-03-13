@@ -13,7 +13,7 @@ pub fn add_auth(args: AddAuthArgs, overwrite: bool) -> CommandResult {
     };
 
     let templates_dir = get_templates_dir(&root);
-    let mut engine = build_engine(&templates_dir);
+    let engine = build_engine(&templates_dir);
 
     reset_import_collector();
 
