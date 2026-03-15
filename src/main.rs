@@ -29,88 +29,25 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Bootstrap a new TanStack Start project
+    /// Initialize a new TanStack Start project
     Init {
         /// Project name
         #[arg(long)]
         name: Option<String>,
     },
-    /// Scaffold a complete CRUD feature module
-    #[command(name = "add:feature")]
-    AddFeature {
-        /// JSON payload
-        #[arg(long)]
-        json: Option<String>,
+    /// Generate code from templates
+    Generate {
+        #[command(subcommand)]
+        generator: Generate,
     },
-    /// Generate a Drizzle schema table definition
-    #[command(name = "add:schema")]
-    AddSchema {
-        /// JSON payload
-        #[arg(long)]
-        json: Option<String>,
+    /// Add integrations to project
+    Add {
+        #[command(subcommand)]
+        integration: Add,
     },
-    /// Generate a typed server function
-    #[command(name = "add:server-fn")]
-    AddServerFn {
-        /// JSON payload
-        #[arg(long)]
-        json: Option<String>,
-    },
-    /// Generate a TanStack Query hook
-    #[command(name = "add:query")]
-    AddQuery {
-        /// JSON payload
-        #[arg(long)]
-        json: Option<String>,
-    },
-    /// Generate a TanStack Form component
-    #[command(name = "add:form")]
-    AddForm {
-        /// JSON payload
-        #[arg(long)]
-        json: Option<String>,
-    },
-    /// Generate a TanStack Table component
-    #[command(name = "add:table")]
-    AddTable {
-        /// JSON payload
-        #[arg(long)]
-        json: Option<String>,
-    },
-    /// Add a new route page
-    #[command(name = "add:page")]
-    AddPage {
-        /// JSON payload
-        #[arg(long)]
-        json: Option<String>,
-    },
-    /// Configure Better Auth
-    #[command(name = "add:auth")]
-    AddAuth {
-        /// JSON payload
-        #[arg(long)]
-        json: Option<String>,
-    },
-    /// Wrap a route with a session guard
-    #[command(name = "add:auth-guard")]
-    AddAuthGuard {
-        /// JSON payload
-        #[arg(long)]
-        json: Option<String>,
-    },
-    /// Run drizzle-kit generate + migrate
-    #[command(name = "add:migration")]
-    AddMigration,
-    /// Generate a database seed file
-    #[command(name = "add:seed")]
-    AddSeed {
-        /// JSON payload
-        #[arg(long)]
-        json: Option<String>,
-    },
-    /// List available templates, generators, or components
+    /// List available templates, generators, components, or frameworks
     List {
-        /// List kind: templates, generators, or components
+        /// List kind: templates, generators, components, or frameworks
         #[arg(long)]
         kind: String,
     },
@@ -157,6 +94,76 @@ enum Command {
     },
 }
 
+#[derive(Subcommand)]
+enum Generate {
+    /// Scaffold a complete CRUD feature module
+    Feature {
+        /// JSON payload
+        #[arg(long)]
+        json: Option<String>,
+    },
+    /// Generate a Drizzle schema table definition
+    Schema {
+        /// JSON payload
+        #[arg(long)]
+        json: Option<String>,
+    },
+    /// Generate a typed server function
+    ServerFn {
+        /// JSON payload
+        #[arg(long)]
+        json: Option<String>,
+    },
+    /// Generate a TanStack Query hook
+    Query {
+        /// JSON payload
+        #[arg(long)]
+        json: Option<String>,
+    },
+    /// Generate a TanStack Form component
+    Form {
+        /// JSON payload
+        #[arg(long)]
+        json: Option<String>,
+    },
+    /// Generate a TanStack Table component
+    Table {
+        /// JSON payload
+        #[arg(long)]
+        json: Option<String>,
+    },
+    /// Add a new route page
+    Page {
+        /// JSON payload
+        #[arg(long)]
+        json: Option<String>,
+    },
+    /// Generate a database seed file
+    Seed {
+        /// JSON payload
+        #[arg(long)]
+        json: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum Add {
+    /// Configure Better Auth
+    Auth {
+        /// JSON payload
+        #[arg(long)]
+        json: Option<String>,
+    },
+    /// Wrap a route with a session guard
+    AuthGuard {
+        /// JSON payload
+        #[arg(long)]
+        json: Option<String>,
+    },
+    /// Run drizzle-kit generate + migrate
+    Migration,
+}
+
 fn main() {
     use std::io::{self, Read};
 
@@ -182,91 +189,95 @@ fn main() {
             let result = init::init(name);
             result.print();
         }
-        Command::AddFeature { json } => {
-            use tsx::commands::add_feature;
-            use tsx::schemas::AddFeatureArgs;
+        Command::Generate { generator } => match generator {
+            Generate::Feature { json } => {
+                use tsx::commands::add_feature;
+                use tsx::schemas::AddFeatureArgs;
 
-            let args: AddFeatureArgs = serde_json::from_str(&json.unwrap()).unwrap();
-            let result = add_feature::add_feature(args, cli.overwrite, cli.dry_run);
-            result.print();
-        }
-        Command::AddSchema { json } => {
-            use tsx::commands::add_schema;
-            use tsx::schemas::AddSchemaArgs;
+                let args: AddFeatureArgs = serde_json::from_str(&json.unwrap()).unwrap();
+                let result = add_feature::add_feature(args, cli.overwrite, cli.dry_run);
+                result.print();
+            }
+            Generate::Schema { json } => {
+                use tsx::commands::add_schema;
+                use tsx::schemas::AddSchemaArgs;
 
-            let args: AddSchemaArgs = serde_json::from_str(&json.unwrap()).unwrap();
-            let result = add_schema::add_schema(args, cli.overwrite, cli.dry_run);
-            result.print();
-        }
-        Command::AddServerFn { json } => {
-            use tsx::commands::add_server_fn;
-            use tsx::schemas::AddServerFnArgs;
+                let args: AddSchemaArgs = serde_json::from_str(&json.unwrap()).unwrap();
+                let result = add_schema::add_schema(args, cli.overwrite, cli.dry_run);
+                result.print();
+            }
+            Generate::ServerFn { json } => {
+                use tsx::commands::add_server_fn;
+                use tsx::schemas::AddServerFnArgs;
 
-            let args: AddServerFnArgs = serde_json::from_str(&json.unwrap()).unwrap();
-            let result = add_server_fn::add_server_fn(args, cli.overwrite, cli.dry_run);
-            result.print();
-        }
-        Command::AddQuery { json } => {
-            use tsx::commands::add_query;
-            use tsx::schemas::AddQueryArgs;
+                let args: AddServerFnArgs = serde_json::from_str(&json.unwrap()).unwrap();
+                let result = add_server_fn::add_server_fn(args, cli.overwrite, cli.dry_run);
+                result.print();
+            }
+            Generate::Query { json } => {
+                use tsx::commands::add_query;
+                use tsx::schemas::AddQueryArgs;
 
-            let args: AddQueryArgs = serde_json::from_str(&json.unwrap()).unwrap();
-            let result = add_query::add_query(args, cli.overwrite, cli.dry_run);
-            result.print();
-        }
-        Command::AddForm { json } => {
-            use tsx::commands::add_form;
-            use tsx::schemas::AddFormArgs;
+                let args: AddQueryArgs = serde_json::from_str(&json.unwrap()).unwrap();
+                let result = add_query::add_query(args, cli.overwrite, cli.dry_run);
+                result.print();
+            }
+            Generate::Form { json } => {
+                use tsx::commands::add_form;
+                use tsx::schemas::AddFormArgs;
 
-            let args: AddFormArgs = serde_json::from_str(&json.unwrap()).unwrap();
-            let result = add_form::add_form(args, cli.overwrite, cli.dry_run);
-            result.print();
-        }
-        Command::AddTable { json } => {
-            use tsx::commands::add_table;
-            use tsx::schemas::AddFormArgs;
+                let args: AddFormArgs = serde_json::from_str(&json.unwrap()).unwrap();
+                let result = add_form::add_form(args, cli.overwrite, cli.dry_run);
+                result.print();
+            }
+            Generate::Table { json } => {
+                use tsx::commands::add_table;
+                use tsx::schemas::AddFormArgs;
 
-            let args: AddFormArgs = serde_json::from_str(&json.unwrap()).unwrap();
-            let result = add_table::add_table(args, cli.overwrite, cli.dry_run);
-            result.print();
-        }
-        Command::AddPage { json } => {
-            use tsx::commands::add_page;
-            use tsx::schemas::AddPageArgs;
+                let args: AddFormArgs = serde_json::from_str(&json.unwrap()).unwrap();
+                let result = add_table::add_table(args, cli.overwrite, cli.dry_run);
+                result.print();
+            }
+            Generate::Page { json } => {
+                use tsx::commands::add_page;
+                use tsx::schemas::AddPageArgs;
 
-            let args: AddPageArgs = serde_json::from_str(&json.unwrap()).unwrap();
-            let result = add_page::add_page(args, cli.overwrite, cli.dry_run);
-            result.print();
-        }
-        Command::AddAuth { json } => {
-            use tsx::commands::add_auth;
-            use tsx::schemas::AddAuthArgs;
+                let args: AddPageArgs = serde_json::from_str(&json.unwrap()).unwrap();
+                let result = add_page::add_page(args, cli.overwrite, cli.dry_run);
+                result.print();
+            }
+            Generate::Seed { json } => {
+                use tsx::commands::add_seed;
+                use tsx::schemas::AddSeedArgs;
 
-            let args: AddAuthArgs = serde_json::from_str(&json.unwrap()).unwrap();
-            let result = add_auth::add_auth(args, cli.overwrite, cli.dry_run);
-            result.print();
-        }
-        Command::AddAuthGuard { json } => {
-            use tsx::commands::add_auth_guard;
-            use tsx::schemas::AddAuthGuardArgs;
+                let args: AddSeedArgs = serde_json::from_str(&json.unwrap()).unwrap();
+                let result = add_seed::add_seed(args, cli.overwrite, cli.dry_run);
+                result.print();
+            }
+        },
+        Command::Add { integration } => match integration {
+            Add::Auth { json } => {
+                use tsx::commands::add_auth;
+                use tsx::schemas::AddAuthArgs;
 
-            let args: AddAuthGuardArgs = serde_json::from_str(&json.unwrap()).unwrap();
-            let result = add_auth_guard::add_auth_guard(args, cli.overwrite, cli.dry_run);
-            result.print();
-        }
-        Command::AddMigration => {
-            use tsx::commands::add_migration;
-            let result = add_migration::add_migration();
-            result.print();
-        }
-        Command::AddSeed { json } => {
-            use tsx::commands::add_seed;
-            use tsx::schemas::AddSeedArgs;
+                let args: AddAuthArgs = serde_json::from_str(&json.unwrap()).unwrap();
+                let result = add_auth::add_auth(args, cli.overwrite, cli.dry_run);
+                result.print();
+            }
+            Add::AuthGuard { json } => {
+                use tsx::commands::add_auth_guard;
+                use tsx::schemas::AddAuthGuardArgs;
 
-            let args: AddSeedArgs = serde_json::from_str(&json.unwrap()).unwrap();
-            let result = add_seed::add_seed(args, cli.overwrite, cli.dry_run);
-            result.print();
-        }
+                let args: AddAuthGuardArgs = serde_json::from_str(&json.unwrap()).unwrap();
+                let result = add_auth_guard::add_auth_guard(args, cli.overwrite, cli.dry_run);
+                result.print();
+            }
+            Add::Migration => {
+                use tsx::commands::add_migration;
+                let result = add_migration::add_migration();
+                result.print();
+            }
+        },
         Command::List { kind } => {
             use tsx::commands::list;
             let result = list::list(kind, cli.verbose);

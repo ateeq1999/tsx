@@ -17,7 +17,12 @@ fn test_add_schema_creates_file() {
         .join("tsx.exe");
 
     let result = Command::new(&exe_path)
-        .args(["add:schema", "--json", r#"{"name":"products","fields":[]}"#])
+        .args([
+            "generate",
+            "schema",
+            "--json",
+            r#"{"name":"products","fields":[]}"#,
+        ])
         .current_dir(&project_root)
         .output()
         .unwrap();
@@ -56,7 +61,8 @@ fn test_dry_run_no_files_created() {
 
     let result = Command::new(&exe_path)
         .args([
-            "add:schema",
+            "generate",
+            "schema",
             "--dry-run",
             "--json",
             r#"{"name":"test","fields":[]}"#,
@@ -94,7 +100,12 @@ fn test_missing_package_json_returns_error() {
         .join("tsx.exe");
 
     let result = Command::new(&exe_path)
-        .args(["add:schema", "--json", r#"{"name":"test","fields":[]}"#])
+        .args([
+            "generate",
+            "schema",
+            "--json",
+            r#"{"name":"test","fields":[]}"#,
+        ])
         .current_dir(&project_root)
         .output()
         .unwrap();
@@ -124,7 +135,7 @@ fn test_add_feature_creates_multiple_files() {
 
     let result = Command::new(&exe_path)
         .args([
-            "add:feature",
+            "generate", "feature",
             "--json",
             r#"{"name":"posts","fields":[{"name":"title","type":"string"}],"operations":["list","create"],"auth":false}"#,
         ])
