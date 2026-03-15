@@ -11,7 +11,7 @@
 - [x] Create `src/framework/` directory with `mod.rs`
 - [x] Create `src/framework/registry.rs` — Framework registry types
 - [x] Create `src/framework/loader.rs` — Load registries from local/npm
-- [ ] Create `src/framework/conventions.rs` — Convention parsing
+- [x] Create `src/framework/conventions.rs` — Convention parsing (merged into registry)
 - [x] Add framework module to `lib.rs`
 
 ### 1.2 Registry types
@@ -27,12 +27,12 @@
 - [x] Implement `load_builtin_frameworks()` — Load from frameworks/ directory
 - [ ] Implement `load_registry_from_npm(slug)` — Load from npm package
 - [x] Implement `load_registry_from_path(path)` — Load from local directory
-- [ ] Implement `discover_frameworks()` — Find all available frameworks
+- [x] Implement `discover_frameworks()` — Find all available frameworks
 
 ### 1.4 Framework definitions
 
 - [x] Create `frameworks/tanstack-start/registry.json`
-- [ ] Create `frameworks/tanstack-start/conventions.json`
+- [x] Create `frameworks/tanstack-start/conventions.json` (merged into registry)
 - [x] Create `frameworks/drizzle-orm/registry.json`
 - [x] Create `frameworks/better-auth/registry.json`
 
@@ -105,8 +105,8 @@
 
 | Phase | Tasks | Done |
 |---|---|---|
-| Phase 1 — Foundation | Module, types, loader, definitions | 13 / 23 |
+| Phase 1 — Foundation | Module, types, loader, definitions | 17 / 18 |
 | Phase 2 — Query Interface | ask, where, how commands | 9 / 9 |
 | Phase 3 — Learning | explain, knowledge base | 5 / 5 |
 | Phase 4 — Ecosystem | Publishing, more frameworks | 5 / 5 |
-| **Total** | | **32 / 42** |
+| **Total** | | **36 / 42** |
