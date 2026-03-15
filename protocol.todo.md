@@ -38,7 +38,7 @@
 
 ### 1.5 CLI integration
 
-- [ ] Add `list --frameworks` command
+- [x] Add `list --frameworks` command
 - [x] Add new commands to main.rs: `ask`, `where`, `how`, `explain`
 
 ---
@@ -75,13 +75,13 @@
 - [x] Create `src/commands/explain.rs`
 - [x] Implement `explain` — Template decision explanations
 - [x] Create decision knowledge base
-- [ ] Return purpose, decisions, learn more links
+- [x] Return purpose, decisions, learn more links
 
 ### 3.2 Decision knowledge base
 
 - [x] Add decision explanations to template metadata
 - [x] Build question/answer index
-- [ ] Implement semantic matching for questions
+- [x] Implement semantic matching for questions
 
 ---
 
@@ -91,7 +91,7 @@
 
 - [x] Design npm package format for third-party registries
 - [x] Implement registry validation
-- [ ] Build registry submission flow
+- [x] Build registry submission flow
 
 ### 4.2 Framework definitions
 
@@ -105,8 +105,8 @@
 
 | Phase | Tasks | Done |
 |---|---|---|
-| Phase 1 — Foundation | Module, types, loader, definitions | 12 / 23 |
+| Phase 1 — Foundation | Module, types, loader, definitions | 13 / 23 |
 | Phase 2 — Query Interface | ask, where, how commands | 9 / 9 |
-| Phase 3 — Learning | explain, knowledge base | 3 / 5 |
-| Phase 4 — Ecosystem | Publishing, more frameworks | 3 / 5 |
-| **Total** | | **27 / 42** |
+| Phase 3 — Learning | explain, knowledge base | 5 / 5 |
+| Phase 4 — Ecosystem | Publishing, more frameworks | 5 / 5 |
+| **Total** | | **32 / 42** |
