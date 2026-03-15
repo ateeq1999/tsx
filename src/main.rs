@@ -149,6 +149,12 @@ enum Command {
         #[arg(long)]
         framework: Option<String>,
     },
+    /// Explain template decisions and conventions
+    Explain {
+        /// The topic to explain (e.g., atom, feature, schema)
+        #[arg(long)]
+        topic: String,
+    },
 }
 
 fn main() {
@@ -298,6 +304,11 @@ fn main() {
         } => {
             use tsx::commands::how;
             let result = how::how(integration, framework, cli.verbose);
+            result.print();
+        }
+        Command::Explain { topic } => {
+            use tsx::commands::explain;
+            let result = explain::explain(topic, cli.verbose);
             result.print();
         }
     }

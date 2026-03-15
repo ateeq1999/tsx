@@ -11,6 +11,7 @@ pub mod add_server_fn;
 pub mod add_table;
 pub mod ask;
 pub mod batch;
+pub mod explain;
 pub mod how;
 pub mod init;
 pub mod inspect;
