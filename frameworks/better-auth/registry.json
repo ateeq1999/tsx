@@ -1,0 +1,103 @@
+{
+  "framework": "Better Auth",
+  "version": "1.0.0",
+  "slug": "better-auth",
+  "category": "auth",
+  "docs": "https://www.better-auth.com",
+  "github": "https://github.com/BetterAuth/better-auth",
+  "structure": {
+    "root": ".",
+    "src": "src",
+    "lib": "src/lib"
+  },
+  "generators": [
+    {
+      "id": "auth",
+      "description": "Initialize better-auth configuration"
+    }
+  ],
+  "conventions": {
+    "files": {
+      "auth": {
+        "pattern": "src/lib/auth.ts",
+        "example": "src/lib/auth.ts",
+        "description": "Auth configuration file"
+      }
+    },
+    "naming": {
+      "files": "kebab-case",
+      "components": "PascalCase",
+      "functions": "camelCase",
+      "variables": "camelCase"
+    },
+    "patterns": [
+      {
+        "name": "Auth Export",
+        "pattern": "export const auth = createAuth(...)",
+        "description": "Better Auth instance"
+      }
+    ]
+  },
+  "injection_points": [
+    {
+      "region": "auth",
+      "marker": "// @tsx:auth:start",
+      "end_marker": "// @tsx:auth:end",
+      "description": "Auth configuration injection"
+    }
+  ],
+  "integrations": [
+    {
+      "package": "better-auth",
+      "install": "npm install better-auth",
+      "setup": [
+        {
+          "file": "src/lib/auth.ts",
+          "template": "auth.ts",
+          "description": "Create auth configuration"
+        }
+      ],
+      "patterns": [
+        {
+          "name": "Auth Instance",
+          "pattern": "export const auth = createAuth()",
+          "description": "Create auth instance"
+        }
+      ]
+    }
+  ],
+  "questions": [
+    {
+      "topic": "how to setup authentication",
+      "answer": "Initialize better-auth in src/lib/auth.ts",
+      "steps": [
+        {
+          "action": "Install better-auth",
+          "code": "npm install better-auth"
+        },
+        {
+          "action": "Create auth config",
+          "description": "Create src/lib/auth.ts with configuration"
+        }
+      ],
+      "files_affected": ["src/lib/auth.ts"],
+      "dependencies": ["better-auth"]
+    },
+    {
+      "topic": "how to protect a route",
+      "answer": "Use the auth守卫 in your route component",
+      "steps": [
+        {
+          "action": "Import session",
+          "code": "import { auth } from '@/lib/auth'"
+        },
+        {
+          "action": "Check session",
+          "description": "Use auth.api.getSession() to verify"
+        }
+      ],
+      "files_affected": ["src/routes/*.tsx"],
+      "dependencies": ["better-auth"]
+    }
+  ]
+}

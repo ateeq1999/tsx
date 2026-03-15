@@ -122,6 +122,33 @@ enum Command {
         #[arg(long)]
         json: Option<String>,
     },
+    /// Answer questions about a framework
+    Ask {
+        /// The question to ask
+        #[arg(long)]
+        question: String,
+        /// Framework to query (optional)
+        #[arg(long)]
+        framework: Option<String>,
+    },
+    /// Find where things go in a framework
+    Where {
+        /// The thing to find (e.g., atom, route, schema)
+        #[arg(long)]
+        thing: String,
+        /// Framework to query (optional)
+        #[arg(long)]
+        framework: Option<String>,
+    },
+    /// Get integration steps for a package
+    How {
+        /// The package/integration (e.g., @tanstack/react-router)
+        #[arg(long)]
+        integration: String,
+        /// Framework to query (optional)
+        #[arg(long)]
+        framework: Option<String>,
+    },
 }
 
 fn main() {
@@ -250,6 +277,27 @@ fn main() {
 
             let payload: BatchPayload = serde_json::from_str(&json.unwrap()).unwrap();
             let result = batch::batch(payload, cli.overwrite, cli.dry_run, cli.verbose);
+            result.print();
+        }
+        Command::Ask {
+            question,
+            framework,
+        } => {
+            use tsx::commands::ask;
+            let result = ask::ask(question, framework, cli.verbose);
+            result.print();
+        }
+        Command::Where { thing, framework } => {
+            use tsx::commands::where_cmd;
+            let result = where_cmd::where_cmd(thing, framework, cli.verbose);
+            result.print();
+        }
+        Command::How {
+            integration,
+            framework,
+        } => {
+            use tsx::commands::how;
+            let result = how::how(integration, framework, cli.verbose);
             result.print();
         }
     }
