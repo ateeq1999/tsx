@@ -1,0 +1,109 @@
+{
+  "framework": "Next.js",
+  "version": "14.0.0",
+  "slug": "nextjs",
+  "category": "framework",
+  "docs": "https://nextjs.org/docs",
+  "github": "https://github.com/vercel/next.js",
+  "structure": {
+    "root": ".",
+    "src": "src",
+    "app": "src/app",
+    "components": "src/components",
+    "lib": "src/lib"
+  },
+  "generators": [
+    {
+      "id": "page",
+      "description": "Create a Next.js page"
+    },
+    {
+      "id": "api",
+      "description": "Create a Next.js API route"
+    },
+    {
+      "id": "component",
+      "description": "Create a React component"
+    }
+  ],
+  "conventions": {
+    "files": {
+      "page": {
+        "pattern": "src/app/{{path}}/page.tsx",
+        "example": "src/app/about/page.tsx",
+        "description": "Next.js App Router page"
+      },
+      "api": {
+        "pattern": "src/app/api/{{path}}/route.ts",
+        "example": "src/app/api/users/route.ts",
+        "description": "Next.js API route"
+      },
+      "layout": {
+        "pattern": "src/app/{{path}}/layout.tsx",
+        "example": "src/app/layout.tsx",
+        "description": "Next.js layout"
+      }
+    },
+    "naming": {
+      "files": "kebab-case",
+      "components": "PascalCase",
+      "functions": "camelCase",
+      "variables": "camelCase"
+    },
+    "patterns": [
+      {
+        "name": "Server Component",
+        "pattern": "export default function Page() { ... }",
+        "description": "Default export for pages"
+      },
+      {
+        "name": "API Handler",
+        "pattern": "export async function GET() { ... }",
+        "description": "Route handler"
+      }
+    ]
+  },
+  "injection_points": [],
+  "integrations": [
+    {
+      "package": "next",
+      "install": "npm install next react react-dom",
+      "setup": [],
+      "patterns": []
+    }
+  ],
+  "questions": [
+    {
+      "topic": "how to create a new page",
+      "answer": "Create a page.tsx file in src/app/",
+      "steps": [
+        {
+          "action": "Create page file",
+          "code": "mkdir -p src/app/about && touch src/app/about/page.tsx"
+        },
+        {
+          "action": "Export default component",
+          "description": "Use default export for page component"
+        }
+      ],
+      "files_affected": ["src/app/**/page.tsx"],
+      "dependencies": ["next"]
+    },
+    {
+      "topic": "how to create an API route",
+      "answer": "Create a route.ts file in src/app/api/",
+      "steps": [
+        {
+          "action": "Create API directory",
+          "code": "mkdir -p src/app/api/users"
+        },
+        {
+          "action": "Create route handler",
+          "description": "Export GET, POST, PUT, DELETE functions"
+        }
+      ],
+      "files_affected": ["src/app/api/**/*.ts"],
+      "dependencies": ["next"]
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "framework": "Prisma",
+  "version": "5.0.0",
+  "slug": "prisma",
+  "category": "orm",
+  "docs": "https://prisma.io/docs",
+  "github": "https://github.com/prisma/prisma",
+  "structure": {
+    "root": ".",
+    "prisma": "prisma"
+  },
+  "generators": [
+    {
+      "id": "model",
+      "description": "Create a Prisma model"
+    }
+  ],
+  "conventions": {
+    "files": {
+      "schema": {
+        "pattern": "prisma/schema.prisma",
+        "example": "prisma/schema.prisma",
+        "description": "Prisma schema file"
+      }
+    },
+    "naming": {
+      "files": "kebab-case",
+      "components": "PascalCase",
+      "functions": "camelCase",
+      "variables": "camelCase"
+    },
+    "patterns": [
+      {
+        "name": "Model Definition",
+        "pattern": "model {{pascalCase name}} { ... }",
+        "description": "Prisma model"
+      },
+      {
+        "name": "Field",
+        "pattern": "fieldName Type @attributes",
+        "description": "Model field with attributes"
+      }
+    ]
+  },
+  "injection_points": [],
+  "integrations": [
+    {
+      "package": "@prisma/client",
+      "install": "npm install @prisma/client && npx prisma init",
+      "setup": [
+        {
+          "file": "prisma/schema.prisma",
+          "template": "schema.prisma",
+          "description": "Initialize Prisma schema"
+        }
+      ],
+      "patterns": [
+        {
+          "name": "Client Import",
+          "pattern": "import { PrismaClient } from '@prisma/client'",
+          "description": "Import Prisma client"
+        }
+      ]
+    }
+  ],
+  "questions": [
+    {
+      "topic": "how to add a model",
+      "answer": "Add a model block to prisma/schema.prisma",
+      "steps": [
+        {
+          "action": "Open schema",
+          "code": "open prisma/schema.prisma"
+        },
+        {
+          "action": "Add model",
+          "description": "Define model with fields and attributes"
+        },
+        {
+          "action": "Run migration",
+          "code": "npx prisma migrate dev --name init"
+        }
+      ],
+      "files_affected": ["prisma/schema.prisma"],
+      "dependencies": ["@prisma/client", "prisma"]
+    },
+    {
+      "topic": "how to generate client",
+      "answer": "Run prisma generate",
+      "steps": [
+        {
+          "action": "Generate client",
+          "code": "npx prisma generate"
+        }
+      ],
+      "files_affected": ["node_modules/.prisma/client"],
+      "dependencies": ["@prisma/client"]
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "framework": "Clerk",
+  "version": "4.0.0",
+  "slug": "clerk",
+  "category": "auth",
+  "docs": "https://clerk.com/docs",
+  "github": "https://github.com/clerkinc/clerk-nextjs",
+  "structure": {
+    "root": ".",
+    "src": "src"
+  },
+  "generators": [
+    {
+      "id": "middleware",
+      "description": "Create Clerk middleware"
+    }
+  ],
+  "conventions": {
+    "files": {
+      "middleware": {
+        "pattern": "src/middleware.ts",
+        "example": "src/middleware.ts",
+        "description": "Clerk authentication middleware"
+      },
+      "provider": {
+        "pattern": "src/app/_components/provider.tsx",
+        "example": "src/app/_components/provider.tsx",
+        "description": "Clerk provider component"
+      }
+    },
+    "naming": {
+      "files": "kebab-case",
+      "components": "PascalCase",
+      "functions": "camelCase",
+      "variables": "camelCase"
+    },
+    "patterns": [
+      {
+        "name": "Middleware",
+        "pattern": "export default clerkMiddleware(createRouteMatcher)",
+        "description": "Clerk middleware export"
+      }
+    ]
+  },
+  "injection_points": [],
+  "integrations": [
+    {
+      "package": "@clerk/nextjs",
+      "install": "npm install @clerk/nextjs",
+      "setup": [
+        {
+          "file": "src/middleware.ts",
+          "template": "middleware.ts",
+          "description": "Create Clerk middleware"
+        }
+      ],
+      "patterns": [
+        {
+          "name": "Protected Route",
+          "pattern": "routeMatcher.protect()",
+          "description": "Protect routes with auth"
+        }
+      ]
+    }
+  ],
+  "questions": [
+    {
+      "topic": "how to setup authentication",
+      "answer": "Install @clerk/nextjs and configure middleware",
+      "steps": [
+        {
+          "action": "Install Clerk",
+          "code": "npm install @clerk/nextjs"
+        },
+        {
+          "action": "Create middleware",
+          "description": "Create src/middleware.ts"
+        },
+        {
+          "action": "Add keys",
+          "description": "Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY"
+        }
+      ],
+      "files_affected": ["src/middleware.ts", ".env.local"],
+      "dependencies": ["@clerk/nextjs"]
+    },
+    {
+      "topic": "how to protect a route",
+      "answer": "Use clerkMiddleware to protect routes",
+      "steps": [
+        {
+          "action": "Configure middleware",
+          "description": "Define which routes to protect"
+        }
+      ],
+      "files_affected": ["src/middleware.ts"],
+      "dependencies": ["@clerk/nextjs"]
+    }
+  ]
+}
