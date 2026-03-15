@@ -465,6 +465,22 @@
 
 ---
 
+## Phase 12 — Dev Server JSON Events
+
+### 12.1 JSON event emission
+
+- [ ] Add `--json-events` flag to dev mode
+- [ ] Implement structured event emission
+- [ ] Add event types: started, file_changed, file_added, file_deleted, build_started, build_completed, build_failed, hot_reload, error, stopped
+
+### 12.2 Event streaming
+
+- [ ] Implement streaming response for batch results
+- [ ] Add event subscription for external tools
+- [ ] Support WebSocket for event streaming
+
+---
+
 ## Checklist Summary
 
 | Phase | Tasks | Done |
@@ -480,4 +496,5 @@
 | Phase 9 — Enhanced Learning | Semantic search, enhanced explain | 0 / 6 |
 | Phase 10 — Registry Publishing | Publish command, registry ecosystem | 0 / 6 |
 | Phase 11 — Additional Frameworks | New registries, integration patterns | 0 / 7 |
-| **Total** | | **131 / 210** |
+| Phase 12 — Dev Server JSON Events | JSON event emission, event streaming | 0 / 6 |
+| **Total** | | **131 / 216** |

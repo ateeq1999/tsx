@@ -437,41 +437,80 @@ TSX ships with 10 framework definitions:
 
 ## Part 4: Future Enhancements
 
-### 13. Suggested New Features
+### 13. Dev Server JSON Events
+
+For `dev` mode, the CLI can emit file change events as JSON:
+
+```json
+{
+  "event": "file_changed",
+  "timestamp": "2026-03-15T10:30:00Z",
+  "data": {
+    "kind": "modified",
+    "path": "routes/dashboard.tsx",
+    "action": "regenerated"
+  }
+}
+```
+
+**Event Types**:
+
+| Event | Description |
+|-------|-------------|
+| `started` | Dev server has started |
+| `file_changed` | A file was modified |
+| `file_added` | A new file was created |
+| `file_deleted` | A file was removed |
+| `build_started` | Build process started |
+| `build_completed` | Build completed successfully |
+| `build_failed` | Build failed with errors |
+| `hot_reload` | Hot reload triggered |
+| `error` | Server encountered an error |
+| `stopped` | Dev server stopped |
+
+**Invocation**:
+
+```bash
+tsx dev --json-events
+```
+
+### 14. Suggested New Features
 
 The following features are proposed for future development:
 
-#### 13.1 Template Versioning
+### 14. Suggested New Features
+
+#### 14.1 Template Versioning
 
 - [ ] Implement atom version pinning per project
 - [ ] Add `tsx upgrade` command to update atom versions
 - [ ] Support breaking change detection
 
-#### 13.2 Custom Template Plugins
+#### 14.2 Custom Template Plugins
 
 - [ ] Add `--plugin` flag to load custom template packages from npm
 - [ ] Support template overrides for specific generators
 - [ ] Implement plugin sandboxing for security
 
-#### 13.3 WebSocket Dev Server Events
+#### 14.3 WebSocket Dev Server Events
 
 - [ ] Add `--watch` mode for file regeneration on template changes
 - [ ] Implement WebSocket server for real-time events
 - [ ] Support hot module replacement integration
 
-#### 13.4 Enhanced Learning Mode
+#### 14.4 Enhanced Learning Mode
 
 - [ ] Add semantic search for question matching
 - [ ] Implement learn-more URL resolution from frameworks
 - [ ] Add decision explanation versioning
 
-#### 13.5 Registry Publishing
+#### 14.5 Registry Publishing
 
 - [ ] Build `tsx publish` command for sharing custom registries
 - [ ] Implement registry validation and testing
 - [ ] Create framework registry website
 
-#### 13.6 Additional Framework Support
+#### 14.6 Additional Framework Support
 
 - [ ] Add Solid.js framework registry
 - [ ] Add Kysely ORM registry
