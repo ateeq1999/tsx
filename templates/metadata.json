@@ -1,0 +1,134 @@
+{
+  "version": "1.0",
+  "templates": [
+    {
+      "id": "default",
+      "name": "Full Stack",
+      "description": "Complete TanStack Start app with auth, DB, and routing",
+      "path": "templates/default",
+      "files": [
+        "src/main.tsx",
+        "routes/",
+        "components/",
+        "lib/"
+      ]
+    },
+    {
+      "id": "minimal",
+      "name": "Minimal",
+      "description": "Minimal boilerplate to get started",
+      "path": "templates/minimal",
+      "files": [
+        "src/main.tsx",
+        "routes/index.tsx"
+      ]
+    }
+  ],
+  "generators": [
+    {
+      "id": "add:feature",
+      "description": "Scaffold a complete CRUD feature module",
+      "options": {
+        "name": { "type": "string", "required": true, "pattern": "^[a-z0-9-]+$" },
+        "fields": { "type": "array", "required": true },
+        "auth": { "type": "boolean", "default": false },
+        "paginated": { "type": "boolean", "default": true },
+        "operations": { "type": "array", "default": ["list", "create", "update", "delete"] }
+      }
+    },
+    {
+      "id": "add:schema",
+      "description": "Generate a Drizzle schema table definition",
+      "options": {
+        "name": { "type": "string", "required": true },
+        "fields": { "type": "array", "required": true },
+        "timestamps": { "type": "boolean", "default": true },
+        "softDelete": { "type": "boolean", "default": false }
+      }
+    },
+    {
+      "id": "add:server-fn",
+      "description": "Generate a typed server function",
+      "options": {
+        "name": { "type": "string", "required": true },
+        "table": { "type": "string", "required": true },
+        "operation": { "type": "string", "enum": ["list", "create", "update", "delete"], "required": true }
+      }
+    },
+    {
+      "id": "add:query",
+      "description": "Generate a TanStack Query hook",
+      "options": {
+        "name": { "type": "string", "required": true },
+        "serverFn": { "type": "string", "required": true }
+      }
+    },
+    {
+      "id": "add:form",
+      "description": "Generate a TanStack Form component",
+      "options": {
+        "name": { "type": "string", "required": true },
+        "fields": { "type": "array", "required": true }
+      }
+    },
+    {
+      "id": "add:table",
+      "description": "Generate a TanStack Table component",
+      "options": {
+        "name": { "type": "string", "required": true },
+        "columns": { "type": "array", "required": true }
+      }
+    },
+    {
+      "id": "add:page",
+      "description": "Add a new route page",
+      "options": {
+        "path": { "type": "string", "required": true },
+        "title": { "type": "string" }
+      }
+    },
+    {
+      "id": "add:auth",
+      "description": "Configure Better Auth",
+      "options": {
+        "providers": { "type": "array", "default": ["github", "google"] }
+      }
+    }
+  ],
+  "components": [
+    {
+      "name": "button",
+      "category": "inputs",
+      "description": "Interactive button with multiple variants",
+      "props": {
+        "variant": { "type": "enum", "values": ["primary", "secondary", "ghost", "destructive"], "default": "primary" },
+        "size": { "type": "enum", "values": ["sm", "md", "lg"], "default": "md" },
+        "disabled": { "type": "bool", "default": false },
+        "onclick": { "type": "callback" }
+      },
+      "file": "components/ui/button.tsx"
+    },
+    {
+      "name": "input",
+      "category": "inputs",
+      "description": "Text input field with validation support",
+      "props": {
+        "type": { "type": "enum", "values": ["text", "email", "password", "number"], "default": "text" },
+        "placeholder": { "type": "string" },
+        "value": { "type": "string" },
+        "onchange": { "type": "callback" }
+      },
+      "file": "components/ui/input.tsx"
+    },
+    {
+      "name": "card",
+      "category": "layout",
+      "description": "Container component with header, content, and footer",
+      "props": {
+        "class": { "type": "string" },
+        "children": { "type": "node" }
+      },
+      "file": "components/ui/card.tsx"
+    }
+  ]
+}

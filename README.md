@@ -19,7 +19,7 @@ A Rust CLI tool for generating boilerplate code for TanStack Start projects. TSX
 
 ### Pre-built Binaries
 
-Download the latest release from [GitHub Releases](https://github.com/your-repo/tsx/releases):
+Download the latest release from [GitHub Releases](https://github.com/ateeg1999/tsx/releases):
 
 ```bash
 # Windows

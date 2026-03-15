@@ -13,6 +13,18 @@ struct Cli {
     /// Print what would be written without creating files
     #[arg(long, global = true)]
     dry_run: bool,
+
+    /// Enable verbose output with additional context
+    #[arg(long, global = true)]
+    verbose: bool,
+
+    /// Read command payload from stdin as JSON
+    #[arg(long, global = true)]
+    stdin: bool,
+
+    /// Read command payload from a file
+    #[arg(long, global = true, value_name = "PATH")]
+    file: Option<String>,
 }
 
 #[derive(Subcommand)]
@@ -96,10 +108,36 @@ enum Command {
         #[arg(long)]
         json: Option<String>,
     },
+    /// List available templates, generators, or components
+    List {
+        /// List kind: templates, generators, or components
+        #[arg(long)]
+        kind: String,
+    },
+    /// Inspect current project state
+    Inspect,
+    /// Execute multiple commands in one invocation
+    Batch {
+        /// JSON payload with array of commands
+        #[arg(long)]
+        json: Option<String>,
+    },
 }
 
 fn main() {
+    use std::io::{self, Read};
+
     let cli = Cli::parse();
+
+    let json_input = if cli.stdin {
+        let mut buffer = String::new();
+        io::stdin().read_to_string(&mut buffer).ok();
+        Some(buffer)
+    } else if let Some(path) = &cli.file {
+        Some(std::fs::read_to_string(path).unwrap_or_default())
+    } else {
+        None
+    };
 
     if cli.dry_run {
         println!("Dry run mode - no files will be written");
@@ -194,6 +232,24 @@ fn main() {
 
             let args: AddSeedArgs = serde_json::from_str(&json.unwrap()).unwrap();
             let result = add_seed::add_seed(args, cli.overwrite, cli.dry_run);
+            result.print();
+        }
+        Command::List { kind } => {
+            use tsx::commands::list;
+            let result = list::list(kind, cli.verbose);
+            result.print();
+        }
+        Command::Inspect => {
+            use tsx::commands::inspect;
+            let result = inspect::inspect(cli.verbose);
+            result.print();
+        }
+        Command::Batch { json } => {
+            use tsx::commands::batch;
+            use tsx::json::payload::BatchPayload;
+
+            let payload: BatchPayload = serde_json::from_str(&json.unwrap()).unwrap();
+            let result = batch::batch(payload, cli.overwrite, cli.dry_run, cli.verbose);
             result.print();
         }
     }
