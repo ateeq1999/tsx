@@ -1,14 +1,16 @@
-# TSX
+# TSX — Technical Proposal & Implementation
 
-### TanStack Start Code Generation CLI — Rust Edition
+### TanStack Start Code Generation CLI — Rust Edition + Framework Protocol
 
-**Technical Proposal & Architecture Design — Version 4.0 · March 2026**
+**Technical Proposal & Architecture Design — Version 5.0 · March 2026**
 
-> RustGen Atoms · TanStack Ecosystem · shadcn/ui · Better Auth · Drizzle ORM · Agent-Friendly JSON API
+> RustGen Atoms · TanStack Ecosystem · shadcn/ui · Better Auth · Drizzle ORM · Agent-Friendly JSON API · Framework Protocol
 
 ---
 
-## 1. Executive Summary
+## Part 1: Core TSX CLI
+
+### 1. Executive Summary
 
 TSX is a command-line code generation tool written entirely in Rust, designed to dramatically reduce the token overhead of AI coding agents when building TanStack Start applications. Rather than asking an agent to write every file from scratch, the agent invokes concise CLI commands with JSON payloads and receives fully-wired, production-ready files on disk.
 
@@ -28,7 +30,7 @@ Being implemented in Rust means TSX ships as a single statically-linked binary w
 
 ---
 
-## 2. Problem Statement
+### 2. Problem Statement
 
 Modern AI coding agents are powerful but wasteful when it comes to repetitive file generation. Consider what happens today when an agent is asked to add a new resource — say, a `products` module:
 
@@ -46,9 +48,9 @@ TSX solves both problems. It replaces ad-hoc generation with deterministic insta
 
 ---
 
-## 3. Technology Stack
+### 3. Technology Stack
 
-### 3.1 Target Application Stack
+#### 3.1 Target Application Stack
 
 All generated applications are built on a fixed, opinionated stack. TSX does not attempt to be universal — it is a precision tool for this exact combination of technologies.
 
@@ -64,108 +66,92 @@ All generated applications are built on a fixed, opinionated stack. TSX does not
 | Database ORM | Drizzle ORM | Type-safe SQL query builder |
 | Styling | Tailwind CSS | Utility-first CSS |
 
-### 3.2 CLI Implementation Stack (Rust)
+#### 3.2 CLI Implementation Stack (Rust)
 
 | Crate | Role |
 |---|---|
 | `clap` (v4, derive feature) | Argument parsing and subcommand routing |
-| `minijinja` | Template engine for the RustGen Atoms system (see §4.2) |
+| `minijinja` | Template engine for the RustGen Atoms system |
 | `serde` + `serde_json` | JSON payload deserialisation and structured stdout output |
 | `anyhow` | Ergonomic error propagation across the render pipeline |
 | `walkdir` | Project root auto-detection via `package.json` walk |
 | `heck` | Case conversion helpers (`snake_case`, `PascalCase`, `camelCase`) |
 | `prettyplease` | Post-render TypeScript/TSX formatting (via Prettier child process) |
+| `reqwest` | HTTP client for npm registry loading |
+| `tokio` | Async runtime for npm package fetching |
 
 ---
 
-## 4. Architecture
+### 4. Architecture
 
-### 4.1 Repository Structure
+#### 4.1 Repository Structure
 
-TSX is a standalone Rust CLI crate. The `templates/` directory is organised around the Atoms hierarchy described in section 7:
+TSX is a standalone Rust CLI crate. The `templates/` directory is organised around the Atoms hierarchy:
 
 ```
-crates/
-  tsx/
-    src/
-      commands/            # One module per top-level subcommand
-        init.rs
-        add_feature.rs
-        add_schema.rs
-        add_server_fn.rs
-        add_query.rs
-        add_form.rs
-        add_table.rs
-        add_page.rs
-        add_auth.rs
-        add_auth_guard.rs
-        add_migration.rs
-        add_seed.rs
-        list.rs            # Introspection commands
-        inspect.rs         # Project inspection
-        batch.rs           # Batch operations
-      schemas/             # Serde structs for JSON payload validation
-        feature.rs
-        schema.rs
-        server_fn.rs
-        query.rs
-        form.rs
-        field.rs           # Shared FieldSchema type
-      render/
-        engine.rs          # MiniJinja environment bootstrap + atom loading
-        filters.rs         # Custom Jinja filters: snake_case, pascal_case, etc.
-        context.rs         # Typed render context builders
-      utils/
-        paths.rs           # Project root detection + output path resolution
-        write.rs           # Atomic file writes with --overwrite guard
-        imports.rs         # Import deduplication and injection utilities
-        barrel.rs          # Barrel file (index.ts) auto-update
-      json/                # JSON input/output handling
-        payload.rs         # Command payload structures
-        response.rs        # Response envelope
-        error.rs           # Error types and codes
-        events.rs          # Dev server events
-      output.rs            # JSON result contract serialisation
-      main.rs              # Entry point: clap app definition
-    templates/
-      atoms/               # Tier 1 — indivisible code fragments (.jinja)
-        drizzle/           #   Column, relation, index atoms
-        zod/               #   Field rule, object wrapper atoms
-        query/             #   queryKey, queryFn, mutation atoms
-        form/              #   Field, submit, validation atoms
-        imports/           #   Named import-line atoms
-      molecules/           # Tier 2 — atoms composed into logical blocks
-        drizzle/           #   Full table definition molecule
-        zod/               #   Complete schema molecule
-        form/              #   Full form component molecule
-        table/             #   Full table component molecule
-        server_fn/         #   Complete server function molecule
-        query/             #   Query hooks block molecule
-        auth/              #   Auth config molecule
-      layouts/             # Tier 3 — layout macros (file outer shells)
-        base.jinja
-        component.jinja
-        route.jinja
-      features/            # Tier 4 — feature templates (one per output file type)
-        schema.jinja
-        server_fn.jinja
-        query.jinja
-        form.jinja
-        table.jinja
-        page.jinja
-        seed.jinja
-        auth_config.jinja
-      metadata.json        # Template metadata for introspection
-    Cargo.toml
+crates/tsx/
+  src/
+    commands/            # One module per top-level subcommand
+      init.rs
+      add_feature.rs
+      add_schema.rs
+      add_server_fn.rs
+      add_query.rs
+      add_form.rs
+      add_table.rs
+      add_page.rs
+      add_auth.rs
+      add_auth_guard.rs
+      add_migration.rs
+      add_seed.rs
+      list.rs            # Introspection commands
+      inspect.rs         # Project inspection
+      batch.rs           # Batch operations
+      ask.rs             # Framework Q&A
+      where_cmd.rs       # File location queries
+      how.rs             # Integration how-tos
+      explain.rs         # Learning mode
+    framework/           # Framework Protocol module
+      mod.rs
+      registry.rs        # Framework registry types
+      loader.rs          # Framework loader
+    schemas/             # Serde structs for JSON payload validation
+    render/
+      engine.rs          # MiniJinja environment bootstrap + atom loading
+      context.rs         # Typed render context builders
+    utils/
+      paths.rs           # Project root detection + output path resolution
+      write.rs           # Atomic file writes with --overwrite guard
+      imports.rs         # Import deduplication and injection utilities
+      barrel.rs          # Barrel file (index.ts) auto-update
+      format.rs          # Prettier integration
+    json/                # JSON input/output handling
+      payload.rs         # Command payload structures
+      response.rs        # Response envelope
+      error.rs           # Error types and codes
+    output.rs            # JSON result contract serialisation
+    main.rs              # Entry point: clap app definition
+  templates/
+    atoms/               # Tier 1 — indivisible code fragments (.jinja)
+    molecules/           # Tier 2 — atoms composed into logical blocks
+    layouts/             # Tier 3 — layout macros (file outer shells)
+    features/            # Tier 4 — feature templates (one per output file type)
+    metadata.json        # Template metadata for introspection
+  frameworks/            # Built-in framework definitions
+    tanstack-start/
+    drizzle-orm/
+    better-auth/
+    react/
+    nextjs/
+    prisma/
+    clerk/
+    vue/
+    svelte/
+    authjs/
+  Cargo.toml
 ```
 
-### 4.2 Template Engine — MiniJinja & the RustGen Atoms System
-
-> **Why not Ramhorns?**
->
-> Ramhorns is a fast Mustache implementation, but Mustache's feature set is intentionally minimal: it provides variable substitution, sections, and partials — nothing more. The RustGen Atoms system requires named layouts, composable block/slot regions, macro-style includes with typed arguments, and a mechanism equivalent to import-stack hoisting. Mustache has none of these. Ramhorns would require implementing all of this logic in Rust outside the template layer, collapsing the separation between renderer and template author.
->
-> **MiniJinja** is the correct choice. It is a Rust-native implementation of the Jinja2 template language with full support for template inheritance (`{% extends %}`), named blocks (`{% block %}`), macros (`{% macro %}`), includes (`{% include %}`), and custom filters. Its Jinja2 semantics map directly and deliberately onto the four Atoms tiers — the same structural thinking that made EdgeJS the right choice in the Node.js version maps cleanly onto Jinja2's feature set in Rust.
+#### 4.2 Template Engine — MiniJinja & the RustGen Atoms System
 
 All code generation is powered by MiniJinja (`.jinja` template files). The four Jinja2 primitives map directly onto the four Atoms tiers:
 
@@ -178,7 +164,7 @@ All code generation is powered by MiniJinja (`.jinja` template files). The four 
 
 A complete generated file is assembled as: **Layout → Molecule(s) → Atoms → collected imports resolved at top**. Import hoisting is implemented via a thread-local `ImportCollector` that atoms push into during render; the layout drains it as its first output statement.
 
-### 4.3 Command Execution Pipeline
+#### 4.3 Command Execution Pipeline
 
 Every CLI invocation follows the same deterministic pipeline:
 
@@ -193,11 +179,11 @@ Every CLI invocation follows the same deterministic pipeline:
 
 ---
 
-## 5. Agent-Friendly JSON Interface
+### 5. Agent-Friendly JSON Interface
 
 TSX is designed from the ground up for AI agent integration. All features below ensure agents can reliably control TSX programmatically.
 
-### 5.1 JSON Input Mode
+#### 5.1 JSON Input Mode
 
 The CLI accepts JSON input via three mechanisms:
 
@@ -207,39 +193,7 @@ The CLI accepts JSON input via three mechanisms:
 | `--stdin` | Read the entire command payload from stdin |
 | `--file <path>` | Read command payload from a file |
 
-#### Command Payload Structure
-
-```json
-{
-  "version": "1.0",
-  "command": "add:feature",
-  "options": {
-    "name": "products",
-    "fields": [
-      { "name": "title", "type": "string", "required": true },
-      { "name": "price", "type": "number", "required": true }
-    ],
-    "auth": true,
-    "paginated": true,
-    "operations": ["list", "create", "update", "delete"]
-  }
-}
-```
-
-#### Example Invocation
-
-```bash
-# Via stdin
-echo '{"command": "add:feature", "options": {"name": "products"}}' | tsx --stdin
-
-# Via file
-tsx --file generate-feature.json
-
-# Via flag (single command)
-tsx --json '{"command": "add:schema", "options": {"name": "categories"}}'
-```
-
-### 5.2 Structured JSON Output
+#### 5.2 Structured JSON Output
 
 All output is returned as JSON with a consistent envelope:
 
@@ -249,16 +203,7 @@ All output is returned as JSON with a consistent envelope:
   "version": "1.0",
   "command": "add:feature",
   "result": {
-    "files_created": [
-      "db/schema/products.ts",
-      "server-functions/products.ts",
-      "queries/products.ts",
-      "routes/products/index.tsx",
-      "routes/products/$id.tsx",
-      "components/products/products-table.tsx",
-      "components/products/product-form.tsx",
-      "components/products/delete-dialog.tsx"
-    ]
+    "files_created": ["db/schema/products.ts", "server-functions/products.ts", "queries/products.ts", "routes/products/index.tsx", "routes/products/$id.tsx", "components/products/products-table.tsx", "components/products/product-form.tsx", "components/products/delete-dialog.tsx"]
   },
   "metadata": {
     "timestamp": "2026-03-15T10:30:00Z",
@@ -268,52 +213,9 @@ All output is returned as JSON with a consistent envelope:
 }
 ```
 
-#### Verbose Mode (`--verbose`)
+#### 5.3 Structured Error Format
 
-Adds additional context to the response:
-
-```json
-{
-  "success": true,
-  "version": "1.0",
-  "command": "add:feature",
-  "result": {
-    "files_created": ["db/schema/products.ts", "server-functions/products.ts"]
-  },
-  "metadata": {
-    "timestamp": "2026-03-15T10:30:00Z",
-    "duration_ms": 45,
-    "warnings": ["Consider adding an index on categoryId for better query performance"]
-  },
-  "context": {
-    "project_root": "/path/to/project",
-    "tsx_version": "1.0.0"
-  },
-  "next_steps": ["Run: tsx add:migration {}"]
-}
-```
-
-### 5.3 Structured Error Format
-
-All errors follow a consistent structure:
-
-```json
-{
-  "success": false,
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Invalid command payload",
-    "details": [
-      {
-        "field": "options.name",
-        "message": "Name must match pattern ^[a-z0-9-]+$"
-      }
-    ]
-  }
-}
-```
-
-#### Error Codes
+All errors follow a consistent structure with error codes:
 
 | Code | Description |
 |------|-------------|
@@ -328,449 +230,58 @@ All errors follow a consistent structure:
 | `PROJECT_NOT_FOUND` | Not running inside a TanStack Start project |
 | `INTERNAL_ERROR` | Unexpected error in CLI |
 
-### 5.4 Introspection Commands
+#### 5.4 Introspection Commands
 
-Agents can discover available capabilities before using them.
+- `tsx list templates` — List available project templates
+- `tsx list generators` — List all CLI commands with option schemas
+- `tsx list components` — List available shadcn/ui components
+- `tsx list frameworks` — List registered frameworks (Framework Protocol)
 
-#### List Templates
+#### 5.5 Project Inspection
 
-```json
-{
-  "command": "list",
-  "options": {
-    "kind": "templates"
-  }
-}
-```
+`tsx inspect` returns project structure, database provider, auth config, etc.
 
-**Response**:
+#### 5.6 Batch Operations
 
-```json
-{
-  "success": true,
-  "result": {
-    "templates": [
-      {
-        "id": "default",
-        "name": "Full Stack",
-        "description": "Complete TanStack Start app with auth, DB, and routing",
-        "path": "templates/default",
-        "files": ["src/main.tsx", "routes/", "components/", "lib/"]
-      },
-      {
-        "id": "minimal",
-        "name": "Minimal",
-        "description": "Minimal boilerplate to get started",
-        "path": "templates/minimal",
-        "files": ["src/main.tsx", "routes/index.tsx"]
-      }
-    ]
-  }
-}
-```
+`tsx batch` executes multiple commands in sequence with aggregated results.
 
-#### List Generators
+#### 5.7 Dry-Run Mode
 
-```json
-{
-  "command": "list",
-  "options": {
-    "kind": "generators"
-  }
-}
-```
-
-**Response**:
-
-```json
-{
-  "success": true,
-  "result": {
-    "generators": [
-      {
-        "id": "add:feature",
-        "description": "Scaffold a complete CRUD feature module",
-        "options": {
-          "name": { "type": "string", "required": true, "pattern": "^[a-z0-9-]+$" },
-          "fields": { "type": "array", "required": true },
-          "auth": { "type": "boolean", "default": false },
-          "paginated": { "type": "boolean", "default": true },
-          "operations": { "type": "array", "default": ["list", "create", "update", "delete"] }
-        }
-      },
-      {
-        "id": "add:schema",
-        "description": "Generate a Drizzle schema table definition",
-        "options": {
-          "name": { "type": "string", "required": true },
-          "fields": { "type": "array", "required": true },
-          "timestamps": { "type": "boolean", "default": true },
-          "softDelete": { "type": "boolean", "default": false }
-        }
-      },
-      {
-        "id": "add:server-fn",
-        "description": "Generate a typed server function",
-        "options": {
-          "name": { "type": "string", "required": true },
-          "table": { "type": "string", "required": true },
-          "operation": { "type": "string", "enum": ["list", "create", "update", "delete"], "required": true }
-        }
-      },
-      {
-        "id": "add:query",
-        "description": "Generate a TanStack Query hook",
-        "options": {
-          "name": { "type": "string", "required": true },
-          "serverFn": { "type": "string", "required": true }
-        }
-      },
-      {
-        "id": "add:form",
-        "description": "Generate a TanStack Form component",
-        "options": {
-          "name": { "type": "string", "required": true },
-          "fields": { "type": "array", "required": true }
-        }
-      },
-      {
-        "id": "add:table",
-        "description": "Generate a TanStack Table component",
-        "options": {
-          "name": { "type": "string", "required": true },
-          "columns": { "type": "array", "required": true }
-        }
-      },
-      {
-        "id": "add:page",
-        "description": "Add a new route page",
-        "options": {
-          "path": { "type": "string", "required": true },
-          "title": { "type": "string" }
-        }
-      },
-      {
-        "id": "add:auth",
-        "description": "Configure Better Auth",
-        "options": {
-          "providers": { "type": "array", "default": ["github", "google"] }
-        }
-      }
-    ]
-  }
-}
-```
-
-### 5.5 Project Inspection
-
-Agents can query the current project state:
-
-```json
-{
-  "command": "inspect"
-}
-```
-
-**Response**:
-
-```json
-{
-  "success": true,
-  "result": {
-    "project_root": "/path/to/my-app",
-    "tsx_version": "1.0.0",
-    "app_name": "My App",
-    "structure": {
-      "schemas": ["products", "categories", "users"],
-      "server_functions": ["products/list", "products/create", "users/get"],
-      "queries": ["useProducts", "useCategories"],
-      "forms": ["product-form", "login-form"],
-      "tables": ["products-table", "users-table"],
-      "routes": ["index", "products", "products/$id", "login"]
-    },
-    "database": {
-      "provider": "sqlite",
-      "url": "sqlite://app.db",
-      "migrations_pending": 2
-    },
-    "auth": {
-      "configured": true,
-      "providers": ["github", "google"]
-    },
-    "config": {
-      "tsconfig_path": "tsconfig.json",
-      "shadcn_path": "components/ui"
-    }
-  }
-}
-```
-
-### 5.6 Batch Operations
-
-Execute multiple commands in a single invocation:
-
-```json
-{
-  "command": "batch",
-  "options": {
-    "commands": [
-      {"command": "add:schema", "options": {"name": "products", "fields": [{"name": "title", "type": "string", "required": true}]}},
-      {"command": "add:server-fn", "options": {"name": "list-products", "table": "products", "operation": "list"}},
-      {"command": "add:query", "options": {"name": "products", "serverFn": "list-products"}},
-      {"command": "add:page", "options": {"path": "products", "title": "Products"}}
-    ]
-  }
-}
-```
-
-**Response**:
-
-```json
-{
-  "success": true,
-  "result": {
-    "total": 4,
-    "succeeded": 4,
-    "failed": 0,
-    "results": [
-      {
-        "index": 0,
-        "success": true,
-        "result": {"kind": "schema", "path": "db/schema/products.ts"}
-      },
-      {
-        "index": 1,
-        "success": true,
-        "result": {"kind": "server_fn", "path": "server-functions/products.ts"}
-      },
-      {
-        "index": 2,
-        "success": true,
-        "result": {"kind": "query", "path": "queries/products.ts"}
-      },
-      {
-        "index": 3,
-        "success": true,
-        "result": {"kind": "page", "path": "routes/products.tsx"}
-      }
-    ]
-  }
-}
-```
-
-**Failure Handling**:
-
-```json
-{
-  "success": false,
-  "result": {
-    "total": 3,
-    "succeeded": 2,
-    "failed": 1,
-    "results": [
-      {
-        "index": 0,
-        "success": true,
-        "result": {"kind": "schema", "path": "db/schema/products.ts"}
-      },
-      {
-        "index": 1,
-        "success": false,
-        "error": {
-          "code": "FILE_EXISTS",
-          "message": "Schema 'products' already exists at db/schema/products.ts",
-          "path": "db/schema/products.ts"
-        }
-      },
-      {
-        "index": 2,
-        "success": true,
-        "result": {"kind": "query", "path": "queries/products.ts"}
-      }
-    ]
-  }
-}
-```
-
-### 5.7 Dry-Run Mode
-
-Agents can preview changes without modifying the filesystem:
-
-```json
-{
-  "command": "add:feature",
-  "options": {
-    "name": "products",
-    "fields": [
-      { "name": "title", "type": "string", "required": true }
-    ],
-    "dryRun": true
-  }
-}
-```
-
-**Response**:
-
-```json
-{
-  "success": true,
-  "dryRun": true,
-  "result": {
-    "wouldCreate": 8,
-    "files": [
-      {"path": "db/schema/products.ts", "overwrites": false},
-      {"path": "server-functions/products.ts", "overwrites": false},
-      {"path": "queries/products.ts", "overwrites": false},
-      {"path": "routes/products/index.tsx", "overwrites": false},
-      {"path": "routes/products/$id.tsx", "overwrites": false},
-      {"path": "components/products/products-table.tsx", "overwrites": false},
-      {"path": "components/products/product-form.tsx", "overwrites": false},
-      {"path": "components/products/delete-dialog.tsx", "overwrites": false}
-    ]
-  }
-}
-```
+`tsx --dry-run` previews changes without writing files.
 
 ---
 
-## 6. Command Reference
+### 6. Command Reference
 
-All commands accept a `--json '<payload>'` flag. This makes them trivially callable from any agent tool-call interface without shell escaping complexity.
-
-### 6.1 Project & Feature Scaffolding
-
-| Command | Description | Key Payload Fields |
-|---|---|---|
-| `tsx init` | Bootstrap a new TanStack Start project with all stack dependencies wired | `name, description, dbProvider` |
-| `tsx add:feature` | Scaffold a complete CRUD feature module (schema + server fns + queries + route + table + form) | `name, fields[], auth, paginated` |
-| `tsx add:page` | Add a new route file with layout slot and loader | `path, title, auth, loader` |
-
-### 6.2 Data Layer
-
-| Command | Description | Key Payload Fields |
-|---|---|---|
-| `tsx add:schema` | Generate a Drizzle schema table definition | `name, fields[], timestamps, softDelete` |
-| `tsx add:migration` | Run drizzle-kit generate + migrate in sequence | — |
-| `tsx add:seed` | Generate a seed file for a given schema | `name, count` |
-
-### 6.3 Server Functions & Queries
-
-| Command | Description | Key Payload Fields |
-|---|---|---|
-| `tsx add:server-fn` | Generate a typed server function | `name, table, operation, auth, input` |
-| `tsx add:query` | Generate a TanStack Query hook wrapping a server function | `name, serverFn, suspense, mutation` |
-| `tsx add:loader` | Generate a route loader that prefetches a query | `routePath, queryKey` |
-
-### 6.4 UI Components
-
-| Command | Description | Key Payload Fields |
-|---|---|---|
-| `tsx add:form` | Generate a TanStack Form with shadcn/ui fields + Zod schema | `name, fields[], submitFn, layout` |
-| `tsx add:table` | Generate a TanStack Table with shadcn/ui DataTable wrapper | `name, columns[], queryHook, actions` |
-| `tsx add:dialog` | Generate a shadcn Dialog wrapping a form | `name, formName, trigger` |
-| `tsx add:component` | Generate a plain shadcn-wired component | `name, props[], variant` |
-
-### 6.5 Auth
-
-| Command | Description | Key Payload Fields |
-|---|---|---|
-| `tsx add:auth` | Install and configure Better Auth with chosen providers | `providers[], sessionFields[], emailVerification` |
-| `tsx add:auth-guard` | Wrap a route or layout with a session guard | `routePath, redirectTo` |
-
-### 6.6 Introspection & Inspection
-
-| Command | Description | Key Payload Fields |
-|---|---|---|
-| `tsx list` | List available templates, generators, or components | `kind: "templates" | "generators" | "components"` |
-| `tsx inspect` | Query current project state | — |
-
-### 6.7 Batch Operations
-
-| Command | Description | Key Payload Fields |
-|---|---|---|
-| `tsx batch` | Execute multiple commands in one invocation | `commands: Command[]` |
-
----
-
-## 7. JSON Payload Design
-
-Payloads are intentionally minimal. Every field has a sensible default and the Serde schema provides clear error messages when required fields are missing. The agent never needs to know file paths, import strings, or naming conventions — the CLI derives all of that.
-
-### 7.1 Payload Structs (Rust)
-
-```rust
-// schemas/feature.rs
-#[derive(Debug, Deserialize)]
-pub struct AddFeatureArgs {
-    pub name: String,
-    pub fields: Vec<FieldSchema>,
-    #[serde(default)]
-    pub auth: bool,
-    #[serde(default)]
-    pub paginated: bool,
-    #[serde(default = "default_operations")]
-    pub operations: Vec<Operation>,
-}
-
-// schemas/field.rs
-#[derive(Debug, Deserialize, Clone)]
-pub struct FieldSchema {
-    pub name: String,
-    #[serde(rename = "type")]
-    pub field_type: FieldType,
-    #[serde(default = "bool_true")]
-    pub required: bool,
-    pub unique: Option<bool>,
-    pub references: Option<String>,
-    pub values: Option<Vec<String>>, // for enum fields
-}
-
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "lowercase")]
-pub enum FieldType {
-    String, Number, Boolean, Date, Id, Enum, Json, Decimal, Email, Url, Password,
-}
-```
-
-### 7.2 Example — `add:feature`
-
-```bash
-tsx add:feature --json '{
-  "name": "products",
-  "fields": [
-    { "name": "title",       "type": "string",  "required": true },
-    { "name": "price",       "type": "number",  "required": true },
-    { "name": "description", "type": "string",  "required": false },
-    { "name": "categoryId",  "type": "id",      "references": "categories" }
-  ],
-  "auth": true,
-  "paginated": true,
-  "operations": ["list", "create", "update", "delete"]
-}'
-```
-
-Files generated from this one command:
-
-| File | Contents |
+| Command | Description |
 |---|---|
-| `db/schema/products.ts` | Drizzle table with all columns, timestamps, relations |
-| `server-functions/products.ts` | CRUD server functions, all auth-guarded |
-| `queries/products.ts` | TanStack Query hooks for each operation |
-| `routes/products/index.tsx` | List page with table, pagination, create button |
-| `routes/products/$id.tsx` | Detail/edit page with form |
-| `components/products/products-table.tsx` | TanStack Table with actions column |
-| `components/products/product-form.tsx` | TanStack Form with Zod validation |
-| `components/products/delete-dialog.tsx` | Confirm delete shadcn Dialog |
+| `tsx init` | Bootstrap a new TanStack Start project |
+| `tsx add:feature` | Scaffold complete CRUD feature module |
+| `tsx add:schema` | Generate Drizzle schema table |
+| `tsx add:server-fn` | Generate typed server function |
+| `tsx add:query` | Generate TanStack Query hook |
+| `tsx add:form` | Generate TanStack Form component |
+| `tsx add:table` | Generate TanStack Table component |
+| `tsx add:page` | Add new route page |
+| `tsx add:auth` | Configure Better Auth |
+| `tsx add:auth-guard` | Add auth guard to route |
+| `tsx add:migration` | Run drizzle-kit generate + migrate |
+| `tsx add:seed` | Generate seed file |
+| `tsx list` | List templates, generators, components, frameworks |
+| `tsx inspect` | Query project state |
+| `tsx batch` | Execute multiple commands |
+| `tsx ask` | Ask framework questions (Framework Protocol) |
+| `tsx where` | Query file locations (Framework Protocol) |
+| `tsx how` | Get integration steps (Framework Protocol) |
+| `tsx explain` | Explain template decisions (Framework Protocol) |
 
 ---
 
-## 8. RustGen Atoms — Template Architecture
+### 7. RustGen Atoms — Template Architecture
 
-### 8.1 Overview
+The **RustGen Atoms** framework defines how code generation knowledge is stored, composed, and evolved.
 
-The **RustGen Atoms** framework is the template layer at the heart of TSX. It defines how code generation knowledge is stored, composed, and evolved over time.
-
-The system has four tiers:
+#### 7.1 Four-Tier System
 
 ```
 Tier 1 — Atoms       Indivisible fragments. Cannot include other atoms.
@@ -779,207 +290,9 @@ Tier 3 — Layouts     Jinja2 base templates that give a file its outer structur
 Tier 4 — Features    Feature templates that wire molecules into layouts.
 ```
 
-Each tier is implemented using a distinct MiniJinja mechanism, making the mapping between concept and code unambiguous.
-
-### 8.2 Tier 1 — Atoms
-
-An atom is a single `.jinja` partial that renders **one indivisible code fragment**. It accepts a small, well-typed context object and produces a deterministic string. Atoms never `{% include %}` other atoms — they are the leaf nodes of the composition tree.
-
-Atoms never emit imports directly into the output stream. Instead, they call a `collect_import(ns, statement)` custom filter that pushes import lines into a thread-local `ImportCollector`. The layout drains the collector at render time, producing a correctly ordered, deduplicated import block at the top of the file.
-
-**Atom catalogue:**
-
-```
-atoms/drizzle/column.jinja            { field: FieldSchema }
-atoms/drizzle/timestamp_cols.jinja    { }
-atoms/drizzle/soft_delete_col.jinja   { }
-atoms/drizzle/relation.jinja          { field: FieldSchema, table_name: string }
-atoms/zod/field_rule.jinja            { field: FieldSchema }
-atoms/zod/object_wrapper.jinja         { name: string }
-atoms/form/field_input.jinja          { field: FieldSchema, form_name: string }
-atoms/form/field_select.jinja         { field: FieldSchema, options: string }
-atoms/form/field_switch.jinja         { field: FieldSchema, form_name: string }
-atoms/form/field_datepicker.jinja     { field: FieldSchema, form_name: string }
-atoms/form/field_textarea.jinja       { field: FieldSchema, form_name: string }
-atoms/query/query_key.jinja           { name: string, params: string[] }
-atoms/query/suspense_query.jinja      { name: string, server_fn: string }
-atoms/query/mutation.jinja            { name: string, server_fn: string }
-atoms/imports/named.jinja             { from: string, names: string[] }
-```
-
-**Example — `atoms/drizzle/column.jinja`:**
-
-```jinja
-{#- Register the import — deduplicated by ImportCollector, drained by layout -#}
-{{ "import { " ~ drizzle_col_fn(field.type) ~ " } from 'drizzle-orm/sqlite-core'" | collect_import }}
-
-{#- Render the column definition inline -#}
-{% if field.type == "string" or field.type == "text" %}
-  {{ field.name }}: text('{{ field.name }}'){{ ".notNull()" if field.required }}{{ ".unique()" if field.unique }},
-{% elif field.type == "number" %}
-  {{ field.name }}: real('{{ field.name }}').notNull(),
-{% elif field.type == "boolean" %}
-  {{ field.name }}: integer('{{ field.name }}', { mode: 'boolean' }).notNull().default(false),
-{% elif field.type == "date" %}
-  {{ field.name }}: integer('{{ field.name }}', { mode: 'timestamp' }){{ ".notNull()" if field.required }},
-{% elif field.type == "id" %}
-  {{ field.name }}: text('{{ field.name }}').references(() => {{ field.references }}.id){{ ".notNull()" if field.required }},
-{% elif field.type == "enum" %}
-  {{ field.name }}: text('{{ field.name }}', { enum: [{{ field.values | map("tojson") | join(", ") }}] }){{ ".notNull()" if field.required }},
-{% elif field.type == "json" %}
-  {{ field.name }}: text('{{ field.name }}', { mode: 'json' }){{ ".notNull()" if field.required }},
-{% endif %}
-```
-
-### 8.3 Tier 2 — Molecules
-
-A molecule is a **MiniJinja macro** that composes multiple atoms into a complete, logically self-contained block. Molecules receive typed context and can expose named caller regions for optional caller-supplied content.
-
-Molecules produce the *body* of a file section, not a complete file. The same `drizzle/table_body` molecule is used by both `add:schema` and `add:feature`, ensuring those two commands can never produce structurally different schema files.
-
-**Example — `molecules/drizzle/table_body.jinja`:**
-
-```jinja
-{#
-  Context:
-    name:        string   — table identifier
-    fields:      Field[]  — column definitions
-    timestamps:  boolean
-    soft_delete: boolean
-#}
-{{ "import { sqliteTable } from 'drizzle-orm/sqlite-core'" | collect_import }}
-
-export const {{ name | snake_case }} = sqliteTable('{{ name | snake_case }}', {
-  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
-
-  {% for field in fields %}
-    {% include "atoms/drizzle/column.jinja" %}
-  {% endfor %}
-
-  {% if timestamps %}
-    {% include "atoms/drizzle/timestamp_cols.jinja" %}
-  {% endif %}
-
-  {% if soft_delete %}
-    {% include "atoms/drizzle/soft_delete_col.jinja" %}
-  {% endif %}
-})
-
-{% if relations is defined %}
-  {{ caller() }}
-{% endif %}
-
-export type {{ name | pascal_case }} = typeof {{ name | snake_case }}.$inferSelect
-export type New{{ name | pascal_case }} = typeof {{ name | snake_case }}.$inferInsert
-```
-
-**Molecule catalogue:**
-
-```
-molecules/drizzle/table_body.jinja     Full sqliteTable block + type exports
-molecules/zod/schema_block.jinja       Complete z.object({...}) with all field rules
-molecules/server_fn/handler.jinja      createServerFn().validator().handler() chain
-molecules/form/form_component.jinja    useForm hook + JSX field loop + submit button
-molecules/table/data_table.jinja       useReactTable columns + thead/tbody/pagination
-molecules/query/hooks_block.jinja      useQuery / useSuspenseQuery / useMutation exports
-molecules/auth/config_block.jinja      betterAuth({...}) full config body
-```
-
-### 8.4 Tier 3 — Layouts
-
-A layout is a MiniJinja base template that provides the **outer shell of a generated file**. It has exactly two responsibilities:
-
-1. Drain the `ImportCollector` — calling `{{ render_imports() }}` which flushes all imports accumulated during child template rendering, deduplicated and sorted, as a single clean block at the top of the file
-2. Expose named `{% block %}` regions for molecules to fill
-
-**`layouts/base.jinja`** — plain TypeScript file:
-
-```jinja
-{{ render_imports() }}
-
-{% block body %}{% endblock %}
-```
-
-**`layouts/component.jinja`** — React component file:
-
-```jinja
-{{ "import React from 'react'" | collect_import_priority }}
-{{ render_imports() }}
-
-{% block body %}{% endblock %}
-```
-
-**`layouts/route.jinja`** — TanStack route file:
-
-```jinja
-{{ "import { createFileRoute } from '@tanstack/react-router'" | collect_import_priority }}
-{{ "import { useQueryClient } from '@tanstack/react-query'" | collect_import }}
-{{ render_imports() }}
-
-export const Route = createFileRoute('{{ route_path }}')({
-  {% block loader %}{% endblock %}
-  component: RouteComponent,
-})
-
-function RouteComponent() {
-  {% block body %}{% endblock %}
-}
-```
-
-### 8.5 Tier 4 — Feature Templates
-
-A feature template is the entry point that a Rust command handler calls. It extends a layout, invokes the appropriate molecule(s) inside layout blocks, and passes the validated payload as context. Feature templates contain **no logic of their own** — they are pure wiring between the command payload and the molecule layer.
-
-**`features/schema.jinja`:**
-
-```jinja
-{% extends "layouts/base.jinja" %}
-{% block body %}
-  {% with name=name, fields=fields, timestamps=timestamps, soft_delete=soft_delete %}
-    {% include "molecules/drizzle/table_body.jinja" %}
-  {% endwith %}
-{% endblock %}
-```
-
-**`features/server_fn.jinja`:**
-
-```jinja
-{% extends "layouts/base.jinja" %}
-{% block body %}
-  {% for operation in operations %}
-    {% with name=name, table=table, operation=operation, auth=auth %}
-      {% include "molecules/server_fn/handler.jinja" %}
-    {% endwith %}
-  {% endfor %}
-{% endblock %}
-```
-
-**`features/page.jinja`:**
-
-```jinja
-{% extends "layouts/route.jinja" %}
-{% block loader %}
-  loader: ({ context: { queryClient } }) => {
-    return queryClient.ensureQueryData({{ name | camel_case }}QueryOptions())
-  },
-{% endblock %}
-{% block body %}
-  {% with name=name, query_hook=query_hook %}
-    {% include "molecules/table/data_table.jinja" %}
-  {% endwith %}
-{% endblock %}
-```
-
-### 8.6 ImportCollector — The Rust Side
-
-The import hoisting mechanism is implemented as a MiniJinja custom filter backed by a thread-local accumulator in Rust:
+#### 7.2 ImportCollector — The Rust Side
 
 ```rust
-// render/engine.rs
-
-use std::cell::RefCell;
-use std::collections::BTreeSet;
-
 thread_local! {
     static IMPORT_COLLECTOR: RefCell<BTreeSet<String>> = RefCell::new(BTreeSet::new());
     static PRIORITY_IMPORTS: RefCell<Vec<String>> = RefCell::new(Vec::new());
@@ -987,227 +300,196 @@ thread_local! {
 
 pub fn collect_import(value: String) -> String {
     IMPORT_COLLECTOR.with(|c| c.borrow_mut().insert(value));
-    String::new() // atom emits nothing inline
-}
-
-pub fn collect_import_priority(value: String) -> String {
-    PRIORITY_IMPORTS.with(|c| c.borrow_mut().push(value));
     String::new()
 }
 
 pub fn render_imports() -> String {
-    let priority = PRIORITY_IMPORTS.with(|c| c.borrow().clone());
-    let rest: Vec<_> = IMPORT_COLLECTOR.with(|c| c.borrow().iter().cloned().collect());
-    let mut all = priority;
-    for imp in rest {
-        if !all.contains(&imp) {
-            all.push(imp);
-        }
-    }
-    all.join("\n")
+    // Drains collector, deduplicates, returns sorted imports
 }
 ```
 
-These are registered as MiniJinja global functions and filters during engine bootstrap. The thread-local state is reset before each render call, so concurrent renders (if parallelised in future) remain isolated.
-
-### 8.7 Field Type Mapping
-
-Every field type passed via the `fields` array maps deterministically to one atom in each layer:
-
-| Field Type | `drizzle/column` variant | `zod/field_rule` type | `form/field_*` variant | Table column variant |
-|---|---|---|---|---|
-| `string` | `text` | `z.string()` | `field_input` | `text` |
-| `number` | `real` | `z.number()` | `field_input` (type=number) | `text` |
-| `boolean` | `integer({ mode: 'boolean' })` | `z.boolean()` | `field_switch` | `boolean` |
-| `date` | `integer({ mode: 'timestamp' })` | `z.date()` | `field_datepicker` | `date` |
-| `id` | `text().references(...)` | `z.string().uuid()` | `field_select` | `text` |
-| `enum` | `text({ enum: [...] })` | `z.enum([...])` | `field_select` | `badge` |
-| `json` | `text({ mode: 'json' })` | `z.object({})` | `field_textarea` | `text` |
-| `decimal` | `numeric` | `z.number()` | `field_input` | `text` |
-| `email` | `text` | `z.string().email()` | `field_input` (type=email) | `text` |
-| `url` | `text` | `z.string().url()` | `field_input` (type=url) | `text` |
-| `password` | `text` | `z.string().min(8)` | `field_input` (type=password) | — |
-
 ---
 
-## 9. Agent Integration
+## Part 2: Framework Protocol
 
-### 9.1 Tool Definition
+### 8. Executive Summary
 
-TSX is exposed to the coding agent as a single shell tool:
+TSX evolves from a TanStack Start-specific code generator into a **universal framework bootstrapping protocol**. Framework developers (React, Vue, Svelte, Solid, etc.) and package authors can register their frameworks with TSX to provide AI agents with:
+
+1. **Where** — Canonical file locations and project structure
+2. **What** — Code templates for integration patterns
+3. **How** — Injection points for user custom code
+4. **Dependencies** — Required packages and configurations
+
+AI agents use TSX as a **conversation partner** to learn any framework, not just generate code — but also understand conventions, patterns, and best practices.
+
+### 9. Core Concepts
+
+#### 9.1 Framework Registry
+
+Each framework registers via a `registry.json` file:
 
 ```json
 {
-  "name": "tsx",
-  "description": "Generate TanStack Start files from a template. Returns a JSON result with created file paths.",
-  "input_schema": {
-    "type": "object",
-    "properties": {
-      "command": { "type": "string", "description": "e.g. add:feature, add:form, add:schema, list, inspect, batch" },
-      "options": { "type": "object", "description": "Command-specific options (see list generators)" },
-      "overwrite": { "type": "boolean", "default": false },
-      "dry_run": { "type": "boolean", "default": false },
-      "verbose": { "type": "boolean", "default": false }
-    },
-    "required": ["command"]
-  }
+  "framework": "TanStack Start",
+  "version": "1.0",
+  "slug": "tanstack-start",
+  "category": "framework",
+  "docs": "https://tanstack.com/start",
+  "structure": { "routes": "routes/", "components": "components/" },
+  "generators": [...],
+  "conventions": {...},
+  "injection_points": [...],
+  "integrations": [...],
+  "questions": [...]
 }
 ```
 
-### 9.2 Agent Workflow Example
+#### 9.2 Convention Protocol
 
-A typical agent session for adding a new resource takes 3–5 tool calls instead of 20–30 file writes:
+Frameworks define file structure and naming conventions that agents can query.
 
-1. `tsx list --json '{"command": "list", "options": {"kind": "generators"}}'` — discover available commands
-2. `tsx inspect --json '{"command": "inspect"}'` — check current project state
-3. `tsx add:feature --json '{"command": "add:feature", "options": {...}}'` — scaffold the feature
-4. `tsx add:migration --json '{"command": "add:migration"}}'` — generate and apply DB migration
-5. Remaining calls: business-logic edits to generated server functions only
+#### 9.3 Injection Points
 
-### 9.3 Result Contract
+Templates define where developers can add custom code, preserved during regeneration.
 
-Every CLI invocation exits with code `0` on success and prints structured JSON to stdout:
+### 10. Framework Protocol Commands
 
-```rust
-// output.rs
-#[derive(Serialize)]
-pub struct CommandResult {
-    pub success: bool,
-    pub version: String,
-    pub command: String,
-    pub result: Value,
-    pub metadata: Metadata,
-    pub context: Option<Context>,
-    pub next_steps: Vec<String>,
-}
+#### 10.1 Framework Discovery
 
-#[derive(Serialize)]
-pub struct Metadata {
-    pub timestamp: String,
-    pub duration_ms: u64,
-    pub warnings: Vec<String>,
-}
-
-#[derive(Serialize)]
-pub struct Context {
-    pub project_root: String,
-    pub tsx_version: String,
-}
+```bash
+tsx list --frameworks
 ```
 
----
+Lists all registered frameworks with name, version, category, docs URL.
 
-## 10. Implementation Plan
+#### 10.2 Ask Command
 
-### Phase 1 — Foundation (Week 1–2)
+```bash
+tsx ask --question "How do I add authentication?" --framework tanstack-start
+```
 
-- Set up Rust workspace; add `clap`, `minijinja`, `serde_json`, `anyhow`, `heck`, `walkdir` dependencies
-- Implement MiniJinja engine bootstrap with template directory loading (`atoms/`, `molecules/`, `layouts/`, `features/`)
-- Implement `ImportCollector` with `collect_import`, `collect_import_priority`, and `render_imports` as MiniJinja globals/filters
-- Implement path resolution utilities and atomic file writing with `--overwrite` guard
-- Register custom Jinja filters: `snake_case`, `pascal_case`, `camel_case`, `kebab_case` via `heck`
-- Write the core atoms: `drizzle/column`, `drizzle/timestamp_cols`, `zod/field_rule`, `form/field_*`
-- Establish atom test harness — render each atom in isolation with a fixture context using `cargo test`
-- **NEW**: Implement JSON input mode (`--json`, `--stdin`, `--file` flags)
-- **NEW**: Implement structured JSON response envelope with metadata
-- **NEW**: Define error codes and structured error format
+Returns answer with steps, files affected, and dependencies.
 
-### Phase 2 — Molecules, Layouts & Core Commands (Week 3–4)
+#### 10.3 Where Command
 
-- Write all molecules: `drizzle/table_body`, `zod/schema_block`, `server_fn/handler`, `query/hooks_block`, `form/form_component`, `table/data_table`
-- Write all three layouts: `base.jinja`, `component.jinja`, `route.jinja`
-- Wire molecules + layouts into feature templates for all single-file commands
-- Build field type mapping end-to-end through atom → molecule → feature → compiled output
-- Write integration tests rendering full files against expected TypeScript output fixtures
+```bash
+tsx where --thing atom --framework tanstack-start
+```
 
-### Phase 3 — Agent-Friendly Features (Week 5)
+Returns canonical file path, pattern, and conventions.
 
-- **NEW**: Implement `list` command with templates, generators, and components sub-kinds
-- **NEW**: Implement `inspect` command for project state
-- **NEW**: Implement `batch` command for multiple command execution
-- **NEW**: Implement `--verbose` mode with extended metadata
-- **NEW**: Implement `dryRun` mode across all commands
+#### 10.4 How Command
 
-### Phase 4 — Compound Commands (Week 5–6)
+```bash
+tsx how --integration @tanstack/react-router --framework tanstack-start
+```
 
-- Implement `add:feature` — orchestrates molecule rendering across 8 output files; calls single-file command handlers internally
-- Write `molecules/auth/config_block.jinja` and implement `add:auth`
-- Build barrel file auto-update and import injection utilities
-- Implement `init` command
+Returns install command, setup steps, and patterns.
 
-### Phase 5 — Binary Hardening & Distribution (Week 7–8)
+#### 10.5 Explain Command
 
-- Stress-test with real agent sessions; measure token reduction
-- Add `--dry-run`, `--overwrite`, and `--merge` flags
-- Set up cross-compilation targets: `x86_64-unknown-linux-gnu`, `aarch64-apple-darwin`, `x86_64-pc-windows-gnu`
-- Publish binary releases via GitHub Actions; document all payload schemas and atom contracts
+```bash
+tsx explain --topic atom
+```
 
----
+Returns purpose, design decisions, and rationale.
 
-## 11. Success Metrics
+### 11. Built-in Frameworks
 
-| Metric | Target |
+TSX ships with 10 framework definitions:
+
+| Framework | Category |
 |---|---|
-| Token reduction | Agent token usage for a 5-resource CRUD app ≤ 30% of no-CLI baseline |
-| Consistency score | Zero import/type errors in generated files on first compile across 20 test payloads |
-| Agent error rate | Manual edits needed for logic errors in ≤ 10% of generated files |
-| Atom test coverage | Every atom has an isolated unit test; 100% branch coverage on field type handling |
-| Template drift incidents | Zero — any field type change touches exactly 3 atom files, never N templates |
-| Binary startup time | Cold start ≤ 10ms on all target platforms |
-| JSON API coverage | 100% of commands available via JSON input/output |
+| TanStack Start | Framework |
+| React | Framework |
+| Next.js | Framework |
+| Vue | Framework |
+| Svelte | Framework |
+| Drizzle ORM | ORM |
+| Prisma | ORM |
+| Better Auth | Auth |
+| Clerk | Auth |
+| Auth.js | Auth |
 
 ---
 
-## 12. Out of Scope — V1
+## Part 3: Implementation Status
 
-The following are explicitly deferred to keep V1 focused and shippable:
+### 12. Completed Implementation
 
-- Non-TanStack state management (Zustand, Jotai, Redux)
-- Alternative UI libraries (Radix primitives without shadcn, MUI, Chakra)
-- REST or GraphQL API layer generation
-- Multi-tenant / multi-schema Drizzle patterns
-- Non-SQLite/PostgreSQL databases
-- Interactive TUI prompts (the tool is designed for agent use, not human interactive prompts)
-- Atom versioning and registry (planned for V2 — allows pinning specific atom versions per project)
-- WebSocket for dev events (planned for V2)
+#### Core TSX CLI (131/131 tasks complete)
 
----
+- Phase 1: Foundation (Cargo, modules, CLI skeleton, JSON I/O, schemas, output, paths, writer, engine)
+- Phase 2: Atoms, Molecules, Layouts (all template tiers + tests)
+- Phase 3: Agent-Friendly JSON API (errors, list, inspect, batch, dry-run, verbose)
+- Phase 4: Command Handlers (all 12 commands + utilities)
+- Phase 5: Hardening (Prettier, embedding, e2e, flags, release)
 
-## 13. Future Plan — TSX Studio (Desktop GUI)
+#### Framework Protocol (42/42 tasks complete)
 
-**TSX Studio** is a planned desktop application, built with **Freya** (Rust-native GPU-accelerated UI framework), that provides a visual interface for managing and editing the RustGen Atoms template library.
-
-### Vision
-
-TSX Studio acts as a code editor and template management workspace, giving template authors a dedicated environment to write, preview, and organise atoms, molecules, layouts, and feature configurations — without touching raw files in a terminal.
-
-### Freya as the UI Framework
-
-Freya is built on top of Skia (via `skia-safe`) and the Dioxus component model, rendering at native GPU speed with no web engine dependency. It provides a React-like component API in Rust with hot-reload support, making it well-suited to a developer tool that needs a fast, code-forward UI.
-
-### Planned Capabilities
-
-- **Atom editor** — syntax-highlighted Jinja2 editor for individual atom files, with live preview rendering the atom against a fixture context
-- **Molecule composer** — visual representation of which atoms a molecule includes, with prop contract documentation inline
-- **Layout inspector** — shows which blocks a layout defines and which molecules fill them in each feature template
-- **Feature configurator** — a form-driven interface to create and edit feature templates, mapping payload fields to molecule slots
-- **Template file tree** — hierarchical view of the full `templates/` directory with tier badges (Atom / Molecule / Layout / Feature)
-- **Manifest editor** — validated editor for `atoms/manifest.json`, keeping the single source of truth in sync with the filesystem
-
-TSX Studio consumes the same `templates/` directory that the CLI reads, so any edits made in the GUI are immediately usable by the CLI — there is no separate sync step.
-
-This feature is planned for post-V1 and will be tracked as a separate project milestone.
+- Phase 1: Foundation (framework module, registry types, loader, discover_frameworks)
+- Phase 2: Query Interface (ask, where, how commands)
+- Phase 3: Learning Mode (explain command, decision knowledge base)
+- Phase 4: Ecosystem (publishing design, 10 framework definitions)
 
 ---
 
-## 14. Conclusion
+## Part 4: Future Enhancements
+
+### 13. Suggested New Features
+
+The following features are proposed for future development:
+
+#### 13.1 Template Versioning
+
+- [ ] Implement atom version pinning per project
+- [ ] Add `tsx upgrade` command to update atom versions
+- [ ] Support breaking change detection
+
+#### 13.2 Custom Template Plugins
+
+- [ ] Add `--plugin` flag to load custom template packages from npm
+- [ ] Support template overrides for specific generators
+- [ ] Implement plugin sandboxing for security
+
+#### 13.3 WebSocket Dev Server Events
+
+- [ ] Add `--watch` mode for file regeneration on template changes
+- [ ] Implement WebSocket server for real-time events
+- [ ] Support hot module replacement integration
+
+#### 13.4 Enhanced Learning Mode
+
+- [ ] Add semantic search for question matching
+- [ ] Implement learn-more URL resolution from frameworks
+- [ ] Add decision explanation versioning
+
+#### 13.5 Registry Publishing
+
+- [ ] Build `tsx publish` command for sharing custom registries
+- [ ] Implement registry validation and testing
+- [ ] Create framework registry website
+
+#### 13.6 Additional Framework Support
+
+- [ ] Add Solid.js framework registry
+- [ ] Add Kysely ORM registry
+- [ ] Add Tailwind CSS integration patterns
+- [ ] Add state management patterns (Zustand, Jotai)
+
+---
+
+## Part 5: Conclusion
 
 TSX represents a shift in how we think about AI-assisted development. Rather than training agents to write better boilerplate, we eliminate boilerplate from the agent's responsibility entirely. The agent becomes a domain expert — it decides *what* to build — while TSX handles *how* to build it correctly and consistently.
 
-Implementing TSX in Rust brings concrete advantages beyond performance: a single self-contained binary with no runtime, compile-time correctness for the entire payload validation and rendering pipeline, and a native testing harness (`cargo test`) that treats atom rendering as first-class unit tests.
+The Framework Protocol transforms TSX from a code generator into an **AI agent development partner**. Framework developers no longer need to write agent prompts — they register their conventions once, and all AI agents instantly understand how to build with their framework.
 
-The RustGen Atoms framework, powered by MiniJinja's Jinja2 semantics, provides the same structural guarantees as the original EdgeJS design — layout inheritance, named blocks, macro composition, and import hoisting — in a form that compiles to a 5MB binary with zero external dependencies.
+**Key insight: code generation is the side effect, learning is the product.**
 
-The agent-friendly JSON API — with structured input/output, introspection commands, batch operations, and comprehensive error codes — makes TSX a reliable building block for AI-driven development workflows. Agents can discover capabilities, inspect project state, execute complex operations in batch, and receive consistent, parseable results.
+---
 
-TSX is not a generic scaffolding tool. It is a precision instrument for this stack, and RustGen Atoms is the mechanism that keeps it precise as the stack evolves.
+*Last Updated: March 2026*
+*Version: 5.0*
+*Status: Core CLI Complete (131/131) • Framework Protocol Complete (42/42)*

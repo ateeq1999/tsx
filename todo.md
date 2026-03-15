@@ -366,6 +366,105 @@
 
 ---
 
+## Phase 6 — Template Versioning
+
+### 6.1 Atom version pinning
+
+- [ ] Add version field to atom metadata
+- [ ] Implement `tsx upgrade` command to update atom versions
+- [ ] Support pinning specific atom versions per project in `package.json`
+- [ ] Add version compatibility checking
+
+### 6.2 Breaking change detection
+
+- [ ] Add deprecation warnings to atom templates
+- [ ] Implement breaking change detection between versions
+- [ ] Generate migration guide for version upgrades
+
+---
+
+## Phase 7 — Custom Template Plugins
+
+### 7.1 Plugin system
+
+- [ ] Add `--plugin` flag to load custom template packages
+- [ ] Implement plugin discovery from npm
+- [ ] Support template overrides for specific generators
+- [ ] Implement plugin sandboxing for security
+
+### 7.2 Plugin API
+
+- [ ] Define plugin manifest format (`plugin.json`)
+- [ ] Implement plugin validation
+- [ ] Add plugin commands: `list`, `install`, `remove`
+
+---
+
+## Phase 8 — WebSocket Dev Server
+
+### 8.1 Watch mode
+
+- [ ] Add `--watch` flag for file regeneration
+- [ ] Implement file system watcher for template changes
+- [ ] Support selective regeneration based on changed files
+
+### 8.2 WebSocket events
+
+- [ ] Implement WebSocket server for real-time events
+- [ ] Add event types: file_created, file_modified, error, ready
+- [ ] Support hot module replacement integration
+
+---
+
+## Phase 9 — Enhanced Learning Mode
+
+### 9.1 Semantic search
+
+- [ ] Implement fuzzy matching for question topics
+- [ ] Add relevance scoring to answers
+- [ ] Support multi-framework question routing
+
+### 9.2 Enhanced explain
+
+- [ ] Add decision versioning with changelog
+- [ ] Implement learn-more URL resolution
+- [ ] Add visual decision tree rendering
+
+---
+
+## Phase 10 — Registry Publishing
+
+### 10.1 Publish command
+
+- [ ] Implement `tsx publish` for sharing custom registries
+- [ ] Add registry validation and testing
+- [ ] Implement registry versioning
+
+### 10.2 Registry ecosystem
+
+- [ ] Create framework registry website
+- [ ] Implement registry discovery service
+- [ ] Add community template sharing
+
+---
+
+## Phase 11 — Additional Framework Support
+
+### 11.1 New framework registries
+
+- [ ] Add Solid.js framework registry
+- [ ] Add Kysely ORM registry
+- [ ] Add Zustand state management registry
+- [ ] Add Jotai state management registry
+
+### 11.2 Integration patterns
+
+- [ ] Add Tailwind CSS integration patterns
+- [ ] Add payment integration (Stripe)
+- [ ] Add analytics integration patterns
+
+---
+
 ## Checklist Summary
 
 | Phase | Tasks | Done |
@@ -375,4 +474,10 @@
 | Phase 3 — Agent-Friendly JSON API | Errors, list, inspect, batch, dry-run, verbose | 18 / 18 |
 | Phase 4 — Command Handlers | All 12 commands + utilities | 20 / 20 |
 | Phase 5 — Hardening | Prettier, embedding, e2e, flags, release | 14 / 14 |
-| **Total** | | **131 / 131** |
+| Phase 6 — Template Versioning | Atom versioning, breaking change detection | 0 / 7 |
+| Phase 7 — Custom Template Plugins | Plugin system, plugin API | 0 / 7 |
+| Phase 8 — WebSocket Dev Server | Watch mode, WebSocket events | 0 / 6 |
+| Phase 9 — Enhanced Learning | Semantic search, enhanced explain | 0 / 6 |
+| Phase 10 — Registry Publishing | Publish command, registry ecosystem | 0 / 6 |
+| Phase 11 — Additional Frameworks | New registries, integration patterns | 0 / 7 |
+| **Total** | | **131 / 210** |
