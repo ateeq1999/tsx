@@ -89,15 +89,15 @@
 
 ### 4.1 Registry publishing
 
-- [ ] Design npm package format for third-party registries
-- [ ] Implement registry validation
+- [x] Design npm package format for third-party registries
+- [x] Implement registry validation
 - [ ] Build registry submission flow
 
 ### 4.2 Framework definitions
 
-- [ ] Add more built-in frameworks (React, Vue, Svelte, Next.js)
-- [ ] Add popular ORMs (Prisma, Kysely)
-- [ ] Add popular auth solutions (Clerk, Auth.js)
+- [x] Add more built-in frameworks (React, Vue, Svelte, Next.js)
+- [x] Add popular ORMs (Prisma, Kysely)
+- [x] Add popular auth solutions (Clerk, Auth.js)
 
 ---
 
@@ -108,5 +108,5 @@
 | Phase 1 — Foundation | Module, types, loader, definitions | 12 / 23 |
 | Phase 2 — Query Interface | ask, where, how commands | 9 / 9 |
 | Phase 3 — Learning | explain, knowledge base | 3 / 5 |
-| Phase 4 — Ecosystem | Publishing, more frameworks | 0 / 5 |
-| **Total** | | **24 / 42** |
+| Phase 4 — Ecosystem | Publishing, more frameworks | 3 / 5 |
+| **Total** | | **27 / 42** |

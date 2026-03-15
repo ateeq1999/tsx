@@ -69,6 +69,10 @@ impl FrameworkLoader {
     pub fn list_frameworks(&self) -> Vec<FrameworkInfo> {
         self.cache.values().map(FrameworkInfo::from).collect()
     }
+
+    pub fn discover_frameworks(&mut self) -> Vec<FrameworkInfo> {
+        self.load_builtin_frameworks()
+    }
 }
 
 impl Default for FrameworkLoader {

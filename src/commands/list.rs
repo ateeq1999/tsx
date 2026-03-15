@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
+use crate::framework::loader::FrameworkLoader;
 use crate::json::error::ErrorResponse;
 use crate::json::response::ResponseEnvelope;
 use crate::output::CommandResult;
@@ -10,6 +11,16 @@ pub struct ListResult {
     pub templates: Option<Vec<TemplateInfo>>,
     pub generators: Option<Vec<GeneratorInfo>>,
     pub components: Option<Vec<ComponentInfo>>,
+    pub frameworks: Option<Vec<FrameworkInfo>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FrameworkInfo {
+    pub slug: String,
+    pub name: String,
+    pub version: String,
+    pub category: String,
+    pub docs: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -69,6 +80,7 @@ pub fn list(kind: String, verbose: bool) -> CommandResult {
                 templates: Some(templates),
                 generators: None,
                 components: None,
+                frameworks: None,
             }
         }
         "generators" => {
@@ -147,6 +159,7 @@ pub fn list(kind: String, verbose: bool) -> CommandResult {
                 templates: None,
                 generators: Some(generators),
                 components: None,
+                frameworks: None,
             }
         }
         "components" => {
@@ -190,6 +203,29 @@ pub fn list(kind: String, verbose: bool) -> CommandResult {
                 templates: None,
                 generators: None,
                 components: Some(components),
+                frameworks: None,
+            }
+        }
+        "frameworks" => {
+            let mut loader = FrameworkLoader::default();
+            let frameworks = loader.load_builtin_frameworks();
+
+            let framework_list = frameworks
+                .into_iter()
+                .map(|f| FrameworkInfo {
+                    slug: f.slug,
+                    name: f.name,
+                    version: f.version,
+                    category: format!("{:?}", f.category).to_lowercase(),
+                    docs: f.docs,
+                })
+                .collect();
+
+            ListResult {
+                templates: None,
+                generators: None,
+                components: None,
+                frameworks: Some(framework_list),
             }
         }
         _ => {

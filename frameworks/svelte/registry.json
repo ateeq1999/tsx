@@ -1,0 +1,74 @@
+{
+  "framework": "Svelte",
+  "version": "4.0.0",
+  "slug": "svelte",
+  "category": "framework",
+  "docs": "https://svelte.dev/docs",
+  "github": "https://github.com/sveltejs/svelte",
+  "structure": {
+    "root": ".",
+    "src": "src",
+    "routes": "src/routes",
+    "lib": "src/lib"
+  },
+  "generators": [
+    {
+      "id": "component",
+      "description": "Create a Svelte component"
+    },
+    {
+      "id": "route",
+      "description": "Create a SvelteKit route"
+    }
+  ],
+  "conventions": {
+    "files": {
+      "component": {
+        "pattern": "src/lib/components/{{kebabCase name}}.svelte",
+        "example": "src/lib/components/Button.svelte",
+        "description": "Svelte component"
+      },
+      "route": {
+        "pattern": "src/routes/{{path}}/+page.svelte",
+        "example": "src/routes/about/+page.svelte",
+        "description": "SvelteKit page"
+      }
+    },
+    "naming": {
+      "files": "kebab-case",
+      "components": "PascalCase",
+      "functions": "camelCase",
+      "variables": "camelCase"
+    },
+    "patterns": [
+      {
+        "name": "Component Script",
+        "pattern": "<script lang=\"ts\">",
+        "description": "TypeScript script block"
+      }
+    ]
+  },
+  "injection_points": [],
+  "integrations": [
+    {
+      "package": "@sveltejs/kit",
+      "install": "npm create svelte@latest",
+      "setup": [],
+      "patterns": []
+    }
+  ],
+  "questions": [
+    {
+      "topic": "how to create a component",
+      "answer": "Create a .svelte file in src/lib/components/",
+      "steps": [
+        {
+          "action": "Create component",
+          "code": "touch src/lib/components/Button.svelte"
+        }
+      ],
+      "files_affected": ["src/lib/components/*.svelte"],
+      "dependencies": []
+    }
+  ]
+}

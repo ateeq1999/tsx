@@ -1,0 +1,84 @@
+{
+  "framework": "Vue",
+  "version": "3.4.0",
+  "slug": "vue",
+  "category": "framework",
+  "docs": "https://vuejs.org/guide",
+  "github": "https://github.com/vuejs/core",
+  "structure": {
+    "root": ".",
+    "src": "src",
+    "components": "src/components",
+    "composables": "src/composables",
+    "views": "src/views"
+  },
+  "generators": [
+    {
+      "id": "component",
+      "description": "Create a Vue component"
+    },
+    {
+      "id": "composable",
+      "description": "Create a Vue composable"
+    },
+    {
+      "id": "view",
+      "description": "Create a Vue view"
+    }
+  ],
+  "conventions": {
+    "files": {
+      "component": {
+        "pattern": "src/components/{{kebabCase name}}.vue",
+        "example": "src/components/my-button.vue",
+        "description": "Vue single-file component"
+      },
+      "composable": {
+        "pattern": "src/composables/use{{pascalCase name}}.ts",
+        "example": "src/composables/useCounter.ts",
+        "description": "Vue composable function"
+      },
+      "view": {
+        "pattern": "src/views/{{kebabCase name}}.vue",
+        "example": "src/views/about.vue",
+        "description": "Vue view component"
+      }
+    },
+    "naming": {
+      "files": "kebab-case",
+      "components": "PascalCase",
+      "functions": "camelCase",
+      "variables": "camelCase"
+    },
+    "patterns": [
+      {
+        "name": "Script Setup",
+        "pattern": "<script setup lang=\"ts\">",
+        "description": "Script setup syntax"
+      }
+    ]
+  },
+  "injection_points": [],
+  "integrations": [
+    {
+      "package": "vue-router",
+      "install": "npm install vue-router",
+      "setup": [],
+      "patterns": []
+    }
+  ],
+  "questions": [
+    {
+      "topic": "how to create a component",
+      "answer": "Create a .vue file in src/components/",
+      "steps": [
+        {
+          "action": "Create component",
+          "code": "touch src/components/MyButton.vue"
+        }
+      ],
+      "files_affected": ["src/components/*.vue"],
+      "dependencies": []
+    }
+  ]
+}
