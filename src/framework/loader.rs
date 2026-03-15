@@ -49,6 +49,74 @@ impl FrameworkLoader {
         serde_json::from_str(&content).map_err(|e| format!("Failed to parse registry: {}", e))
     }
 
+    #[allow(dead_code)]
+    pub async fn load_registry_from_npm(&mut self, slug: &str) -> Result<FrameworkRegistry, String> {
+        let package_name = format!("@tsx-framework/{}", slug);
+        
+        let url = format!(
+            "https://registry.npmjs.org/{}",
+            package_name.replace("/", "%2F")
+        );
+
+        let client = reqwest::Client::new();
+        let response = client
+            .get(&url)
+            .header("Accept", "application/json")
+            .send()
+            .await
+            .map_err(|e| format!("Failed to fetch package: {}", e))?;
+
+        if !response.status().is_success() {
+            return Err(format!("Package not found: {}", slug));
+        }
+
+        let package_info: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse response: {}", e))?;
+
+        let latest_version = package_info
+            .get("dist-tags")
+            .and_then(|tags| tags.get("latest"))
+            .and_then(|v| v.as_str())
+            .ok_or("No latest version found")?;
+
+        let registry_url = package_info
+            .get("versions")
+            .and_then(|versions| versions.get(latest_version))
+            .and_then(|version| version.get("tsx-framework"))
+            .and_then(|tf| tf.get("registry"))
+            .and_then(|r| r.as_str())
+            .map(|s| s.to_string());
+
+        if let Some(registry_content_url) = registry_url {
+            let registry_response = client
+                .get(&registry_content_url)
+                .send()
+                .await
+                .map_err(|e| format!("Failed to fetch registry: {}", e))?;
+
+            let registry: FrameworkRegistry = registry_response
+                .json()
+                .await
+                .map_err(|e| format!("Failed to parse registry: {}", e))?;
+
+            self.cache.insert(registry.slug.clone(), registry.clone());
+            return Ok(registry);
+        }
+
+        let tarball_url = package_info
+            .get("versions")
+            .and_then(|versions| versions.get(latest_version))
+            .and_then(|version| version.get("dist"))
+            .and_then(|dist| dist.get("tarball"))
+            .and_then(|t| t.as_str())
+            .ok_or("No tarball URL found")?
+            .to_string();
+
+        Err(format!("Registry not found in package. Tarball: {}", tarball_url))
+    }
+
     pub fn get_registry(&self, slug: &str) -> Option<&FrameworkRegistry> {
         self.cache.get(slug)
     }

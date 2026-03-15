@@ -25,7 +25,7 @@
 ### 1.3 Registry loader
 
 - [x] Implement `load_builtin_frameworks()` — Load from frameworks/ directory
-- [ ] Implement `load_registry_from_npm(slug)` — Load from npm package
+- [x] Implement `load_registry_from_npm(slug)` — Load from npm package
 - [x] Implement `load_registry_from_path(path)` — Load from local directory
 - [x] Implement `discover_frameworks()` — Find all available frameworks
 
@@ -105,8 +105,8 @@
 
 | Phase | Tasks | Done |
 |---|---|---|
-| Phase 1 — Foundation | Module, types, loader, definitions | 17 / 18 |
+| Phase 1 — Foundation | Module, types, loader, definitions | 18 / 18 |
 | Phase 2 — Query Interface | ask, where, how commands | 9 / 9 |
 | Phase 3 — Learning | explain, knowledge base | 5 / 5 |
 | Phase 4 — Ecosystem | Publishing, more frameworks | 5 / 5 |
-| **Total** | | **36 / 42** |
+| **Total** | | **42 / 42** |
