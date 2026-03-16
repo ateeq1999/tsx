@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -73,11 +74,19 @@ type EventBroadcast = Arc<Mutex<Vec<std::sync::mpsc::Sender<String>>>>;
 
 /// Start a WebSocket server on the given port that broadcasts DevEvents to connected clients.
 ///
-/// Each connecting client receives a welcome message, then all subsequent DevEvents
-/// emitted via the returned closure are forwarded to every active connection.
-fn start_ws_server(port: u16) -> (std::thread::JoinHandle<()>, EventBroadcast) {
+/// Returns a handle, a broadcast channel, and a shutdown flag.
+/// Set `shutdown.store(true, Ordering::Relaxed)` then connect once to unblock the accept loop.
+fn start_ws_server(
+    port: u16,
+) -> (
+    std::thread::JoinHandle<()>,
+    EventBroadcast,
+    Arc<AtomicBool>,
+) {
     let clients: EventBroadcast = Arc::new(Mutex::new(Vec::new()));
     let clients_clone = Arc::clone(&clients);
+    let shutdown = Arc::new(AtomicBool::new(false));
+    let shutdown_clone = Arc::clone(&shutdown);
 
     let handle = std::thread::spawn(move || {
         use std::net::TcpListener;
@@ -95,6 +104,9 @@ fn start_ws_server(port: u16) -> (std::thread::JoinHandle<()>, EventBroadcast) {
         eprintln!("[tsx dev] WebSocket server listening on ws://{}", addr);
 
         for stream in listener.incoming().flatten() {
+            if shutdown_clone.load(Ordering::Relaxed) {
+                break;
+            }
             let clients_ref = Arc::clone(&clients_clone);
             std::thread::spawn(move || {
                 let mut ws = match accept(stream) {
@@ -129,7 +141,7 @@ fn start_ws_server(port: u16) -> (std::thread::JoinHandle<()>, EventBroadcast) {
         }
     });
 
-    (handle, clients)
+    (handle, clients, shutdown)
 }
 
 /// Broadcast a serialized event to all connected WebSocket clients, pruning dead senders.
@@ -148,8 +160,12 @@ pub fn dev(json_events: bool, watch: bool, ws_port: Option<u16>) -> CommandResul
     };
 
     // Start WebSocket broadcast server if requested.
+    let mut ws_handle: Option<std::thread::JoinHandle<()>> = None;
+    let mut ws_shutdown: Option<Arc<AtomicBool>> = None;
     let ws_clients: Option<EventBroadcast> = ws_port.map(|port| {
-        let (_handle, clients) = start_ws_server(port);
+        let (handle, clients, shutdown) = start_ws_server(port);
+        ws_handle = Some(handle);
+        ws_shutdown = Some(shutdown);
         clients
     });
 
@@ -290,6 +306,18 @@ pub fn dev(json_events: bool, watch: bool, ws_port: Option<u16>) -> CommandResul
     // Wait for watch thread to clean up.
     if let Some(handle) = watch_handle {
         drop(handle);
+    }
+
+    // Signal and join the WebSocket server thread.
+    if let Some(shutdown) = ws_shutdown {
+        shutdown.store(true, Ordering::Relaxed);
+        // Unblock the accept loop with a dummy connection.
+        if let Some(port) = ws_port {
+            let _ = std::net::TcpStream::connect(format!("127.0.0.1:{}", port));
+        }
+    }
+    if let Some(handle) = ws_handle {
+        let _ = handle.join();
     }
 
     CommandResult::ok("dev", vec![])
