@@ -420,15 +420,15 @@
 
 ### 9.1 Semantic search
 
-- [ ] Implement fuzzy matching for question topics
-- [ ] Add relevance scoring to answers
-- [ ] Support multi-framework question routing
+- [x] Implement fuzzy matching for question topics (`fuzzy_score()` in ask/where/how/explain)
+- [x] Add relevance scoring to answers (max_by_key on score — best match wins)
+- [x] Support multi-framework question routing (`--framework` flag on ask/where/how)
 
 ### 9.2 Enhanced explain
 
-- [ ] Add decision versioning with changelog
-- [ ] Implement learn-more URL resolution
-- [ ] Add visual decision tree rendering
+- [x] Add decision versioning with changelog (`version` + `changelog` fields in ExplainResult)
+- [x] Implement learn-more URL resolution (`learn_more: Vec<LearnMoreLink>` with label+url)
+- [x] Add visual decision tree rendering (`DecisionTree` + `TreeBranch` structs in response)
 
 ---
 
