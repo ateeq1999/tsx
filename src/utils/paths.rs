@@ -44,6 +44,20 @@ pub fn resolve_output_path(root: &Path, relative: &str) -> PathBuf {
     root.join(relative)
 }
 
+/// Returns all installed plugin template directories under `<root>/.tsx/plugins/<pkg>/templates/`.
+pub fn get_plugin_template_dirs(root: &Path) -> Vec<PathBuf> {
+    let plugins_dir = root.join(".tsx").join("plugins");
+    let Ok(entries) = std::fs::read_dir(&plugins_dir) else {
+        return vec![];
+    };
+    entries
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().is_dir())
+        .map(|e| e.path().join("templates"))
+        .filter(|p| p.is_dir())
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

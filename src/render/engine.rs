@@ -36,14 +36,31 @@ fn render_imports() -> String {
 }
 
 pub fn build_engine(templates_dir: &Path) -> minijinja::Environment<'static> {
+    build_engine_with_plugins(templates_dir, &[])
+}
+
+pub fn build_engine_with_plugins(
+    templates_dir: &Path,
+    plugin_dirs: &[std::path::PathBuf],
+) -> minijinja::Environment<'static> {
     let mut env = minijinja::Environment::new();
 
     let embedded_templates = crate::render::embedded::get_embedded_templates();
+    let plugin_dirs: Vec<std::path::PathBuf> = plugin_dirs.to_vec();
 
     if templates_dir.exists() {
         let templates_dir = templates_dir.to_path_buf();
         env.set_loader(move |name| {
             use minijinja::Error;
+            // Plugin overrides take priority over everything else
+            for plugin_dir in &plugin_dirs {
+                let path = plugin_dir.join(name);
+                if path.exists() {
+                    return std::fs::read_to_string(&path).map(Some).map_err(|e| {
+                        Error::new(minijinja::ErrorKind::InvalidOperation, format!("{}", e))
+                    });
+                }
+            }
             let path = templates_dir.join(name);
             if path.exists() {
                 std::fs::read_to_string(&path).map(Some).map_err(|e| {
@@ -56,8 +73,16 @@ pub fn build_engine(templates_dir: &Path) -> minijinja::Environment<'static> {
             }
         });
     } else {
-        let embedded_templates = embedded_templates;
         env.set_loader(move |name| {
+            use minijinja::Error;
+            for plugin_dir in &plugin_dirs {
+                let path = plugin_dir.join(name);
+                if path.exists() {
+                    return std::fs::read_to_string(&path).map(Some).map_err(|e| {
+                        Error::new(minijinja::ErrorKind::InvalidOperation, format!("{}", e))
+                    });
+                }
+            }
             if let Some(content) = embedded_templates.get(name) {
                 Ok(Some(content.to_string()))
             } else {

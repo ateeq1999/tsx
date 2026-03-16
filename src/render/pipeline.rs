@@ -2,8 +2,8 @@ use anyhow::Result;
 use std::path::PathBuf;
 
 use crate::output::CommandResult;
-use crate::render::engine::{build_engine, reset_import_collector};
-use crate::utils::paths::{find_project_root, get_templates_dir};
+use crate::render::engine::{build_engine_with_plugins, reset_import_collector};
+use crate::utils::paths::{find_project_root, get_plugin_template_dirs, get_templates_dir};
 use crate::utils::write::{write_file, WriteOutcome};
 
 /// Shared render-and-write pipeline for all single-file generate commands.
@@ -33,7 +33,8 @@ where
 
     let output_path = build_output_path(&root);
     let templates_dir = get_templates_dir(&root);
-    let engine = build_engine(&templates_dir);
+    let plugin_dirs = get_plugin_template_dirs(&root);
+    let engine = build_engine_with_plugins(&templates_dir, &plugin_dirs);
 
     reset_import_collector();
 
