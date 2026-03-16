@@ -111,9 +111,10 @@ pub fn upgrade(check_only: bool, verbose: bool) -> CommandResult {
         None
     };
 
-    // Write the pinned version to package.json if not check_only.
+    // Write the pinned version and extract templates if not check_only.
     if !check_only {
         if let Ok(root) = find_project_root() {
+            // Pin version in package.json
             let pkg_path = root.join("package.json");
             if let Ok(content) = std::fs::read_to_string(&pkg_path) {
                 if let Ok(mut pkg) = serde_json::from_str::<serde_json::Value>(&content) {
@@ -133,6 +134,18 @@ pub fn upgrade(check_only: bool, verbose: bool) -> CommandResult {
                         }
                     }
                 }
+            }
+
+            // Extract embedded templates to .tsx/templates/ so the project has
+            // local copies of the current atom templates.
+            let tsx_templates_dir = root.join(".tsx").join("templates");
+            let embedded = crate::render::embedded::get_embedded_templates();
+            for (name, content) in &embedded {
+                let dest = tsx_templates_dir.join(name);
+                if let Some(parent) = dest.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
+                let _ = std::fs::write(&dest, content);
             }
         }
     }
@@ -170,7 +183,10 @@ pub fn upgrade(check_only: bool, verbose: bool) -> CommandResult {
         ];
     } else {
         cmd_result.next_steps = vec![
-            format!("Atoms pinned to version {} in package.json [tsx.atomsVersion].", atoms_version),
+            format!(
+                "Atoms pinned to {} in package.json and templates written to .tsx/templates/.",
+                atoms_version
+            ),
         ];
     }
     cmd_result

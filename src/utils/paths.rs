@@ -1,7 +1,10 @@
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 
-/// Resolves the templates directory: checks next to the binary first, falls back to project root.
+/// Resolves the templates directory using this priority order:
+/// 1. `<exe_dir>/templates` — templates shipped next to the binary
+/// 2. `<root>/.tsx/templates` — project-local copies written by `tsx upgrade`
+/// 3. `<root>/templates` — project-level overrides
 pub fn get_templates_dir(root: &Path) -> PathBuf {
     let exe_dir = std::env::current_exe()
         .ok()
@@ -12,6 +15,11 @@ pub fn get_templates_dir(root: &Path) -> PathBuf {
         if templates.exists() {
             return templates;
         }
+    }
+
+    let tsx_templates = root.join(".tsx").join("templates");
+    if tsx_templates.exists() {
+        return tsx_templates;
     }
 
     root.join("templates")
