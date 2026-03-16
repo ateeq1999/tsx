@@ -1,0 +1,24 @@
+{
+  "id": "add-session",
+  "command": "add:session",
+  "description": "Generate a typed useSession hook and session context provider for client-side auth state",
+  "token_estimate": 22,
+  "output_paths": [
+    "hooks/use-session.ts"
+  ],
+  "next_steps": [
+    "Wrap your app root with the SessionProvider",
+    "Use `const { data: session } = useSession()` in any component"
+  ],
+  "schema": {
+    "type": "object",
+    "properties": {
+      "framework": {
+        "type": "string",
+        "default": "react",
+        "enum": ["react", "solid", "svelte", "vue"],
+        "description": "Frontend framework to generate the hook for"
+      }
+    }
+  }
+}

@@ -24,7 +24,7 @@ _Goal: Commands route based on installed packages, not hard-coded framework name
   - `tsx stack detect` — auto-detect stack and print suggestions
 - [x] **Update `CommandRegistry::load_all()`** — also scans `.tsx/packages/<pkg>/generators/`
 - [x] **`frameworks/tanstack-start/manifest.json`** — FPF v1.1 manifest with `provides[]` + `integrates_with{}`
-- [ ] **Path override** — `output_paths` expansion respects `stack.json` path aliases
+- [x] **Path override** — `output_paths` expansion respects `stack.json` path aliases (`components/`, `routes/`, `db/`, `server-functions/`, `hooks/`)
 
 ---
 
@@ -34,8 +34,8 @@ _Goal: Multiple packages compose correctly in generated code._
 
 - [x] Slot system in forge crate (`crates/forge/src/slots.rs`)
 - [ ] **`integrates_with` slot injection** — at render time, read `manifest.integrates_with`, check which peer packages are installed, inject slot content from each
-- [ ] **Style settings applied** — `stack.json` style (`quotes`, `indent`, `semicolons`) passed as forge context vars
-- [ ] **Path overrides** — `stack.json` `paths` map used for `output_paths` expansion (e.g. `components → src/components`)
+- [x] **Style settings applied** — `stack.json` style (`quotes`, `indent`, `semicolons`) injected as `__style_*` vars into every generator's input context
+- [x] **Path overrides** — `stack.json` `paths` map applied in `output_paths` expansion and `batch:plan`
 
 ---
 
@@ -45,10 +45,10 @@ _Goal: Community can publish and install packages._
 
 - [x] **Wire `tsx registry search`** — queries npm registry for `tsx-framework-*` packages
 - [x] **Wire `tsx registry install`** — FPF (`@tsx-pkg/`) packages: downloads `manifest.json` + generators to `.tsx/packages/<slug>/`; legacy packages: downloads `registry.json` to `.tsx/frameworks/<slug>/`
-- [ ] **Wire `tsx registry update`** — check installed packages against npm for newer versions
-- [ ] **`tsx registry list` (packages)** — list packages installed in `.tsx/packages/`
+- [x] **Wire `tsx registry update`** — checks all installed packages against npm, reinstalls if newer version available
+- [x] **`tsx registry list`** — lists both legacy registries (`.tsx/registries.json`) and FPF packages (`.tsx/packages/`)
 - [ ] **Hosted registry `registry.tsx.dev`** (future — Rust/Axum backend, out of scope for CLI)
-- [ ] **`tsx framework publish`** — `npm publish` wrapper for `@tsx-pkg/` namespace
+- [x] **`tsx framework publish`** — `npm publish --access public` wrapper with `@tsx-pkg/<id>` naming (was already complete)
 
 ---
 
@@ -57,8 +57,8 @@ _Goal: Community can publish and install packages._
 _Goal: First-party packages for the most common stacks._
 
 - [ ] **`@tsx-pkg/tanstack-start`** — extract + rewrite current `frameworks/tanstack-start/` as installable package
-- [ ] **`@tsx-pkg/drizzle-pg`** — Drizzle ORM PostgreSQL generators (schema, migration, seed)
-- [ ] **`@tsx-pkg/better-auth`** — Better Auth setup generator + auth-guard + session schema slot
+- [x] **`@tsx-pkg/drizzle-pg`** — Drizzle ORM PostgreSQL generators: `add:schema`, `add:migration`, `add:seed` (`frameworks/drizzle-pg/`)
+- [x] **`@tsx-pkg/better-auth`** — Better Auth generators: `add:auth-setup`, `add:auth-guard`, `add:session` (`frameworks/better-auth/`)
 - [ ] **`@tsx-pkg/shadcn`** — shadcn/ui form/table/dialog generators
 - [ ] **`@tsx-pkg/fastapi-sqlalchemy`** — Python FastAPI + SQLAlchemy reference package
 - [ ] **`@tsx-pkg/axum-sea-orm`** — Rust Axum + SeaORM reference package
@@ -73,7 +73,7 @@ _Goal: Agents get maximum signal with minimum tokens._
   - Output: stack summary, active packages, available commands with token estimates, human-readable `summary` string
 - [ ] **`tsx plan --json '[{"goal":"..."}]'`** — translate natural-language goals into a command sequence
 - [ ] **Token accounting** — all responses include `tokens_used` (already on run, extend to all commands)
-- [ ] **`tsx batch --plan`** — dry-run a full batch plan before executing
+- [x] **`tsx batch --plan`** — resolves all commands against the registry, returns `would_create` paths + token estimates per step without executing
 
 ---
 

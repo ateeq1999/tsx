@@ -114,6 +114,22 @@ pub fn run(
         }
     };
 
+    // Load the stack profile (optional — silently absent if no .tsx/stack.json).
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let stack = crate::stack::StackProfile::load(&cwd);
+
+    // Inject style vars as __style_* so forge templates can use them.
+    // These use a double-underscore prefix to avoid colliding with user input fields.
+    if let Some(obj) = input.as_object_mut() {
+        let style = stack
+            .as_ref()
+            .map(|p| p.style.clone())
+            .unwrap_or_default();
+        obj.entry("__style_quotes").or_insert_with(|| serde_json::json!(style.quotes));
+        obj.entry("__style_indent").or_insert_with(|| serde_json::json!(style.indent));
+        obj.entry("__style_semicolons").or_insert_with(|| serde_json::json!(style.semicolons));
+    }
+
     // Apply schema defaults then validate.
     if let Some(schema) = &spec.schema {
         apply_defaults(&mut input, schema);
@@ -130,13 +146,16 @@ pub fn run(
         }
     }
 
+    // Resolve path config for output path overrides.
+    let path_config = stack.as_ref().map(|p| &p.paths);
+
     // Dry-run: resolve output path templates and return without writing.
     if dry_run {
         let duration_ms = start.elapsed().as_millis() as u64;
         let dry_run_paths: Vec<String> = spec
             .output_paths
             .iter()
-            .map(|p| expand_path_template(p, &input))
+            .map(|p| expand_path_template(p, &input, path_config))
             .collect();
         let result = RunResult {
             id: spec.id.clone(),
@@ -226,12 +245,29 @@ pub fn run_list(framework: Option<String>, verbose: bool) -> CommandResult {
 }
 
 /// Expand `{{field}}` placeholders in a path template using values from the JSON input.
-fn expand_path_template(template: &str, input: &serde_json::Value) -> String {
-    let Some(obj) = input.as_object() else {
-        return template.to_string();
+/// If a `PathConfig` is provided, path prefix overrides from `.tsx/stack.json` are applied first.
+fn expand_path_template(
+    template: &str,
+    input: &serde_json::Value,
+    paths: Option<&crate::stack::PathConfig>,
+) -> String {
+    // Apply path prefix overrides from stack.json
+    let template = if let Some(cfg) = paths {
+        apply_path_prefix(template, cfg)
+    } else {
+        template.to_string()
     };
-    let mut result = template.to_string();
+
+    let Some(obj) = input.as_object() else {
+        return template;
+    };
+
+    let mut result = template;
     for (key, value) in obj {
+        // Skip internal __style_* vars in path expansion
+        if key.starts_with("__") {
+            continue;
+        }
         let placeholder = format!("{{{{{}}}}}", key);
         if let Some(s) = value.as_str() {
             result = result.replace(&placeholder, s);
@@ -240,28 +276,77 @@ fn expand_path_template(template: &str, input: &serde_json::Value) -> String {
     result
 }
 
+/// Replace well-known path prefixes with overrides from `.tsx/stack.json`.
+/// E.g. if `paths.components = "src/components"`, then `"components/Foo.tsx"` →
+/// `"src/components/Foo.tsx"`.
+fn apply_path_prefix(template: &str, cfg: &crate::stack::PathConfig) -> String {
+    let overrides: &[(&str, Option<&str>)] = &[
+        ("components/", cfg.components.as_deref()),
+        ("routes/", cfg.routes.as_deref()),
+        ("db/", cfg.db.as_deref()),
+        ("server-functions/", cfg.server_fns.as_deref()),
+        ("hooks/", cfg.hooks.as_deref()),
+    ];
+    for (default_prefix, override_dir) in overrides {
+        if let Some(dir) = override_dir {
+            if template.starts_with(default_prefix) {
+                return format!("{}/{}", dir.trim_end_matches('/'), &template[default_prefix.len()..]);
+            }
+        }
+    }
+    template.to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::stack::PathConfig;
 
     #[test]
     fn expand_path_template_replaces_placeholders() {
         let input = serde_json::json!({ "name": "users" });
-        let result = expand_path_template("db/schema/{{name}}.ts", &input);
+        let result = expand_path_template("db/schema/{{name}}.ts", &input, None);
         assert_eq!(result, "db/schema/users.ts");
     }
 
     #[test]
     fn expand_path_template_no_match_unchanged() {
         let input = serde_json::json!({ "name": "users" });
-        let result = expand_path_template("src/static.ts", &input);
+        let result = expand_path_template("src/static.ts", &input, None);
         assert_eq!(result, "src/static.ts");
     }
 
     #[test]
     fn expand_path_template_handles_non_object_input() {
         let input = serde_json::json!("not-an-object");
-        let result = expand_path_template("db/{{name}}.ts", &input);
+        let result = expand_path_template("db/{{name}}.ts", &input, None);
         assert_eq!(result, "db/{{name}}.ts");
+    }
+
+    #[test]
+    fn path_prefix_override_applied() {
+        let cfg = PathConfig {
+            components: Some("src/components".to_string()),
+            ..Default::default()
+        };
+        let input = serde_json::json!({ "name": "Todo" });
+        let result = expand_path_template("components/{{name}}Form.tsx", &input, Some(&cfg));
+        assert_eq!(result, "src/components/TodoForm.tsx");
+    }
+
+    #[test]
+    fn path_prefix_no_override_when_none() {
+        let cfg = PathConfig::default();
+        let input = serde_json::json!({ "name": "Todo" });
+        let result = expand_path_template("components/{{name}}Form.tsx", &input, Some(&cfg));
+        assert_eq!(result, "components/TodoForm.tsx");
+    }
+
+    #[test]
+    fn style_vars_not_expanded_in_paths() {
+        let mut input = serde_json::json!({ "name": "todo" });
+        input["__style_quotes"] = serde_json::json!("double");
+        let result = expand_path_template("db/{{name}}.ts", &input, None);
+        assert_eq!(result, "db/todo.ts");
     }
 }

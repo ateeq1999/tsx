@@ -1,0 +1,23 @@
+{
+  "id": "add-migration",
+  "command": "add:migration",
+  "description": "Generate a drizzle-kit migration file and run it against the database",
+  "token_estimate": 15,
+  "output_paths": [
+    "db/migrations/{{name}}.sql"
+  ],
+  "next_steps": [
+    "Run `npx drizzle-kit push` to apply the migration to your database",
+    "Or run `npx drizzle-kit generate` to generate the SQL without applying"
+  ],
+  "schema": {
+    "type": "object",
+    "required": ["name"],
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "Migration name in kebab-case (e.g. 'add-users', 'add-blog-posts-table')"
+      }
+    }
+  }
+}

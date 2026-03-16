@@ -87,6 +87,9 @@ enum Command {
         /// Stream each result as newline-delimited JSON as it completes
         #[arg(long)]
         stream: bool,
+        /// Plan mode: resolve all commands and show what would be created without executing
+        #[arg(long)]
+        plan: bool,
     },
     /// Start an SSE event subscription server for external tool integration
     Subscribe {
@@ -288,6 +291,8 @@ enum RegistryCmd {
         #[arg(long, default_value = "registry-site")]
         output: String,
     },
+    /// Check all installed packages for newer versions and reinstall if available
+    Update,
 }
 
 #[derive(Subcommand)]
@@ -611,12 +616,16 @@ fn main() {
             let result = inspect::inspect(cli.verbose);
             result.print();
         }
-        Command::Batch { json, stream } => {
+        Command::Batch { json, stream, plan } => {
             use tsx::commands::batch;
             use tsx::json::payload::BatchPayload;
             let ji = json_input.as_deref();
             if let Some(payload) = parse_json_input::<BatchPayload>(json, ji, "batch") {
-                batch::batch(payload, cli.overwrite, cli.dry_run, cli.verbose, stream).print();
+                if plan || cli.dry_run {
+                    batch::batch_plan(payload, cli.verbose).print();
+                } else {
+                    batch::batch(payload, cli.overwrite, false, cli.verbose, stream).print();
+                }
             }
         }
         Command::Subscribe { port } => {
@@ -699,6 +708,11 @@ fn main() {
             RegistryCmd::Website { output } => {
                 use tsx::commands::registry;
                 let result = registry::registry_website(output, cli.verbose);
+                result.print();
+            }
+            RegistryCmd::Update => {
+                use tsx::commands::registry;
+                let result = registry::registry_update(cli.verbose);
                 result.print();
             }
         },
