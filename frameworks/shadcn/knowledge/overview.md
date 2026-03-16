@@ -1,25 +1,19 @@
-# shadcn/ui Overview
+# shadcn/ui — Overview
 
-shadcn/ui is a collection of re-usable components built with Radix UI and Tailwind CSS. Components are copied into your project rather than installed as a package, giving you full control over customization.
+shadcn/ui is a collection of accessible, customizable React components built on Radix UI and Tailwind CSS.
+This package generates component files you own directly in your project.
 
-## Key Concepts
+## Key commands
 
-- **Components**: Copy/paste into `components/ui/`
-- **Radix UI**: Headless primitives for accessibility
-- **Tailwind CSS**: Styling via utility classes
-- **Variants**: Component customization via `cva()`
+| Command | What it generates |
+|---|---|
+| `add:ui-button` | `components/ui/button.tsx` |
+| `add:ui-input` | `components/ui/input.tsx` |
+| `add:ui-form` | `components/{{name}}Form.tsx` — TanStack Form + shadcn inputs |
+| `add:ui-data-table` | `components/{{name}}Table.tsx` + `components/{{name}}Columns.tsx` |
+| `add:ui-dialog` | `components/{{name}}Dialog.tsx` |
 
-## With TanStack Start
+## Slot integration
 
-shadcn/ui integrates with TanStack Start through:
-- Form components replace raw HTML inputs
-- Table components for data display
-- Dialog components for modals
-
-## Installation
-
-```bash
-npx shadcn@latest add button input label
-```
-
-Components are added to `components/ui/`.
+When `shadcn` is in the stack, `tanstack-start` generators replace raw HTML elements
+with shadcn Input/Button components via the `ui_imports` slot.

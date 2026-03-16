@@ -1,0 +1,85 @@
+{# forge:tier feature #}
+from sqlalchemy import select{% if soft_delete %}, and_{% endif %}
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.{{ name | snake_case }} import {{ name | pascal_case }}
+from app.schemas.{{ name | snake_case }} import {{ name | pascal_case }}Create, {{ name | pascal_case }}Update
+from typing import Optional
+
+
+class {{ name | pascal_case }}CRUD:
+    {% if async_mode %}
+    async def get(self, db: AsyncSession, id: int) -> Optional[{{ name | pascal_case }}]:
+        stmt = select({{ name | pascal_case }}).where({{ name | pascal_case }}.id == id{% if soft_delete %}, {{ name | pascal_case }}.deleted_at.is_(None){% endif %})
+        result = await db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def get_all(self, db: AsyncSession) -> list[{{ name | pascal_case }}]:
+        stmt = select({{ name | pascal_case }}){% if soft_delete %}.where({{ name | pascal_case }}.deleted_at.is_(None)){% endif %}
+        result = await db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def create(self, db: AsyncSession, payload: {{ name | pascal_case }}Create) -> {{ name | pascal_case }}:
+        obj = {{ name | pascal_case }}(**payload.model_dump())
+        db.add(obj)
+        await db.commit()
+        await db.refresh(obj)
+        return obj
+
+    async def update(self, db: AsyncSession, id: int, payload: {{ name | pascal_case }}Update) -> Optional[{{ name | pascal_case }}]:
+        obj = await self.get(db, id)
+        if not obj:
+            return None
+        for key, value in payload.model_dump(exclude_unset=True).items():
+            setattr(obj, key, value)
+        await db.commit()
+        await db.refresh(obj)
+        return obj
+
+    async def delete(self, db: AsyncSession, id: int) -> bool:
+        obj = await self.get(db, id)
+        if not obj:
+            return False
+        {% if soft_delete %}
+        from datetime import datetime, timezone
+        obj.deleted_at = datetime.now(timezone.utc)
+        await db.commit()
+        {% else %}
+        await db.delete(obj)
+        await db.commit()
+        {% endif %}
+        return True
+    {% else %}
+    def get(self, db: Session, id: int) -> Optional[{{ name | pascal_case }}]:
+        return db.get({{ name | pascal_case }}, id)
+
+    def get_all(self, db: Session) -> list[{{ name | pascal_case }}]:
+        return db.execute(select({{ name | pascal_case }})).scalars().all()
+
+    def create(self, db: Session, payload: {{ name | pascal_case }}Create) -> {{ name | pascal_case }}:
+        obj = {{ name | pascal_case }}(**payload.model_dump())
+        db.add(obj)
+        db.commit()
+        db.refresh(obj)
+        return obj
+
+    def update(self, db: Session, id: int, payload: {{ name | pascal_case }}Update) -> Optional[{{ name | pascal_case }}]:
+        obj = self.get(db, id)
+        if not obj:
+            return None
+        for key, value in payload.model_dump(exclude_unset=True).items():
+            setattr(obj, key, value)
+        db.commit()
+        db.refresh(obj)
+        return obj
+
+    def delete(self, db: Session, id: int) -> bool:
+        obj = self.get(db, id)
+        if not obj:
+            return False
+        db.delete(obj)
+        db.commit()
+        return True
+    {% endif %}
+
+
+{{ name | snake_case }}_crud = {{ name | pascal_case }}CRUD()

@@ -1,0 +1,25 @@
+{# forge:tier feature #}
+package models
+
+import "gorm.io/gorm"
+
+{% if timestamps or soft_delete %}
+// {{ name | pascal_case }} embeds gorm.Model for ID, CreatedAt, UpdatedAt, and DeletedAt.
+type {{ name | pascal_case }} struct {
+	gorm.Model
+	// TODO: add your fields here
+	// Name string `gorm:"not null"`
+}
+{% else %}
+type {{ name | pascal_case }} struct {
+	ID uint `gorm:"primaryKey;autoIncrement"`
+	// TODO: add your fields here
+}
+{% endif %}
+
+{% if table_name %}
+// TableName overrides the default table name.
+func ({{ name | pascal_case }}) TableName() string {
+	return "{{ table_name }}"
+}
+{% endif %}

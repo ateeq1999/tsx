@@ -1,21 +1,17 @@
-# Better Auth Overview
+# Better Auth — Overview
 
-Better Auth is a modern authentication library for TypeScript projects. It provides a complete auth solution with session management, multiple providers, and database adapters.
+Better Auth is a TypeScript auth library with first-class Drizzle and framework adapters.
+This package generates the auth config, client, schema tables, session hooks, and route guards.
 
-## Key Concepts
+## Key commands
 
-- **Client**: The frontend authentication client
-- **Server**: The backend auth server configuration
-- **Session**: User session management with secure cookies
-- **Plugins**: Extend functionality (OAuth, 2FA, email/password)
+| Command | What it generates |
+|---|---|
+| `add:auth-setup` | `lib/auth.ts`, `lib/auth-client.ts`, `db/schema/auth.ts` |
+| `add:auth-guard` | `middleware/{{name}}-guard.ts` — redirect guard middleware |
+| `add:session` | `hooks/use-session.ts` — typed useSession hook |
 
-## With TanStack Start
+## Slot integration
 
-Better Auth integrates with TanStack Start through:
-- Server-side session validation via middleware
-- Client-side auth hooks (`useSession`, `signIn`, `signOut`)
-- Route protection with `requireAuth`
-
-## Database Schema
-
-Better Auth requires its own tables (sessions, users, accounts). When used with Drizzle ORM, these are automatically generated via the `add:auth-setup` command.
+When `drizzle-pg` is in the stack, `add:schema` calls from drizzle-pg automatically
+receive a `userId` foreign key column via the `auth_fields` slot.

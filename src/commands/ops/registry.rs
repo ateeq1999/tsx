@@ -836,3 +836,79 @@ fn urlencoding(s: &str) -> String {
         })
         .collect()
 }
+
+/// Fetch metadata for a single npm package and display version, description,
+/// provides[], and integrates_with from its FPF manifest (if available).
+pub fn registry_info(package: String, _verbose: bool) -> CommandResult {
+    let start = Instant::now();
+
+    let url = format!("https://registry.npmjs.org/{}", urlencoding(&package));
+
+    let result = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .and_then(|c| c.get(&url).header("Accept", "application/json").send())
+        .and_then(|r| r.json::<serde_json::Value>());
+
+    let duration_ms = start.elapsed().as_millis() as u64;
+
+    let json = match result {
+        Ok(j) => j,
+        Err(e) => {
+            let error = ErrorResponse::new(ErrorCode::InternalError, format!("npm registry request failed: {e}"));
+            ResponseEnvelope::error("registry:info", error, duration_ms).print();
+            return CommandResult::err("registry:info", e.to_string());
+        }
+    };
+
+    let latest_version = json
+        .get("dist-tags")
+        .and_then(|t| t.get("latest"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+
+    let description = json
+        .get("description")
+        .and_then(|d| d.as_str())
+        .unwrap_or("");
+
+    let homepage = json
+        .get("homepage")
+        .and_then(|h| h.as_str())
+        .unwrap_or("");
+
+    // Try to fetch the FPF manifest from unpkg to get provides[] / integrates_with
+    let manifest_url = format!("https://unpkg.com/{}/manifest.json", package);
+    let manifest = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .and_then(|c| c.get(&manifest_url).send())
+        .and_then(|r| r.json::<serde_json::Value>())
+        .ok();
+
+    let (provides, integrates_with, lang, generators) = if let Some(ref m) = manifest {
+        (
+            m.get("provides").cloned().unwrap_or(serde_json::Value::Null),
+            m.get("integrates_with").cloned().unwrap_or(serde_json::Value::Null),
+            m.get("lang").cloned().unwrap_or(serde_json::Value::Null),
+            m.get("generators").cloned().unwrap_or(serde_json::Value::Null),
+        )
+    } else {
+        (serde_json::Value::Null, serde_json::Value::Null, serde_json::Value::Null, serde_json::Value::Null)
+    };
+
+    let payload = serde_json::json!({
+        "package": package,
+        "version": latest_version,
+        "description": description,
+        "homepage": homepage,
+        "lang": lang,
+        "provides": provides,
+        "generators": generators,
+        "integrates_with": integrates_with,
+        "install": format!("tsx registry install {}", package),
+    });
+
+    ResponseEnvelope::success("registry:info", payload, duration_ms).print();
+    CommandResult::ok("registry:info", vec![])
+}

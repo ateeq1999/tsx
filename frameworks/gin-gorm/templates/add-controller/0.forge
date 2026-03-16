@@ -1,0 +1,88 @@
+{# forge:tier feature #}
+package controllers
+
+import (
+	"net/http"
+	"strconv"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+
+	"yourmodule/internal/models"
+)
+
+type {{ name | pascal_case }}Controller struct {
+	db *gorm.DB
+}
+
+func New{{ name | pascal_case }}Controller(db *gorm.DB) *{{ name | pascal_case }}Controller {
+	return &{{ name | pascal_case }}Controller{db: db}
+}
+
+func (c *{{ name | pascal_case }}Controller) List(ctx *gin.Context) {
+	var items []models.{{ name | pascal_case }}
+	if err := c.db.Find(&items).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, items)
+}
+
+func (c *{{ name | pascal_case }}Controller) Get(ctx *gin.Context) {
+	id, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	var item models.{{ name | pascal_case }}
+	if err := c.db.First(&item, id).Error; err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+	ctx.JSON(http.StatusOK, item)
+}
+
+func (c *{{ name | pascal_case }}Controller) Create(ctx *gin.Context) {
+	var item models.{{ name | pascal_case }}
+	if err := ctx.ShouldBindJSON(&item); err != nil {
+		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+		return
+	}
+	if err := c.db.Create(&item).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusCreated, item)
+}
+
+func (c *{{ name | pascal_case }}Controller) Update(ctx *gin.Context) {
+	id, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	var item models.{{ name | pascal_case }}
+	if err := c.db.First(&item, id).Error; err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+	if err := ctx.ShouldBindJSON(&item); err != nil {
+		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+		return
+	}
+	c.db.Save(&item)
+	ctx.JSON(http.StatusOK, item)
+}
+
+func (c *{{ name | pascal_case }}Controller) Delete(ctx *gin.Context) {
+	id, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	if err := c.db.Delete(&models.{{ name | pascal_case }}{}, id).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	ctx.Status(http.StatusNoContent)
+}

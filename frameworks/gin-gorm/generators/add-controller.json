@@ -1,0 +1,21 @@
+{
+  "id": "add-controller",
+  "command": "add:controller",
+  "description": "Add a Gin controller with CRUD route handlers for a resource",
+  "token_estimate": 40,
+  "output_paths": [
+    "internal/controllers/{{name | snake_case}}.go"
+  ],
+  "next_steps": [
+    "Register routes: `r.GET(\"/{{name | snake_case}}\", ctrl.List)`",
+    "Inject controller into your router setup"
+  ],
+  "schema": {
+    "type": "object",
+    "required": ["name"],
+    "properties": {
+      "name": { "type": "string", "description": "Resource name (e.g. 'User', 'Product')" },
+      "auth": { "type": "boolean", "default": false, "description": "Apply auth middleware to all routes" }
+    }
+  }
+}

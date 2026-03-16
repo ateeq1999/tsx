@@ -1,0 +1,91 @@
+{# forge:tier feature #}
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    response::IntoResponse,
+    Json,
+};
+use sea_orm::DatabaseConnection;
+use serde::{Deserialize, Serialize};
+use crate::services::{{ name | snake_case }}::{{ name | pascal_case }}Service;
+{% if auth %}
+use crate::middleware::auth::AuthUser;
+{% endif %}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Create{{ name | pascal_case }}Request {
+    // TODO: add your fields here
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Update{{ name | pascal_case }}Request {
+    // TODO: add your fields here
+}
+
+{% if "list" in operations %}
+pub async fn list_{{ name | snake_case }}(
+    State(db): State<DatabaseConnection>,
+    {% if auth %}auth: AuthUser,{% endif %}
+) -> impl IntoResponse {
+    match {{ name | pascal_case }}Service::list(&db).await {
+        Ok(items) => (StatusCode::OK, Json(items)).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+{% endif %}
+
+{% if "get" in operations %}
+pub async fn get_{{ name | snake_case }}(
+    State(db): State<DatabaseConnection>,
+    Path(id): Path<i32>,
+    {% if auth %}auth: AuthUser,{% endif %}
+) -> impl IntoResponse {
+    match {{ name | pascal_case }}Service::find(&db, id).await {
+        Ok(Some(item)) => (StatusCode::OK, Json(item)).into_response(),
+        Ok(None) => StatusCode::NOT_FOUND.into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+{% endif %}
+
+{% if "create" in operations %}
+pub async fn create_{{ name | snake_case }}(
+    State(db): State<DatabaseConnection>,
+    {% if auth %}auth: AuthUser,{% endif %}
+    Json(payload): Json<Create{{ name | pascal_case }}Request>,
+) -> impl IntoResponse {
+    match {{ name | pascal_case }}Service::create(&db, payload).await {
+        Ok(item) => (StatusCode::CREATED, Json(item)).into_response(),
+        Err(e) => (StatusCode::UNPROCESSABLE_ENTITY, e.to_string()).into_response(),
+    }
+}
+{% endif %}
+
+{% if "update" in operations %}
+pub async fn update_{{ name | snake_case }}(
+    State(db): State<DatabaseConnection>,
+    Path(id): Path<i32>,
+    {% if auth %}auth: AuthUser,{% endif %}
+    Json(payload): Json<Update{{ name | pascal_case }}Request>,
+) -> impl IntoResponse {
+    match {{ name | pascal_case }}Service::update(&db, id, payload).await {
+        Ok(Some(item)) => (StatusCode::OK, Json(item)).into_response(),
+        Ok(None) => StatusCode::NOT_FOUND.into_response(),
+        Err(e) => (StatusCode::UNPROCESSABLE_ENTITY, e.to_string()).into_response(),
+    }
+}
+{% endif %}
+
+{% if "delete" in operations %}
+pub async fn delete_{{ name | snake_case }}(
+    State(db): State<DatabaseConnection>,
+    Path(id): Path<i32>,
+    {% if auth %}auth: AuthUser,{% endif %}
+) -> impl IntoResponse {
+    match {{ name | pascal_case }}Service::delete(&db, id).await {
+        Ok(true) => StatusCode::NO_CONTENT.into_response(),
+        Ok(false) => StatusCode::NOT_FOUND.into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+{% endif %}

@@ -1,0 +1,32 @@
+{# forge:tier feature #}
+{% if framework == "react" %}
+import { authClient } from "~/lib/auth-client";
+
+export function useSession() {
+  return authClient.useSession();
+}
+
+export type SessionUser = typeof authClient.$Infer.Session.user;
+{% elif framework == "solid" %}
+import { createAuthClient } from "better-auth/solid";
+
+const authClient = createAuthClient();
+
+export const useSession = () => authClient.useSession();
+{% elif framework == "svelte" %}
+import { authClient } from "~/lib/auth-client";
+
+export const session = authClient.useSession();
+{% elif framework == "vue" %}
+import { authClient } from "~/lib/auth-client";
+
+export function useSession() {
+  return authClient.useSession();
+}
+{% else %}
+import { authClient } from "~/lib/auth-client";
+
+export function useSession() {
+  return authClient.useSession();
+}
+{% endif %}

@@ -77,6 +77,24 @@ _Goal: Agents get maximum signal with minimum tokens._
 
 ---
 
+---
+
+## Phase 6 — FPF Forge Execution + Reference Templates
+
+_Goal: `tsx run` actually generates files for every installed FPF package, not just tanstack-start._
+
+- [x] **FPF forge execution path** — `fpf_execute()` fallback in `execute_command`: resolves via `CommandRegistry`, renders `templates/<generator-id>/N.forge` files (index-matched to `output_paths`), writes to disk (`src/commands/ops/batch.rs`)
+- [x] **`frameworks/drizzle-pg/templates/`** — forge templates for `add:schema`, `add:migration`, `add:seed`
+- [x] **`frameworks/better-auth/templates/`** — forge templates for `add:auth-setup` (3 files), `add:auth-guard`, `add:session`
+- [x] **`frameworks/shadcn/templates/`** — forge templates for `add:ui-form`, `add:ui-data-table` (2 files), `add:ui-dialog`, `add:ui-button`, `add:ui-input`
+- [x] **`frameworks/fastapi-sqlalchemy/templates/`** — forge templates for `add:model`, `add:router`, `add:schema`, `add:crud`
+- [x] **`frameworks/axum-sea-orm/templates/`** — forge templates for `add:entity`, `add:handler`, `add:migration`, `add:service`
+- [x] **`@tsx-pkg/gin-gorm`** — Go / Gin + GORM reference package (`frameworks/gin-gorm/`) with `add:model`, `add:controller`, `add:middleware` + templates
+- [x] **Knowledge bases for new packages** — `knowledge/overview.md` + `knowledge/conventions.md` for `drizzle-pg`, `better-auth`, `shadcn`, `fastapi-sqlalchemy`, `axum-sea-orm`, `gin-gorm`
+- [x] **`tsx registry info <package>`** — fetch version, description, provides[], integrates_with from npm + unpkg manifest (`src/commands/ops/registry.rs`)
+
+---
+
 ## Completed (prior sessions)
 
 - [x] `tsx run <id> --json` universal dispatcher

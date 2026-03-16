@@ -299,6 +299,12 @@ enum RegistryCmd {
     },
     /// Check all installed packages for newer versions and reinstall if available
     Update,
+    /// Show version, description, commands, and integration info for a package
+    Info {
+        /// npm package name (e.g. @tsx-pkg/drizzle-pg)
+        #[arg(value_name = "PACKAGE")]
+        package: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -719,6 +725,11 @@ fn main() {
             RegistryCmd::Update => {
                 use tsx::commands::registry;
                 let result = registry::registry_update(cli.verbose);
+                result.print();
+            }
+            RegistryCmd::Info { package } => {
+                use tsx::commands::registry;
+                let result = registry::registry_info(package, cli.verbose);
                 result.print();
             }
         },
