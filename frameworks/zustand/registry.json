@@ -1,0 +1,118 @@
+{
+  "framework": "Zustand",
+  "version": "4.5.0",
+  "slug": "zustand",
+  "category": "tool",
+  "docs": "https://zustand.docs.pmnd.rs",
+  "github": "https://github.com/pmndrs/zustand",
+  "structure": {
+    "root": ".",
+    "src": "src",
+    "lib": "src/store"
+  },
+  "generators": [
+    {
+      "id": "store",
+      "description": "Create a Zustand store slice"
+    }
+  ],
+  "conventions": {
+    "files": {
+      "store": {
+        "pattern": "src/store/{{camelCase name}}Store.ts",
+        "example": "src/store/cartStore.ts",
+        "description": "Zustand store definition"
+      },
+      "slice": {
+        "pattern": "src/store/slices/{{camelCase name}}Slice.ts",
+        "example": "src/store/slices/authSlice.ts",
+        "description": "Zustand store slice for combined stores"
+      }
+    },
+    "naming": {
+      "stores": "camelCase with Store suffix",
+      "selectors": "camelCase",
+      "actions": "camelCase verbs"
+    },
+    "patterns": [
+      {
+        "name": "Store definition",
+        "pattern": "const useStore = create<State>()(set => ({ count: 0, inc: () => set(s => ({ count: s.count + 1 })) }))",
+        "description": "Basic Zustand store"
+      },
+      {
+        "name": "Selector",
+        "pattern": "const count = useStore(s => s.count)",
+        "description": "Subscribe to a slice of state"
+      },
+      {
+        "name": "Devtools middleware",
+        "pattern": "create<State>()(devtools(set => ({ ... }), { name: 'MyStore' }))",
+        "description": "Enable Redux DevTools integration"
+      }
+    ]
+  },
+  "injection_points": [],
+  "integrations": [
+    {
+      "package": "zustand",
+      "install": "npm install zustand",
+      "setup": [
+        {
+          "file": "src/store/appStore.ts",
+          "template": "import { create } from 'zustand';\nimport { devtools } from 'zustand/middleware';\n\ninterface AppState {\n  // Define your state shape\n}\n\nexport const useAppStore = create<AppState>()(devtools(set => ({\n  // initial state and actions\n})));",
+          "description": "Create a Zustand store with devtools"
+        }
+      ],
+      "patterns": [
+        {
+          "name": "Use in component",
+          "pattern": "const { count, inc } = useAppStore();",
+          "description": "Consume store in a React component"
+        },
+        {
+          "name": "Selective subscription",
+          "pattern": "const count = useAppStore(s => s.count);",
+          "description": "Subscribe to only one field to avoid re-renders"
+        }
+      ]
+    },
+    {
+      "package": "zustand/middleware/immer",
+      "install": "npm install zustand immer",
+      "setup": [
+        {
+          "file": "src/store/appStore.ts",
+          "template": "import { create } from 'zustand';\nimport { immer } from 'zustand/middleware/immer';\n\nexport const useStore = create<State>()(immer(set => ({\n  items: [],\n  addItem: item => set(state => { state.items.push(item); }),\n})));",
+          "description": "Use Immer for immutable state updates"
+        }
+      ],
+      "patterns": []
+    }
+  ],
+  "questions": [
+    {
+      "topic": "how do I create a store",
+      "answer": "Call create() with a function that receives set (and optionally get) and returns your initial state and actions.",
+      "steps": [
+        { "action": "Install", "code": "npm install zustand" },
+        { "action": "Create store", "code": "export const useStore = create<State>()(set => ({ count: 0, inc: () => set(s => ({ count: s.count + 1 })) }))" },
+        { "action": "Use in component", "code": "const { count, inc } = useStore();" }
+      ],
+      "files_affected": ["src/store/**/*.ts"],
+      "dependencies": ["zustand"],
+      "learn_more": ["https://zustand.docs.pmnd.rs/getting-started/introduction"]
+    },
+    {
+      "topic": "how do I persist state",
+      "answer": "Wrap your store creator with the persist middleware to save state to localStorage (or any storage).",
+      "steps": [
+        { "action": "Import persist", "code": "import { persist } from 'zustand/middleware';" },
+        { "action": "Wrap store", "code": "create<State>()(persist(set => ({ ... }), { name: 'my-store' }))" }
+      ],
+      "files_affected": ["src/store/**/*.ts"],
+      "dependencies": ["zustand"],
+      "learn_more": ["https://zustand.docs.pmnd.rs/integrations/persisting-store-data"]
+    }
+  ]
+}

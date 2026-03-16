@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
-use crate::json::error::ErrorResponse;
 use crate::json::payload::BatchPayload;
 use crate::json::response::ResponseEnvelope;
 use crate::output::CommandResult;

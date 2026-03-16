@@ -24,6 +24,32 @@
       ]
     }
   ],
+  "atoms": {
+    "version": "1.0.0",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-03-16",
+        "changes": ["Initial release of all atoms and molecules"]
+      }
+    ],
+    "entries": {
+      "drizzle/column": { "version": "1.0.0", "breaking": false },
+      "drizzle/timestamp_cols": { "version": "1.0.0", "breaking": false },
+      "drizzle/soft_delete_col": { "version": "1.0.0", "breaking": false },
+      "drizzle/relation": { "version": "1.0.0", "breaking": false },
+      "zod/field_rule": { "version": "1.0.0", "breaking": false },
+      "zod/object_wrapper": { "version": "1.0.0", "breaking": false },
+      "form/field_input": { "version": "1.0.0", "breaking": false },
+      "form/field_select": { "version": "1.0.0", "breaking": false },
+      "form/field_switch": { "version": "1.0.0", "breaking": false },
+      "form/field_datepicker": { "version": "1.0.0", "breaking": false },
+      "form/field_textarea": { "version": "1.0.0", "breaking": false },
+      "query/query_key": { "version": "1.0.0", "breaking": false },
+      "query/suspense_query": { "version": "1.0.0", "breaking": false },
+      "query/mutation": { "version": "1.0.0", "breaking": false }
+    }
+  },
   "generators": [
     {
       "id": "add:feature",

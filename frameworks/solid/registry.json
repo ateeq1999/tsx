@@ -1,0 +1,169 @@
+{
+  "framework": "Solid.js",
+  "version": "1.8.0",
+  "slug": "solid",
+  "category": "framework",
+  "docs": "https://solidjs.com",
+  "github": "https://github.com/solidjs/solid",
+  "structure": {
+    "root": ".",
+    "src": "src",
+    "components": "src/components",
+    "lib": "src/lib",
+    "routes": "src/routes"
+  },
+  "generators": [
+    {
+      "id": "component",
+      "description": "Create a Solid.js component"
+    },
+    {
+      "id": "signal",
+      "description": "Create a reactive signal store"
+    },
+    {
+      "id": "resource",
+      "description": "Create a data-fetching resource"
+    }
+  ],
+  "conventions": {
+    "files": {
+      "component": {
+        "pattern": "src/components/{{pascalCase name}}.tsx",
+        "example": "src/components/Button.tsx",
+        "description": "Solid.js functional component"
+      },
+      "store": {
+        "pattern": "src/lib/{{camelCase name}}Store.ts",
+        "example": "src/lib/counterStore.ts",
+        "description": "Reactive signal-based store"
+      },
+      "route": {
+        "pattern": "src/routes/{{kebabCase name}}.tsx",
+        "example": "src/routes/products.tsx",
+        "description": "SolidStart file-based route"
+      },
+      "resource": {
+        "pattern": "src/lib/{{camelCase name}}.ts",
+        "example": "src/lib/fetchProducts.ts",
+        "description": "Async data resource"
+      }
+    },
+    "naming": {
+      "files": "PascalCase for components, kebab-case for routes",
+      "components": "PascalCase",
+      "functions": "camelCase",
+      "signals": "camelCase with get/set pair"
+    },
+    "patterns": [
+      {
+        "name": "Component",
+        "pattern": "export default function {{pascalCase name}}(props: Props) { return <div>...</div>; }",
+        "description": "Solid.js component — props are reactive via getters"
+      },
+      {
+        "name": "Signal",
+        "pattern": "const [count, setCount] = createSignal(0);",
+        "description": "Fine-grained reactive primitive"
+      },
+      {
+        "name": "Derived value",
+        "pattern": "const doubled = createMemo(() => count() * 2);",
+        "description": "Memoised derived signal"
+      },
+      {
+        "name": "Resource",
+        "pattern": "const [data] = createResource(id, fetchById);",
+        "description": "Async data fetching with Suspense support"
+      }
+    ]
+  },
+  "injection_points": [
+    {
+      "id": "app-providers",
+      "file": "src/app.tsx",
+      "description": "Wrap app with context providers"
+    },
+    {
+      "id": "route-data",
+      "file": "src/routes/[route].tsx",
+      "description": "Add routeData loader to a route"
+    }
+  ],
+  "integrations": [
+    {
+      "package": "solid-query",
+      "install": "npm install @tanstack/solid-query",
+      "setup": [
+        {
+          "file": "src/app.tsx",
+          "template": "import { QueryClient, QueryClientProvider } from '@tanstack/solid-query';\nconst queryClient = new QueryClient();\n// Wrap root: <QueryClientProvider client={queryClient}>",
+          "description": "Provide query client to app"
+        }
+      ],
+      "patterns": [
+        {
+          "name": "useQuery",
+          "pattern": "const query = createQuery(() => ({ queryKey: ['items'], queryFn: fetchItems }));",
+          "description": "Reactive query hook for Solid"
+        }
+      ]
+    },
+    {
+      "package": "solid-router",
+      "install": "npm install @solidjs/router",
+      "setup": [
+        {
+          "file": "src/app.tsx",
+          "template": "import { Router } from '@solidjs/router';\n// Wrap with <Router>",
+          "description": "Add routing to Solid app"
+        }
+      ],
+      "patterns": [
+        {
+          "name": "Route",
+          "pattern": "<Route path=\"/products\" component={Products} />",
+          "description": "Declarative route definition"
+        }
+      ]
+    }
+  ],
+  "questions": [
+    {
+      "topic": "how do I manage state",
+      "answer": "Use createSignal for local state, createStore for complex objects, or a shared signal store in src/lib/.",
+      "steps": [
+        { "action": "Import createSignal", "code": "import { createSignal } from 'solid-js';" },
+        { "action": "Declare signal", "code": "const [value, setValue] = createSignal(initialValue);" },
+        { "action": "Read in JSX", "code": "{value()}" }
+      ],
+      "files_affected": ["src/components/**/*.tsx"],
+      "dependencies": [],
+      "learn_more": ["https://docs.solidjs.com/concepts/signals"]
+    },
+    {
+      "topic": "how do I fetch data",
+      "answer": "Use createResource for async data fetching. It integrates with Suspense and ErrorBoundary automatically.",
+      "steps": [
+        { "action": "Import createResource", "code": "import { createResource } from 'solid-js';" },
+        { "action": "Declare resource", "code": "const [data] = createResource(fetchFn);" },
+        { "action": "Wrap with Suspense", "code": "<Suspense fallback={<Loading />}>{data()}</Suspense>" }
+      ],
+      "files_affected": ["src/routes/**/*.tsx"],
+      "dependencies": [],
+      "learn_more": ["https://docs.solidjs.com/concepts/async-state"]
+    },
+    {
+      "topic": "how do I add routing",
+      "answer": "Use @solidjs/router for client-side routing or SolidStart for file-based routing.",
+      "steps": [
+        { "action": "Install router", "code": "npm install @solidjs/router" },
+        { "action": "Wrap app", "code": "import { Router } from '@solidjs/router';" },
+        { "action": "Define routes", "code": "<Route path=\"/\" component={Home} />" }
+      ],
+      "files_affected": ["src/app.tsx"],
+      "dependencies": ["@solidjs/router"],
+      "learn_more": ["https://docs.solidjs.com/guides/routing"]
+    }
+  ]
+}

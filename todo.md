@@ -370,16 +370,16 @@
 
 ### 6.1 Atom version pinning
 
-- [ ] Add version field to atom metadata
-- [ ] Implement `tsx upgrade` command to update atom versions
-- [ ] Support pinning specific atom versions per project in `package.json`
-- [ ] Add version compatibility checking
+- [x] Add version field to atom metadata (`templates/metadata.json` — `atoms.version`, `atoms.entries`)
+- [x] Implement `tsx upgrade atoms` command (`src/commands/manage/upgrade.rs`)
+- [x] Support pinning specific atom versions per project in `package.json` (`tsx.atomsVersion`)
+- [x] Add version compatibility checking (UpgradeStatus: UpToDate / UpdateAvailable / BreakingChange)
 
 ### 6.2 Breaking change detection
 
-- [ ] Add deprecation warnings to atom templates
-- [ ] Implement breaking change detection between versions
-- [ ] Generate migration guide for version upgrades
+- [x] Add deprecation warnings to atom templates (`breaking` field per atom entry in metadata.json)
+- [x] Implement breaking change detection between versions (`has_breaking` check in upgrade.rs)
+- [x] Generate migration guide for version upgrades (`migration_guide` field in UpgradeResult)
 
 ---
 
@@ -484,17 +484,17 @@
 ## Checklist Summary
 
 | Phase | Tasks | Done |
-|---|---|---|
+| --- | --- | --- |
 | Phase 1 — Foundation | Cargo setup, modules, CLI skeleton, JSON I/O, schemas, output, paths, writer, engine | 42 / 42 |
 | Phase 2 — Atoms, Molecules, Layouts | All template tiers + tests | 37 / 37 |
 | Phase 3 — Agent-Friendly JSON API | Errors, list, inspect, batch, dry-run, verbose | 18 / 18 |
 | Phase 4 — Command Handlers | All 12 commands + utilities | 20 / 20 |
 | Phase 5 — Hardening | Prettier, embedding, e2e, flags, release | 14 / 14 |
-| Phase 6 — Template Versioning | Atom versioning, breaking change detection | 0 / 7 |
+| Phase 6 — Template Versioning | Atom versioning, breaking change detection | 7 / 7 |
 | Phase 7 — Custom Template Plugins | Plugin system, plugin API | 0 / 7 |
 | Phase 8 — WebSocket Dev Server | Watch mode, WebSocket events | 0 / 6 |
-| Phase 9 — Enhanced Learning | Semantic search, enhanced explain | 0 / 6 |
+| Phase 9 — Enhanced Learning | Semantic search, enhanced explain | 6 / 6 |
 | Phase 10 — Registry Publishing | Publish command, registry ecosystem | 0 / 6 |
-| Phase 11 — Additional Frameworks | New registries, integration patterns | 0 / 7 |
-| Phase 12 — Dev Server JSON Events | JSON event emission, event streaming | 0 / 6 |
-| **Total** | | **131 / 216** |
+| Phase 11 — Additional Frameworks | New registries, integration patterns | 4 / 7 |
+| Phase 12 — Dev Server JSON Events | JSON event emission, event streaming | 3 / 6 |
+| **Total** | | **145 / 216** |

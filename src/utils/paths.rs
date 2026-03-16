@@ -1,6 +1,22 @@
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 
+/// Resolves the templates directory: checks next to the binary first, falls back to project root.
+pub fn get_templates_dir(root: &Path) -> PathBuf {
+    let exe_dir = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()));
+
+    if let Some(dir) = exe_dir {
+        let templates = dir.join("templates");
+        if templates.exists() {
+            return templates;
+        }
+    }
+
+    root.join("templates")
+}
+
 pub fn find_project_root() -> Result<PathBuf> {
     let mut current_dir = std::env::current_dir().context("Failed to get current directory")?;
 

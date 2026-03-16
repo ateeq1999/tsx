@@ -35,6 +35,12 @@ enum Command {
         #[arg(long)]
         name: Option<String>,
     },
+    /// Start the development server
+    Dev {
+        /// Emit structured JSON events to stdout instead of raw terminal output
+        #[arg(long)]
+        json_events: bool,
+    },
     /// Generate code from templates
     Generate {
         #[command(subcommand)]
@@ -91,6 +97,11 @@ enum Command {
         /// The topic to explain (e.g., atom, feature, schema)
         #[arg(long)]
         topic: String,
+    },
+    /// Check or pin atom template versions
+    Upgrade {
+        #[command(subcommand)]
+        target: Upgrade,
     },
 }
 
@@ -164,6 +175,16 @@ enum Add {
     Migration,
 }
 
+#[derive(Subcommand)]
+enum Upgrade {
+    /// Check atom versions and pin to current (default: pin)
+    Atoms {
+        /// Only report version status without writing to package.json
+        #[arg(long)]
+        check: bool,
+    },
+}
+
 fn main() {
     use std::io::{self, Read};
 
@@ -187,6 +208,11 @@ fn main() {
         Command::Init { name } => {
             use tsx::commands::init;
             let result = init::init(name);
+            result.print();
+        }
+        Command::Dev { json_events } => {
+            use tsx::commands::dev;
+            let result = dev::dev(json_events);
             result.print();
         }
         Command::Generate { generator } => match generator {
@@ -322,5 +348,12 @@ fn main() {
             let result = explain::explain(topic, cli.verbose);
             result.print();
         }
+        Command::Upgrade { target } => match target {
+            Upgrade::Atoms { check } => {
+                use tsx::commands::upgrade;
+                let result = upgrade::upgrade(check, cli.verbose);
+                result.print();
+            }
+        },
     }
 }

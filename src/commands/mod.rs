@@ -1,19 +1,31 @@
-pub mod add_auth;
-pub mod add_auth_guard;
-pub mod add_feature;
-pub mod add_form;
-pub mod add_migration;
-pub mod add_page;
-pub mod add_query;
-pub mod add_schema;
-pub mod add_seed;
-pub mod add_server_fn;
-pub mod add_table;
-pub mod ask;
-pub mod batch;
-pub mod explain;
-pub mod how;
-pub mod init;
-pub mod inspect;
-pub mod list;
-pub mod where_cmd;
+// --- Subdirectory modules ---
+pub mod generate;
+pub mod manage;
+pub mod ops;
+pub mod query;
+
+// --- Re-exports at flat paths (used by main.rs and batch.rs) ---
+pub use generate::add_feature;
+pub use generate::add_form;
+pub use generate::add_page;
+pub use generate::add_query;
+pub use generate::add_schema;
+pub use generate::add_seed;
+pub use generate::add_server_fn;
+pub use generate::add_table;
+
+pub use manage::add_auth;
+pub use manage::add_auth_guard;
+pub use manage::add_migration;
+pub use manage::dev;
+pub use manage::init;
+pub use manage::upgrade;
+
+pub use ops::batch;
+pub use ops::inspect;
+pub use ops::list;
+
+pub use query::ask;
+pub use query::explain;
+pub use query::how;
+pub use query::where_cmd;
