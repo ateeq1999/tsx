@@ -160,7 +160,7 @@ fn execute_command(
         "add:server-fn" => dispatch!(crate::schemas::AddServerFnArgs, crate::commands::add_server_fn::add_server_fn),
         "add:query" => dispatch!(crate::schemas::AddQueryArgs, crate::commands::add_query::add_query),
         "add:form" => dispatch!(crate::schemas::AddFormArgs, crate::commands::add_form::add_form),
-        "add:table" => dispatch!(crate::schemas::AddFormArgs, crate::commands::add_table::add_table),
+        "add:table" => dispatch!(crate::schemas::AddTableArgs, crate::commands::add_table::add_table),
         "add:page" => dispatch!(crate::schemas::AddPageArgs, crate::commands::add_page::add_page),
         "add:seed" => dispatch!(crate::schemas::AddSeedArgs, crate::commands::add_seed::add_seed),
         "add:feature" => dispatch!(crate::schemas::AddFeatureArgs, crate::commands::add_feature::add_feature),

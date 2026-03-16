@@ -349,9 +349,9 @@ fn main() {
             }
             Generate::Table { json } => {
                 use tsx::commands::add_table;
-                use tsx::schemas::AddFormArgs;
+                use tsx::schemas::AddTableArgs;
 
-                let args: AddFormArgs = serde_json::from_str(&json.unwrap()).unwrap();
+                let args: AddTableArgs = serde_json::from_str(&json.unwrap()).unwrap();
                 let result = add_table::add_table(args, cli.overwrite, cli.dry_run);
                 result.print();
             }

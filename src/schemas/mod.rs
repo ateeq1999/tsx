@@ -7,6 +7,7 @@ pub mod query;
 pub mod schema;
 pub mod seed;
 pub mod server_fn;
+pub mod table;
 
 pub use auth::{AddAuthArgs, AddAuthGuardArgs};
 pub use feature::AddFeatureArgs;
@@ -17,3 +18,4 @@ pub use query::AddQueryArgs;
 pub use schema::AddSchemaArgs;
 pub use seed::AddSeedArgs;
 pub use server_fn::AddServerFnArgs;
+pub use table::AddTableArgs;

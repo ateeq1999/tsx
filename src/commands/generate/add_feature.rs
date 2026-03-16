@@ -95,14 +95,15 @@ fn add_feature_query(args: &AddFeatureArgs, overwrite: bool, dry_run: bool) -> C
 
 fn add_feature_table(args: &AddFeatureArgs, overwrite: bool, dry_run: bool) -> CommandResult {
     use crate::commands::generate::add_table;
-    use crate::schemas::AddFormArgs;
+    use crate::schemas::AddTableArgs;
 
     add_table::add_table(
-        AddFormArgs {
+        AddTableArgs {
             name: args.name.clone(),
             fields: args.fields.clone(),
-            submit_fn: "".to_string(),
-            layout: None,
+            query_fn: format!("get{}List", args.name),
+            paginated: args.paginated,
+            sortable: true,
         },
         overwrite,
         dry_run,
