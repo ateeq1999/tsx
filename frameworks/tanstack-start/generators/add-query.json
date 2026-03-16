@@ -3,6 +3,10 @@
   "command": "add:query",
   "description": "Generate a TanStack Query hook (useQuery / useMutation)",
   "token_estimate": 25,
+  "output_paths": ["hooks/use-{{name}}.ts"],
+  "next_steps": [
+    "Import `use{{name}}Query` in a component or page to consume the data"
+  ],
   "schema": {
     "type": "object",
     "required": ["name"],

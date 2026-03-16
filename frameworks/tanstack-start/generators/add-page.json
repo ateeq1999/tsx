@@ -3,6 +3,10 @@
   "command": "add:page",
   "description": "Generate a TanStack Start route page component",
   "token_estimate": 20,
+  "output_paths": ["routes/{{path}}/index.tsx"],
+  "next_steps": [
+    "Add a link to `<Link to=\"/{{path}}\" />` in your navigation component"
+  ],
   "schema": {
     "type": "object",
     "required": ["path"],

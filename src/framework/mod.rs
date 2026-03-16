@@ -1,3 +1,4 @@
+pub mod command_registry;
 pub mod detect;
 pub mod knowledge;
 pub mod loader;

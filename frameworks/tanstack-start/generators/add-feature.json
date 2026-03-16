@@ -3,6 +3,20 @@
   "command": "add:feature",
   "description": "Scaffold a complete CRUD feature module (schema + server fns + query hooks + form + table + page)",
   "token_estimate": 40,
+  "output_paths": [
+    "db/schema/{{name}}.ts",
+    "server-functions/{{name}}.ts",
+    "hooks/use-{{name}}.ts",
+    "components/{{name}}Form.tsx",
+    "components/{{name}}Table.tsx",
+    "routes/{{name}}/index.tsx",
+    "routes/{{name}}/$id.tsx"
+  ],
+  "next_steps": [
+    "Run `tsx add migration` to apply the new schema",
+    "Add `<Link to=\"/{{name}}\" />` to your navigation",
+    "Seed test data with `tsx run add-seed --json '{\"name\":\"{{name}}\"}' `"
+  ],
   "schema": {
     "type": "object",
     "required": ["name"],

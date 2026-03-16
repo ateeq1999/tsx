@@ -159,6 +159,22 @@ enum Command {
         #[command(subcommand)]
         action: RegistryCmd,
     },
+    /// Run any installed framework generator by id or command name
+    Run {
+        /// Generator id (e.g. `add-schema`) or command name (e.g. `add:schema`).
+        /// Omit to list all available generators.
+        #[arg(value_name = "ID")]
+        id: Option<String>,
+        /// Framework slug — auto-detected from package.json when omitted
+        #[arg(long)]
+        fw: Option<String>,
+        /// Generator input as a JSON object
+        #[arg(long)]
+        json: Option<String>,
+        /// List all available generators (optionally filtered by --fw)
+        #[arg(long)]
+        list: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -352,6 +368,38 @@ enum FrameworkCmd {
     },
 }
 
+/// Parse a `--json` argument, printing a structured error and returning `None` on failure.
+/// This replaces the old `serde_json::from_str(&json.unwrap()).unwrap()` pattern that panics.
+fn parse_json_input<T: serde::de::DeserializeOwned>(
+    json: Option<String>,
+    json_input: Option<&str>,
+    cmd_name: &str,
+) -> Option<T> {
+    use tsx::json::error::ErrorResponse;
+    use tsx::json::response::ResponseEnvelope;
+
+    let raw = match json.as_deref().or(json_input) {
+        Some(s) if !s.trim().is_empty() => s.to_string(),
+        _ => {
+            let err =
+                ErrorResponse::validation(&format!("'{}' requires --json <JSON>", cmd_name));
+            ResponseEnvelope::error(cmd_name, err, 0).print();
+            return None;
+        }
+    };
+    match serde_json::from_str(&raw) {
+        Ok(v) => Some(v),
+        Err(e) => {
+            let err = ErrorResponse::validation(&format!(
+                "'{}' received invalid JSON — {}",
+                cmd_name, e
+            ));
+            ResponseEnvelope::error(cmd_name, err, 0).print();
+            None
+        }
+    }
+}
+
 fn main() {
     use std::io::{self, Read};
 
@@ -390,94 +438,94 @@ fn main() {
             Generate::Feature { json } => {
                 use tsx::commands::add_feature;
                 use tsx::schemas::AddFeatureArgs;
-
-                let args: AddFeatureArgs = serde_json::from_str(&json.unwrap()).unwrap();
-                let result = add_feature::add_feature(args, cli.overwrite, cli.dry_run);
-                result.print();
+                let ji = json_input.as_deref();
+                if let Some(args) = parse_json_input::<AddFeatureArgs>(json, ji, "generate feature") {
+                    add_feature::add_feature(args, cli.overwrite, cli.dry_run).print();
+                }
             }
             Generate::Schema { json } => {
                 use tsx::commands::add_schema;
                 use tsx::schemas::AddSchemaArgs;
-
-                let args: AddSchemaArgs = serde_json::from_str(&json.unwrap()).unwrap();
-                let result = add_schema::add_schema(args, cli.overwrite, cli.dry_run);
-                result.print();
+                let ji = json_input.as_deref();
+                if let Some(args) = parse_json_input::<AddSchemaArgs>(json, ji, "generate schema") {
+                    add_schema::add_schema(args, cli.overwrite, cli.dry_run).print();
+                }
             }
             Generate::ServerFn { json } => {
                 use tsx::commands::add_server_fn;
                 use tsx::schemas::AddServerFnArgs;
-
-                let args: AddServerFnArgs = serde_json::from_str(&json.unwrap()).unwrap();
-                let result = add_server_fn::add_server_fn(args, cli.overwrite, cli.dry_run);
-                result.print();
+                let ji = json_input.as_deref();
+                if let Some(args) = parse_json_input::<AddServerFnArgs>(json, ji, "generate server-fn") {
+                    add_server_fn::add_server_fn(args, cli.overwrite, cli.dry_run).print();
+                }
             }
             Generate::Query { json } => {
                 use tsx::commands::add_query;
                 use tsx::schemas::AddQueryArgs;
-
-                let args: AddQueryArgs = serde_json::from_str(&json.unwrap()).unwrap();
-                let result = add_query::add_query(args, cli.overwrite, cli.dry_run);
-                result.print();
+                let ji = json_input.as_deref();
+                if let Some(args) = parse_json_input::<AddQueryArgs>(json, ji, "generate query") {
+                    add_query::add_query(args, cli.overwrite, cli.dry_run).print();
+                }
             }
             Generate::Form { json } => {
                 use tsx::commands::add_form;
                 use tsx::schemas::AddFormArgs;
-
-                let args: AddFormArgs = serde_json::from_str(&json.unwrap()).unwrap();
-                let result = add_form::add_form(args, cli.overwrite, cli.dry_run);
-                result.print();
+                let ji = json_input.as_deref();
+                if let Some(args) = parse_json_input::<AddFormArgs>(json, ji, "generate form") {
+                    add_form::add_form(args, cli.overwrite, cli.dry_run).print();
+                }
             }
             Generate::Table { json } => {
                 use tsx::commands::add_table;
                 use tsx::schemas::AddTableArgs;
-
-                let args: AddTableArgs = serde_json::from_str(&json.unwrap()).unwrap();
-                let result = add_table::add_table(args, cli.overwrite, cli.dry_run);
-                result.print();
+                let ji = json_input.as_deref();
+                if let Some(args) = parse_json_input::<AddTableArgs>(json, ji, "generate table") {
+                    add_table::add_table(args, cli.overwrite, cli.dry_run).print();
+                }
             }
             Generate::Page { json } => {
                 use tsx::commands::add_page;
                 use tsx::schemas::AddPageArgs;
-
-                let args: AddPageArgs = serde_json::from_str(&json.unwrap()).unwrap();
-                let result = add_page::add_page(args, cli.overwrite, cli.dry_run);
-                result.print();
+                let ji = json_input.as_deref();
+                if let Some(args) = parse_json_input::<AddPageArgs>(json, ji, "generate page") {
+                    add_page::add_page(args, cli.overwrite, cli.dry_run).print();
+                }
             }
             Generate::Seed { json } => {
                 use tsx::commands::add_seed;
                 use tsx::schemas::AddSeedArgs;
-
-                let args: AddSeedArgs = serde_json::from_str(&json.unwrap()).unwrap();
-                let result = add_seed::add_seed(args, cli.overwrite, cli.dry_run);
-                result.print();
+                let ji = json_input.as_deref();
+                if let Some(args) = parse_json_input::<AddSeedArgs>(json, ji, "generate seed") {
+                    add_seed::add_seed(args, cli.overwrite, cli.dry_run).print();
+                }
             }
             Generate::Fw { id, fw, json } => {
-                use tsx::commands::fw_generate;
-                let result = fw_generate::generate(id, fw, json, cli.overwrite, cli.dry_run, cli.verbose);
-                result.print();
+                // Delegate to the universal `run` dispatcher.
+                use tsx::commands::run;
+                let merged_json = json.or_else(|| json_input.clone());
+                run::run(id, fw, merged_json, cli.overwrite, cli.dry_run, cli.verbose).print();
             }
         },
         Command::Add { integration } => match integration {
             Add::Auth { json } => {
                 use tsx::commands::add_auth;
                 use tsx::schemas::AddAuthArgs;
-
-                let args: AddAuthArgs = serde_json::from_str(&json.unwrap()).unwrap();
-                let result = add_auth::add_auth(args, cli.overwrite, cli.dry_run);
-                result.print();
+                let ji = json_input.as_deref();
+                if let Some(args) = parse_json_input::<AddAuthArgs>(json, ji, "add auth") {
+                    add_auth::add_auth(args, cli.overwrite, cli.dry_run).print();
+                }
             }
             Add::AuthGuard { json } => {
                 use tsx::commands::add_auth_guard;
                 use tsx::schemas::AddAuthGuardArgs;
-
-                let args: AddAuthGuardArgs = serde_json::from_str(&json.unwrap()).unwrap();
-                let result = add_auth_guard::add_auth_guard(args, cli.overwrite, cli.dry_run);
-                result.print();
+                let ji = json_input.as_deref();
+                if let Some(args) = parse_json_input::<AddAuthGuardArgs>(json, ji, "add auth-guard") {
+                    add_auth_guard::add_auth_guard(args, cli.overwrite, cli.dry_run).print();
+                }
             }
             Add::Migration => {
                 use tsx::commands::add_migration;
-                let result = add_migration::add_migration();
-                result.print();
+                add_migration::add_migration().print();
             }
         },
         Command::List { kind } => {
@@ -530,10 +578,10 @@ fn main() {
         Command::Batch { json, stream } => {
             use tsx::commands::batch;
             use tsx::json::payload::BatchPayload;
-
-            let payload: BatchPayload = serde_json::from_str(&json.unwrap()).unwrap();
-            let result = batch::batch(payload, cli.overwrite, cli.dry_run, cli.verbose, stream);
-            result.print();
+            let ji = json_input.as_deref();
+            if let Some(payload) = parse_json_input::<BatchPayload>(json, ji, "batch") {
+                batch::batch(payload, cli.overwrite, cli.dry_run, cli.verbose, stream).print();
+            }
         }
         Command::Subscribe { port } => {
             use tsx::commands::subscribe;
@@ -635,5 +683,22 @@ fn main() {
                 result.print();
             }
         },
+        Command::Run { id, fw, json, list } => {
+            use tsx::commands::run;
+            if list || id.is_none() {
+                run::run_list(fw, cli.verbose).print();
+            } else {
+                let merged_json = json.or_else(|| json_input.clone());
+                run::run(
+                    id.unwrap(),
+                    fw,
+                    merged_json,
+                    cli.overwrite,
+                    cli.dry_run,
+                    cli.verbose,
+                )
+                .print();
+            }
+        }
     }
 }

@@ -3,6 +3,11 @@
   "command": "add:form",
   "description": "Generate a TanStack Form component with Zod validation",
   "token_estimate": 28,
+  "output_paths": ["components/{{name}}Form.tsx"],
+  "next_steps": [
+    "Import `<{{name}}Form />` in a page component",
+    "Wire up the `onSubmit` prop to your `create{{name}}` mutation"
+  ],
   "schema": {
     "type": "object",
     "required": ["name"],
