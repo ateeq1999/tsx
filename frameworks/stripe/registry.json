@@ -1,0 +1,128 @@
+{
+  "framework": "Stripe",
+  "version": "1.0.0",
+  "slug": "stripe",
+  "category": "tool",
+  "docs": "https://stripe.com/docs",
+  "github": "https://github.com/stripe/stripe-node",
+  "structure": {
+    "root": ".",
+    "src": "src",
+    "lib": "src/lib",
+    "server_functions": "src/server"
+  },
+  "generators": [
+    {
+      "id": "checkout",
+      "description": "Create a Stripe Checkout session server function"
+    },
+    {
+      "id": "webhook",
+      "description": "Create a Stripe webhook handler"
+    },
+    {
+      "id": "customer-portal",
+      "description": "Create a customer billing portal session"
+    }
+  ],
+  "conventions": {
+    "files": {
+      "client": {
+        "pattern": "src/lib/stripe.ts",
+        "example": "src/lib/stripe.ts",
+        "description": "Stripe singleton client"
+      },
+      "checkout": {
+        "pattern": "src/server/checkout.ts",
+        "example": "src/server/checkout.ts",
+        "description": "Checkout session server function"
+      },
+      "webhook": {
+        "pattern": "src/server/webhook.ts",
+        "example": "src/server/webhook.ts",
+        "description": "Webhook event handler"
+      }
+    },
+    "naming": {
+      "files": "kebab-case",
+      "components": "PascalCase",
+      "functions": "camelCase",
+      "variables": "camelCase"
+    },
+    "patterns": [
+      {
+        "name": "Stripe Singleton",
+        "pattern": "export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-12-18.acacia' })",
+        "description": "Initialize Stripe client once as a singleton"
+      },
+      {
+        "name": "Checkout Session",
+        "pattern": "const session = await stripe.checkout.sessions.create({ mode: 'payment', line_items: [...] })",
+        "description": "Create a Checkout session with line items"
+      },
+      {
+        "name": "Webhook Verification",
+        "pattern": "const event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET!)",
+        "description": "Always verify webhook signatures before processing"
+      },
+      {
+        "name": "Idempotency Key",
+        "pattern": "stripe.charges.create({ ... }, { idempotencyKey: `charge-${orderId}` })",
+        "description": "Pass idempotency keys for safe retries"
+      }
+    ]
+  },
+  "injection_points": [
+    {
+      "id": "env-vars",
+      "file": ".env",
+      "description": "Required Stripe environment variables",
+      "template": "STRIPE_SECRET_KEY=sk_test_...\nSTRIPE_PUBLISHABLE_KEY=pk_test_...\nSTRIPE_WEBHOOK_SECRET=whsec_..."
+    }
+  ],
+  "integrations": [
+    {
+      "package": "stripe",
+      "version": "^17.0.0",
+      "description": "Official Stripe Node.js SDK",
+      "install_command": "npm install stripe",
+      "config_file": "src/lib/stripe.ts",
+      "steps": [
+        "Install the stripe package",
+        "Create src/lib/stripe.ts with singleton client",
+        "Add STRIPE_SECRET_KEY to .env",
+        "Create checkout session server function",
+        "Add webhook endpoint and verify signatures",
+        "Test with Stripe CLI: stripe listen --forward-to localhost:3000/api/webhook"
+      ]
+    },
+    {
+      "package": "@stripe/stripe-js",
+      "version": "^5.0.0",
+      "description": "Stripe.js client for browser-side payment elements",
+      "install_command": "npm install @stripe/stripe-js @stripe/react-stripe-js",
+      "steps": [
+        "Wrap your app with <Elements stripe={stripePromise}>",
+        "Use <PaymentElement /> for the hosted payment UI",
+        "Call stripe.confirmPayment() on form submit"
+      ]
+    }
+  ],
+  "questions": [
+    {
+      "keywords": ["webhook", "event", "signature"],
+      "answer": "Always verify webhook signatures using stripe.webhooks.constructEvent(). Never process webhook events without verification. Use the Stripe CLI to test webhooks locally.",
+      "example": "const event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET!)"
+    },
+    {
+      "keywords": ["subscription", "recurring", "billing"],
+      "answer": "Use Checkout sessions with mode: 'subscription' and provide price IDs for recurring plans. Handle subscription lifecycle via the customer.subscription.* webhook events.",
+      "example": "sessions.create({ mode: 'subscription', line_items: [{ price: 'price_xxx', quantity: 1 }] })"
+    },
+    {
+      "keywords": ["test", "testing", "test card"],
+      "answer": "Use test card 4242 4242 4242 4242 with any future expiry and CVC. Use 4000 0025 0000 3155 to test 3D Secure. Always use test mode API keys (sk_test_) in development.",
+      "example": "Card: 4242 4242 4242 4242 | Exp: 12/34 | CVC: 123"
+    }
+  ]
+}
