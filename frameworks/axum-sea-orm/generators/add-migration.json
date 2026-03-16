@@ -1,0 +1,20 @@
+{
+  "id": "add-migration",
+  "command": "add:migration",
+  "description": "Add a SeaORM migration file with up/down scaffolding",
+  "token_estimate": 20,
+  "output_paths": [
+    "migration/src/{{name | snake_case}}.rs"
+  ],
+  "next_steps": [
+    "Register migration in `migration/src/lib.rs`",
+    "Run `cargo run -- up` to apply"
+  ],
+  "schema": {
+    "type": "object",
+    "required": ["name"],
+    "properties": {
+      "name": { "type": "string", "description": "Migration name (e.g. 'm20240101_000001_create_users')" }
+    }
+  }
+}

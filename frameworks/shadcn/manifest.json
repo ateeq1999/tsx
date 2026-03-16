@@ -18,12 +18,9 @@
   "provides": [
     "add:ui-button",
     "add:ui-input",
-    "add:ui-label",
-    "add:ui-select",
-    "add:ui-table",
-    "add:ui-card",
-    "add:ui-dialog",
-    "add:ui-dropdown-menu"
+    "add:ui-form",
+    "add:ui-data-table",
+    "add:ui-dialog"
   ],
   "integrates_with": {
     "tanstack-start": {
@@ -35,15 +32,6 @@
       "description": "Uses shadcn/ui Table components for generated table templates"
     }
   },
-  "generators": [
-    "add:ui-button",
-    "add:ui-input", 
-    "add:ui-label",
-    "add:ui-select",
-    "add:ui-table",
-    "add:ui-card",
-    "add:ui-dialog",
-    "add:ui-dropdown-menu"
-  ],
+  "generators": ["add-ui-button", "add-ui-input", "add-ui-form", "add-ui-data-table", "add-ui-dialog"],
   "template_format": "forge"
 }

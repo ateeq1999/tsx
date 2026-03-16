@@ -29,6 +29,7 @@ pub use ops::context;
 pub use ops::generate as fw_generate;
 pub use ops::inspect;
 pub use ops::list;
+pub use ops::plan;
 pub use ops::publish;
 pub use ops::registry;
 pub use ops::run;

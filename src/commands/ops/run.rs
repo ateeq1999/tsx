@@ -1,4 +1,5 @@
 use serde::Serialize;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use crate::framework::command_registry::{apply_defaults, validate_input, CommandRegistry};
@@ -138,6 +139,11 @@ pub fn run(
             .or_insert_with(|| serde_json::json!(style.semicolons));
     }
 
+    // Inject slot content from peer packages into the input context.
+    if let Some(ref profile) = stack {
+        inject_slots(&mut input, &spec.framework, profile, &cwd);
+    }
+
     // Apply schema defaults then validate.
     if let Some(schema) = &spec.schema {
         apply_defaults(&mut input, schema);
@@ -252,6 +258,107 @@ pub fn run_list(framework: Option<String>, verbose: bool) -> CommandResult {
 
     ResponseEnvelope::success("run:list", payload, duration_ms).print();
     CommandResult::ok("run:list", vec![])
+}
+
+/// Locate the directory for a package slug by searching builtin, .tsx/frameworks, .tsx/packages.
+fn find_package_dir(slug: &str, cwd: &Path) -> Option<PathBuf> {
+    // Builtin
+    let builtin = get_frameworks_dir().join(slug);
+    if builtin.is_dir() {
+        return Some(builtin);
+    }
+    // User-installed FPF
+    let fpf = cwd.join(".tsx").join("packages").join(slug);
+    if fpf.is_dir() {
+        return Some(fpf);
+    }
+    // Legacy
+    let legacy = cwd.join(".tsx").join("frameworks").join(slug);
+    if legacy.is_dir() {
+        return Some(legacy);
+    }
+    None
+}
+
+/// Scan all installed packages and inject slot content into the input JSON.
+///
+/// For each peer package listed in `stack.packages`:
+///   - Load its `manifest.json`
+///   - If `integrates_with[current_framework]` exists, get the slot name
+///   - Load and render `slots/<slot>.forge` with tsx-forge using `input` as context
+///   - Set `input["slot_<name>"]` to the rendered string
+fn inject_slots(
+    input: &mut serde_json::Value,
+    current_framework: &str,
+    stack: &crate::stack::StackProfile,
+    cwd: &Path,
+) {
+    let package_names = stack.package_names();
+    for pkg_name in &package_names {
+        // Don't inject a package's slots into itself
+        if *pkg_name == current_framework {
+            continue;
+        }
+        let Some(pkg_dir) = find_package_dir(pkg_name, cwd) else {
+            continue;
+        };
+        let manifest_path = pkg_dir.join("manifest.json");
+        let Ok(manifest_str) = std::fs::read_to_string(&manifest_path) else {
+            continue;
+        };
+        let Ok(manifest) = serde_json::from_str::<serde_json::Value>(&manifest_str) else {
+            continue;
+        };
+        let Some(integrates) = manifest
+            .get("integrates_with")
+            .and_then(|v| v.as_object())
+        else {
+            continue;
+        };
+        let Some(integration) = integrates.get(current_framework) else {
+            continue;
+        };
+        let Some(slot_name) = integration.get("slot").and_then(|v| v.as_str()) else {
+            continue;
+        };
+
+        // Load the .forge slot template
+        let slot_path = pkg_dir.join("slots").join(format!("{slot_name}.forge"));
+        let Ok(template_src) = std::fs::read_to_string(&slot_path) else {
+            continue;
+        };
+
+        // Render with tsx-forge using the current generator input as context
+        let rendered = {
+            let mut engine = forge::Engine::new();
+            let tpl_key = format!("slot_{slot_name}.forge");
+            if engine.add_raw(&tpl_key, &template_src).is_err() {
+                continue;
+            }
+            let mut ctx = forge::ForgeContext::new();
+            if let Some(obj) = input.as_object() {
+                for (k, v) in obj {
+                    if let Some(s) = v.as_str() {
+                        ctx.insert_mut(k, s);
+                    } else if let Some(b) = v.as_bool() {
+                        ctx.insert_mut(k, &b);
+                    } else if let Some(n) = v.as_i64() {
+                        ctx.insert_mut(k, &n);
+                    }
+                }
+            }
+            match engine.render(&tpl_key, &ctx) {
+                Ok(s) => s,
+                Err(_) => continue,
+            }
+        };
+
+        // Inject as slot_<name> into the input object
+        if let Some(obj) = input.as_object_mut() {
+            let key = format!("slot_{slot_name}");
+            obj.entry(key).or_insert_with(|| serde_json::json!(rendered));
+        }
+    }
 }
 
 /// Expand `{{field}}` placeholders in a path template using values from the JSON input.

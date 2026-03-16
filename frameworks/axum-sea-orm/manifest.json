@@ -1,0 +1,27 @@
+{
+  "id": "axum-sea-orm",
+  "name": "Axum + SeaORM",
+  "version": "1.0.0",
+  "category": "api",
+  "description": "Axum + SeaORM code patterns — entities, handlers, migrations, and service layers for Rust backends.",
+  "docs": "https://www.sea-ql.org/SeaORM",
+  "github": "https://github.com/SeaQL/sea-orm",
+  "peer_dependencies": {
+    "axum": ">=0.7",
+    "sea-orm": ">=1.0"
+  },
+  "fpf_version": "1.1",
+  "tsx_pkg_name": "@tsx-pkg/axum-sea-orm",
+  "lang": ["rust"],
+  "runtime": ["native"],
+  "tsx_min": "0.1.0",
+  "provides": [
+    "add:entity",
+    "add:handler",
+    "add:migration",
+    "add:service"
+  ],
+  "integrates_with": {},
+  "generators": ["add-entity", "add-handler", "add-migration", "add-service"],
+  "template_format": "forge"
+}

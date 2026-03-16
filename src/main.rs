@@ -167,6 +167,12 @@ enum Command {
         #[command(subcommand)]
         action: StackCmd,
     },
+    /// Translate natural-language goals into a concrete command sequence
+    Plan {
+        /// JSON array of goals, e.g. '[{"goal":"add a users schema"}]'
+        #[arg(long)]
+        json: Option<String>,
+    },
     /// Print agent-ready context: active stack, available commands, and usage summary
     Context,
     /// Run any installed framework generator by id or command name
@@ -755,6 +761,14 @@ fn main() {
                 stack::stack_detect(cli.verbose).print();
             }
         },
+        Command::Plan { json } => {
+            use tsx::commands::plan;
+            use tsx::commands::plan::PlanGoal;
+            let ji = json_input.as_deref();
+            if let Some(goals) = parse_json_input::<Vec<PlanGoal>>(json, ji, "plan") {
+                plan::plan(goals, cli.verbose).print();
+            }
+        }
         Command::Context => {
             use tsx::commands::context;
             context::context(cli.verbose).print();

@@ -1,0 +1,21 @@
+{
+  "id": "add-schema",
+  "command": "add:schema",
+  "description": "Add Pydantic v2 schemas (Create, Update, Response) for a resource",
+  "token_estimate": 25,
+  "output_paths": [
+    "app/schemas/{{name | snake_case}}.py"
+  ],
+  "next_steps": [
+    "Import schemas in your router",
+    "Add custom validators with @field_validator"
+  ],
+  "schema": {
+    "type": "object",
+    "required": ["name"],
+    "properties": {
+      "name": { "type": "string", "description": "Schema base name (e.g. 'User', 'Product')" },
+      "with_pagination": { "type": "boolean", "default": false, "description": "Add a paginated list response schema" }
+    }
+  }
+}

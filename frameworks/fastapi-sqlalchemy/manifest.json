@@ -1,0 +1,27 @@
+{
+  "id": "fastapi-sqlalchemy",
+  "name": "FastAPI + SQLAlchemy",
+  "version": "1.0.0",
+  "category": "api",
+  "description": "FastAPI + SQLAlchemy code patterns — models, routers, schemas, and CRUD endpoints.",
+  "docs": "https://fastapi.tiangolo.com",
+  "github": "https://github.com/tiangolo/fastapi",
+  "peer_dependencies": {
+    "fastapi": ">=0.100",
+    "sqlalchemy": ">=2.0"
+  },
+  "fpf_version": "1.1",
+  "tsx_pkg_name": "@tsx-pkg/fastapi-sqlalchemy",
+  "lang": ["python"],
+  "runtime": ["python"],
+  "tsx_min": "0.1.0",
+  "provides": [
+    "add:model",
+    "add:router",
+    "add:schema",
+    "add:crud"
+  ],
+  "integrates_with": {},
+  "generators": ["add-model", "add-router", "add-schema", "add-crud"],
+  "template_format": "forge"
+}

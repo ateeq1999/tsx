@@ -1,0 +1,22 @@
+{
+  "id": "add-service",
+  "command": "add:service",
+  "description": "Add a service layer struct that wraps SeaORM queries for a resource",
+  "token_estimate": 40,
+  "output_paths": [
+    "src/services/{{name | snake_case}}.rs"
+  ],
+  "next_steps": [
+    "Register the service in `src/services/mod.rs`",
+    "Inject via Axum state or Extension"
+  ],
+  "schema": {
+    "type": "object",
+    "required": ["name"],
+    "properties": {
+      "name": { "type": "string", "description": "Service name matching the entity (e.g. 'User')" },
+      "soft_delete": { "type": "boolean", "default": false, "description": "Filter soft-deleted rows in all queries" },
+      "cache": { "type": "boolean", "default": false, "description": "Add a simple in-memory cache layer" }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "id": "add-entity",
+  "command": "add:entity",
+  "description": "Add a SeaORM entity with typed columns and relations",
+  "token_estimate": 35,
+  "output_paths": [
+    "src/entity/{{name | snake_case}}.rs"
+  ],
+  "next_steps": [
+    "Register the entity in `src/entity/mod.rs`",
+    "Run `sea-orm-cli migrate generate add_{{name | snake_case}}_table`"
+  ],
+  "schema": {
+    "type": "object",
+    "required": ["name"],
+    "properties": {
+      "name": { "type": "string", "description": "Entity struct name (e.g. 'User', 'Post')" },
+      "table_name": { "type": "string", "description": "Database table name (defaults to snake_case)" },
+      "timestamps": { "type": "boolean", "default": true, "description": "Add created_at and updated_at columns" },
+      "soft_delete": { "type": "boolean", "default": false, "description": "Add deleted_at Option<DateTimeWithTimeZone>" }
+    }
+  }
+}
