@@ -1,5 +1,5 @@
 [package]
-name = "forge"
+name = "tsx-forge"
 version = "0.1.0"
 edition = "2021"
 description = "4-tier code generation engine for the tsx Framework Protocol"
