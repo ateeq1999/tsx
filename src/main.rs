@@ -114,6 +114,11 @@ enum Command {
         #[command(subcommand)]
         action: Plugin,
     },
+    /// Publish or validate a framework registry
+    Publish {
+        #[command(subcommand)]
+        action: Publish,
+    },
 }
 
 #[derive(Subcommand)]
@@ -184,6 +189,21 @@ enum Add {
     },
     /// Run drizzle-kit generate + migrate
     Migration,
+}
+
+#[derive(Subcommand)]
+enum Publish {
+    /// Validate and publish a registry.json file (print to stdout or write to --output)
+    Registry {
+        /// Path to the registry.json file to publish
+        #[arg(long, value_name = "PATH")]
+        registry: String,
+        /// Write the published package to this file instead of stdout
+        #[arg(long, value_name = "PATH")]
+        output: Option<String>,
+    },
+    /// List registries installed in .tsx/frameworks/
+    List,
 }
 
 #[derive(Subcommand)]
@@ -385,6 +405,18 @@ fn main() {
             Upgrade::Atoms { check } => {
                 use tsx::commands::upgrade;
                 let result = upgrade::upgrade(check, cli.verbose);
+                result.print();
+            }
+        },
+        Command::Publish { action } => match action {
+            Publish::Registry { registry, output } => {
+                use tsx::commands::publish;
+                let result = publish::publish(registry, output, cli.verbose);
+                result.print();
+            }
+            Publish::List => {
+                use tsx::commands::publish;
+                let result = publish::publish_list(cli.verbose);
                 result.print();
             }
         },
