@@ -159,6 +159,13 @@ enum Command {
         #[command(subcommand)]
         action: RegistryCmd,
     },
+    /// Manage the project stack profile (.tsx/stack.json)
+    Stack {
+        #[command(subcommand)]
+        action: StackCmd,
+    },
+    /// Print agent-ready context: active stack, available commands, and usage summary
+    Context,
     /// Run any installed framework generator by id or command name
     Run {
         /// Generator id (e.g. `add-schema`) or command name (e.g. `add:schema`).
@@ -366,6 +373,35 @@ enum FrameworkCmd {
         #[arg(long)]
         dry_run: bool,
     },
+}
+
+#[derive(Subcommand)]
+enum StackCmd {
+    /// Create or overwrite .tsx/stack.json (auto-detects from package.json when no flags given)
+    Init {
+        /// Override detected language (typescript, python, rust, go)
+        #[arg(long)]
+        lang: Option<String>,
+        /// Comma-separated list of tsx packages to activate (e.g. tanstack-start,drizzle-pg)
+        #[arg(long)]
+        packages: Option<String>,
+    },
+    /// Print the current stack profile
+    Show,
+    /// Add a package to the active stack
+    Add {
+        /// Package name (e.g. better-auth, shadcn)
+        #[arg(value_name = "PACKAGE")]
+        package: String,
+    },
+    /// Remove a package from the active stack
+    Remove {
+        /// Package name (without version)
+        #[arg(value_name = "PACKAGE")]
+        package: String,
+    },
+    /// Detect the stack from project files and print suggestions
+    Detect,
 }
 
 /// Parse a `--json` argument, printing a structured error and returning `None` on failure.
@@ -683,6 +719,32 @@ fn main() {
                 result.print();
             }
         },
+        Command::Stack { action } => match action {
+            StackCmd::Init { lang, packages } => {
+                use tsx::commands::stack;
+                stack::stack_init(lang, packages, cli.dry_run, cli.verbose).print();
+            }
+            StackCmd::Show => {
+                use tsx::commands::stack;
+                stack::stack_show(cli.verbose).print();
+            }
+            StackCmd::Add { package } => {
+                use tsx::commands::stack;
+                stack::stack_add(package, cli.verbose).print();
+            }
+            StackCmd::Remove { package } => {
+                use tsx::commands::stack;
+                stack::stack_remove(package, cli.verbose).print();
+            }
+            StackCmd::Detect => {
+                use tsx::commands::stack;
+                stack::stack_detect(cli.verbose).print();
+            }
+        },
+        Command::Context => {
+            use tsx::commands::context;
+            context::context(cli.verbose).print();
+        }
         Command::Run { id, fw, json, list } => {
             use tsx::commands::run;
             if list || id.is_none() {

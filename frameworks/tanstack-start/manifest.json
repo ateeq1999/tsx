@@ -35,5 +35,46 @@
   "starters": ["basic", "with-auth", "saas"],
   "integrations": ["better-auth", "drizzle-orm", "shadcn-ui", "react-query", "react-router"],
   "templates_dir": "templates",
-  "template_format": "forge"
+  "template_format": "forge",
+  "fpf_version": "1.1",
+  "tsx_pkg_name": "@tsx-pkg/tanstack-start",
+  "lang": ["typescript"],
+  "runtime": ["node", "bun", "deno"],
+  "tsx_min": "0.1.0",
+  "provides": [
+    "add:feature",
+    "add:page",
+    "add:server-fn",
+    "add:query",
+    "add:form",
+    "add:table",
+    "add:schema",
+    "add:seed"
+  ],
+  "integrates_with": {
+    "drizzle-pg": {
+      "slot": "db_imports",
+      "description": "Adds Drizzle ORM imports and schema references to server functions"
+    },
+    "drizzle-mysql": {
+      "slot": "db_imports",
+      "description": "Adds Drizzle ORM (MySQL) imports and schema references to server functions"
+    },
+    "drizzle-sqlite": {
+      "slot": "db_imports",
+      "description": "Adds Drizzle ORM (SQLite) imports and schema references to server functions"
+    },
+    "better-auth": {
+      "slot": "auth_fields",
+      "description": "Adds userId foreign key to schemas and injects auth guard into server functions"
+    },
+    "shadcn": {
+      "slot": "ui_imports",
+      "description": "Replaces raw HTML elements with shadcn/ui components in form and table generators"
+    },
+    "tailwindcss": {
+      "slot": "style_classes",
+      "description": "Adds Tailwind utility classes to generated components"
+    }
+  }
 }

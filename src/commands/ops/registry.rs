@@ -131,13 +131,16 @@ pub fn registry_search(query: String, verbose: bool) -> CommandResult {
     }
 }
 
-/// Install a community registry from an npm package into `.tsx/frameworks/<slug>/`.
+/// Install a tsx package into the project.
 ///
-/// The package must:
-/// 1. Exist on npm
-/// 2. Have a `registry.json` in its package root (fetched via the npm `dist.tarball` URL)
+/// Two package formats are supported:
+/// - **FPF packages** (`@tsx-pkg/<name>`): Full Framework Package Format — downloads
+///   `manifest.json` and all `generators/*.json` from unpkg, installs to `.tsx/packages/<slug>/`.
+///   These packages are picked up automatically by `CommandRegistry::load_all()`.
+/// - **Legacy registry packages** (`tsx-framework-*`): downloads a single `registry.json`
+///   from unpkg, installs to `.tsx/frameworks/<slug>/`.
 ///
-/// The installed registry is tracked in `.tsx/registries.json`.
+/// The installed package is tracked in `.tsx/registries.json`.
 pub fn registry_install(package: String, verbose: bool) -> CommandResult {
     let start = Instant::now();
 
@@ -151,22 +154,19 @@ pub fn registry_install(package: String, verbose: bool) -> CommandResult {
         }
     };
 
-    // Fetch package metadata from npm registry
-    let npm_url = format!(
-        "https://registry.npmjs.org/{}",
-        package.replace("/", "%2F")
-    );
-
     let client = match reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
         .build()
     {
         Ok(c) => c,
-        Err(e) => {
-            return CommandResult::err("registry:install", e.to_string());
-        }
+        Err(e) => return CommandResult::err("registry:install", e.to_string()),
     };
 
+    // Fetch package metadata from npm to resolve latest version
+    let npm_url = format!(
+        "https://registry.npmjs.org/{}",
+        package.replace('/', "%2F")
+    );
     let pkg_meta: serde_json::Value = match client
         .get(&npm_url)
         .header("Accept", "application/json")
@@ -178,7 +178,7 @@ pub fn registry_install(package: String, verbose: bool) -> CommandResult {
             let duration_ms = start.elapsed().as_millis() as u64;
             let error = ErrorResponse::new(
                 ErrorCode::InternalError,
-                format!("Failed to fetch package '{}' from npm: {}", package, e),
+                format!("Failed to fetch '{}' from npm: {}", package, e),
             );
             ResponseEnvelope::error("registry:install", error, duration_ms).print();
             return CommandResult::err("registry:install", e.to_string());
@@ -189,72 +189,41 @@ pub fn registry_install(package: String, verbose: bool) -> CommandResult {
         .get("dist-tags")
         .and_then(|t| t.get("latest"))
         .and_then(|v| v.as_str())
-        .unwrap_or("latest");
+        .unwrap_or("latest")
+        .to_string();
 
-    // Try the direct registry.json URL convention: unpkg.com/<pkg>/registry.json
-    let registry_url = format!("https://unpkg.com/{}/registry.json", package);
-
-    let registry_json: serde_json::Value = match client
-        .get(&registry_url)
-        .header("Accept", "application/json")
-        .send()
-        .and_then(|r| r.json())
-    {
-        Ok(v) => v,
-        Err(e) => {
-            let duration_ms = start.elapsed().as_millis() as u64;
-            let error = ErrorResponse::new(
-                ErrorCode::InternalError,
-                format!(
-                    "Package '{}' does not expose a registry.json via unpkg: {}",
-                    package, e
-                ),
-            );
-            ResponseEnvelope::error("registry:install", error, duration_ms).print();
-            return CommandResult::err("registry:install", e.to_string());
+    let (slug, files_written) = if package.starts_with("@tsx-pkg/") {
+        // FPF install: fetch manifest.json + generators/*.json → .tsx/packages/<slug>/
+        match install_fpf_package(&package, &latest, &root, &client) {
+            Ok(result) => result,
+            Err(e) => {
+                let duration_ms = start.elapsed().as_millis() as u64;
+                let error = ErrorResponse::new(ErrorCode::InternalError, e.to_string());
+                ResponseEnvelope::error("registry:install", error, duration_ms).print();
+                return CommandResult::err("registry:install", e.to_string());
+            }
+        }
+    } else {
+        // Legacy install: fetch registry.json → .tsx/frameworks/<slug>/
+        match install_legacy_package(&package, &latest, &root, &client) {
+            Ok(result) => result,
+            Err(e) => {
+                let duration_ms = start.elapsed().as_millis() as u64;
+                let error = ErrorResponse::new(ErrorCode::InternalError, e.to_string());
+                ResponseEnvelope::error("registry:install", error, duration_ms).print();
+                return CommandResult::err("registry:install", e.to_string());
+            }
         }
     };
-
-    // Extract slug from registry.json
-    let slug = match registry_json.get("slug").and_then(|s| s.as_str()) {
-        Some(s) => s.to_string(),
-        None => {
-            let duration_ms = start.elapsed().as_millis() as u64;
-            let error = ErrorResponse::new(
-                ErrorCode::ValidationError,
-                "registry.json is missing required 'slug' field",
-            );
-            ResponseEnvelope::error("registry:install", error, duration_ms).print();
-            return CommandResult::err("registry:install", "missing slug".to_string());
-        }
-    };
-
-    // Write registry.json to .tsx/frameworks/<slug>/
-    let dest_dir = root.join(".tsx").join("frameworks").join(&slug);
-    std::fs::create_dir_all(&dest_dir).ok();
-    let dest_file = dest_dir.join("registry.json");
-
-    let registry_content = serde_json::to_string_pretty(&registry_json)
-        .unwrap_or_else(|_| "{}".to_string());
-
-    if let Err(e) = std::fs::write(&dest_file, &registry_content) {
-        let duration_ms = start.elapsed().as_millis() as u64;
-        let error = ErrorResponse::new(
-            ErrorCode::PermissionDenied,
-            format!("Failed to write registry: {}", e),
-        );
-        ResponseEnvelope::error("registry:install", error, duration_ms).print();
-        return CommandResult::err("registry:install", e.to_string());
-    }
 
     // Update registries index
     let mut index = load_registries_index(&root);
-    index.retain(|r| r.slug != slug); // remove old entry if re-installing
+    index.retain(|r| r.slug != slug);
     index.push(InstalledRegistry {
         slug: slug.clone(),
         package: package.clone(),
-        version: latest.to_string(),
-        source: registry_url,
+        version: latest.clone(),
+        source: format!("https://unpkg.com/{}", package),
         installed_at: iso_now(),
     });
     let _ = save_registries_index(&root, &index);
@@ -263,14 +232,15 @@ pub fn registry_install(package: String, verbose: bool) -> CommandResult {
     let response = ResponseEnvelope::success(
         "registry:install",
         serde_json::json!({
-            "installed": {
-                "slug": slug,
-                "package": package,
-                "version": latest,
-            }
+            "installed": { "slug": slug, "package": package, "version": latest },
+            "files": files_written,
         }),
         duration_ms,
-    );
+    )
+    .with_next_steps(vec![
+        format!("Run `tsx stack add {}` to activate this package in your project", slug),
+        "Run `tsx list` to see the new commands".to_string(),
+    ]);
 
     if verbose {
         let context = crate::json::response::Context {
@@ -282,7 +252,100 @@ pub fn registry_install(package: String, verbose: bool) -> CommandResult {
         response.print();
     }
 
-    CommandResult::ok("registry:install", vec![dest_file.to_string_lossy().to_string()])
+    CommandResult::ok("registry:install", files_written)
+}
+
+/// Install a FPF `@tsx-pkg/` package: downloads manifest.json and all generators to
+/// `.tsx/packages/<slug>/`.  Returns `(slug, files_written)`.
+fn install_fpf_package(
+    package: &str,
+    version: &str,
+    root: &Path,
+    client: &reqwest::blocking::Client,
+) -> anyhow::Result<(String, Vec<String>)> {
+    let base_url = format!("https://unpkg.com/{}@{}", package, version);
+
+    // Fetch manifest.json
+    let manifest_url = format!("{}/manifest.json", base_url);
+    let manifest: serde_json::Value = client
+        .get(&manifest_url)
+        .header("Accept", "application/json")
+        .send()?
+        .json()?;
+
+    // Derive slug from package name: @tsx-pkg/tanstack-start → tanstack-start
+    let slug = package
+        .split('/')
+        .last()
+        .unwrap_or(package)
+        .to_string();
+
+    let dest = root.join(".tsx").join("packages").join(&slug);
+    std::fs::create_dir_all(dest.join("generators"))?;
+
+    // Write manifest.json
+    let manifest_path = dest.join("manifest.json");
+    std::fs::write(&manifest_path, serde_json::to_string_pretty(&manifest)?)?;
+    let mut files = vec![manifest_path.to_string_lossy().to_string()];
+
+    // Fetch each generator listed in `provides`
+    let provides: Vec<String> = manifest
+        .get("provides")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str())
+                .map(|cmd| {
+                    // "add:feature" → "add-feature"
+                    cmd.replace(':', "-")
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    for gen_id in &provides {
+        let gen_url = format!("{}/generators/{}.json", base_url, gen_id);
+        if let Ok(resp) = client.get(&gen_url).send() {
+            if resp.status().is_success() {
+                if let Ok(gen_json) = resp.json::<serde_json::Value>() {
+                    let gen_path = dest.join("generators").join(format!("{}.json", gen_id));
+                    std::fs::write(&gen_path, serde_json::to_string_pretty(&gen_json)?)?;
+                    files.push(gen_path.to_string_lossy().to_string());
+                }
+            }
+        }
+    }
+
+    Ok((slug, files))
+}
+
+/// Install a legacy `tsx-framework-*` package: fetches `registry.json` and writes to
+/// `.tsx/frameworks/<slug>/`.  Returns `(slug, files_written)`.
+fn install_legacy_package(
+    package: &str,
+    version: &str,
+    root: &Path,
+    client: &reqwest::blocking::Client,
+) -> anyhow::Result<(String, Vec<String>)> {
+    let registry_url = format!("https://unpkg.com/{}@{}/registry.json", package, version);
+    let registry_json: serde_json::Value = client
+        .get(&registry_url)
+        .header("Accept", "application/json")
+        .send()?
+        .json()?;
+
+    let slug = registry_json
+        .get("slug")
+        .and_then(|s| s.as_str())
+        .ok_or_else(|| anyhow::anyhow!("registry.json is missing required 'slug' field"))?
+        .to_string();
+
+    let dest_dir = root.join(".tsx").join("frameworks").join(&slug);
+    std::fs::create_dir_all(&dest_dir)?;
+    let dest_file = dest_dir.join("registry.json");
+    std::fs::write(&dest_file, serde_json::to_string_pretty(&registry_json)?)?;
+
+    Ok((slug, vec![dest_file.to_string_lossy().to_string()]))
 }
 
 /// List community registries installed in `.tsx/registries.json`.

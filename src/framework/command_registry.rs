@@ -41,11 +41,17 @@ impl CommandRegistry {
         let builtin = get_frameworks_dir();
         registry.scan_dir(&builtin);
 
-        // User-installed frameworks under .tsx/frameworks/
         if let Ok(cwd) = std::env::current_dir() {
-            let user_dir = cwd.join(".tsx").join("frameworks");
-            if user_dir.is_dir() {
-                registry.scan_dir(&user_dir);
+            // Legacy: user-installed frameworks under .tsx/frameworks/
+            let user_fw = cwd.join(".tsx").join("frameworks");
+            if user_fw.is_dir() {
+                registry.scan_dir(&user_fw);
+            }
+
+            // New: packages installed via `tsx registry install` under .tsx/packages/
+            let user_pkgs = cwd.join(".tsx").join("packages");
+            if user_pkgs.is_dir() {
+                registry.scan_dir(&user_pkgs);
             }
         }
 

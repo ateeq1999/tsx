@@ -5,4 +5,5 @@ pub mod output;
 pub mod plugin;
 pub mod render;
 pub mod schemas;
+pub mod stack;
 pub mod utils;

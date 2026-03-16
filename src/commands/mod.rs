@@ -25,12 +25,14 @@ pub use manage::plugin;
 pub use manage::upgrade;
 
 pub use ops::batch;
+pub use ops::context;
 pub use ops::generate as fw_generate;
 pub use ops::inspect;
-pub use ops::run;
 pub use ops::list;
 pub use ops::publish;
 pub use ops::registry;
+pub use ops::run;
+pub use ops::stack;
 pub use ops::subscribe;
 
 pub use query::ask;
