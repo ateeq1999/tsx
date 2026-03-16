@@ -30,6 +30,7 @@ pub use ops::registry;
 pub use ops::subscribe;
 
 pub use query::ask;
+pub use query::describe;
 pub use query::explain;
 pub use query::how;
 pub use query::where_cmd;

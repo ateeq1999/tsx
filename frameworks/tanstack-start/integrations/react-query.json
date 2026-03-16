@@ -1,0 +1,26 @@
+{
+  "package": "@tanstack/react-query",
+  "version": "^5.0",
+  "description": "Server state management with caching and suspense",
+  "install": "npm install @tanstack/react-query",
+  "generate_command": "tsx add:query <name>",
+  "patterns": [
+    {
+      "name": "Suspense query hook",
+      "code": "export const useProducts = () =>\n  useSuspenseQuery({ queryKey: productsQueryKey(), queryFn: () => getProducts({ data: {} }) })"
+    },
+    {
+      "name": "Query key factory",
+      "code": "export const productsQueryKey = () => ['products'] as const"
+    },
+    {
+      "name": "Mutation with invalidation",
+      "code": "useMutation({\n  mutationFn: (data: NewProduct) => createProduct({ data }),\n  onSuccess: () => queryClient.invalidateQueries({ queryKey: productsQueryKey() }),\n})"
+    },
+    {
+      "name": "Prefetch in route loader",
+      "code": "loader: ({ context: { queryClient } }) =>\n  queryClient.ensureQueryData({ queryKey: productsQueryKey(), queryFn: () => getProducts({ data: {} }) })"
+    }
+  ],
+  "token_estimate": 100
+}

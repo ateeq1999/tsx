@@ -1,16 +1,29 @@
+[workspace]
+members = [".", "crates/forge"]
+resolver = "2"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+heck = "0.5"
+tera = "1"
+walkdir = "2"
+
 [package]
 name = "tsx"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+forge = { path = "crates/forge" }
 clap = { version = "4", features = ["derive"] }
 minijinja = { version = "2", features = ["loader"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-anyhow = "1"
-walkdir = "2"
-heck = "0.5"
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+walkdir = { workspace = true }
+heck = { workspace = true }
 reqwest = { version = "0.12", features = ["json", "blocking"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time"] }
 notify = "6"

@@ -1,0 +1,33 @@
+{
+  "package": "@tanstack/react-router",
+  "version": "^1.0",
+  "description": "Type-safe file-based routing for React",
+  "install": "npm install @tanstack/react-router",
+  "patterns": [
+    {
+      "name": "File route",
+      "code": "export const Route = createFileRoute('/products')({ component: ProductsPage })"
+    },
+    {
+      "name": "Route with loader",
+      "code": "export const Route = createFileRoute('/products')({\n  loader: ({ context: { queryClient } }) => queryClient.ensureQueryData(productsQuery()),\n  component: ProductsPage,\n})"
+    },
+    {
+      "name": "Dynamic route param",
+      "code": "// File: routes/products/$id.tsx\nconst { id } = Route.useParams()"
+    },
+    {
+      "name": "Navigate programmatically",
+      "code": "const navigate = useNavigate()\nnavigate({ to: '/products' })"
+    },
+    {
+      "name": "Link component",
+      "code": "<Link to=\"/products/$id\" params={{ id: product.id }}>View</Link>"
+    },
+    {
+      "name": "beforeLoad auth guard",
+      "code": "beforeLoad: async ({ context }) => {\n  if (!context.session) throw redirect({ to: '/login' })\n}"
+    }
+  ],
+  "token_estimate": 110
+}

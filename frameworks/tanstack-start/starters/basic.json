@@ -1,0 +1,11 @@
+{
+  "id": "basic",
+  "name": "Basic Starter",
+  "description": "Minimal TanStack Start project with Drizzle and shadcn/ui",
+  "token_estimate": 40,
+  "steps": [
+    { "cmd": "init", "args": {} },
+    { "cmd": "add:schema", "args": { "name": "example", "fields": [{ "name": "title", "type": "string", "required": true }], "timestamps": true } },
+    { "cmd": "add:migration", "args": {} }
+  ]
+}

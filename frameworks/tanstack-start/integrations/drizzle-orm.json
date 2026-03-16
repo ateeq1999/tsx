@@ -1,0 +1,35 @@
+{
+  "package": "drizzle-orm",
+  "version": "^0.39",
+  "description": "Type-safe SQL ORM with SQLite/PostgreSQL support",
+  "install": "npm install drizzle-orm drizzle-kit better-sqlite3",
+  "generate_command": "tsx add:schema <name> --fields <fields>",
+  "files_created": ["db/schema/<name>.ts", "drizzle.config.ts"],
+  "setup_steps": [
+    { "step": 1, "action": "Add schema", "code": "tsx add:schema products --fields name:string,price:number --timestamps" },
+    { "step": 2, "action": "Run migration", "code": "tsx add:migration" }
+  ],
+  "patterns": [
+    {
+      "name": "Select all",
+      "code": "await db.select().from(products)"
+    },
+    {
+      "name": "Select by id",
+      "code": "await db.select().from(products).where(eq(products.id, id)).limit(1)"
+    },
+    {
+      "name": "Insert",
+      "code": "await db.insert(products).values(data).returning()"
+    },
+    {
+      "name": "Update",
+      "code": "await db.update(products).set(data).where(eq(products.id, id)).returning()"
+    },
+    {
+      "name": "Soft delete",
+      "code": "await db.update(products).set({ deletedAt: Date.now() }).where(eq(products.id, id))"
+    }
+  ],
+  "token_estimate": 110
+}

@@ -1,0 +1,37 @@
+{
+  "id": "tanstack-start",
+  "name": "TanStack Start",
+  "version": "1.0.0",
+  "category": "framework",
+  "description": "Full-stack React meta-framework with file-based routing, server functions, and TanStack Query integration.",
+  "docs": "https://tanstack.com/start",
+  "github": "https://github.com/TanStack/start",
+  "peer_dependencies": {
+    "@tanstack/start": "^1.0",
+    "@tanstack/react-router": "^1.0",
+    "@tanstack/react-query": "^5.0"
+  },
+  "knowledge_token_budget": {
+    "overview": 150,
+    "concepts": 400,
+    "patterns": 600,
+    "faq_per_entry": 120,
+    "decisions": 500
+  },
+  "generators": [
+    "init",
+    "add-feature",
+    "add-schema",
+    "add-server-fn",
+    "add-query",
+    "add-form",
+    "add-table",
+    "add-page",
+    "add-auth",
+    "add-auth-guard",
+    "add-migration",
+    "add-seed"
+  ],
+  "starters": ["basic", "with-auth", "saas"],
+  "integrations": ["better-auth", "drizzle-orm", "shadcn-ui", "react-query", "react-router"]
+}

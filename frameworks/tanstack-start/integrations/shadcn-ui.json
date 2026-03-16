@@ -1,0 +1,26 @@
+{
+  "package": "shadcn-ui",
+  "version": "latest",
+  "description": "Accessible component library (components copied into your project)",
+  "install": "npx shadcn@latest init && npx shadcn@latest add button card input label select",
+  "components_dir": "components/ui/",
+  "patterns": [
+    {
+      "name": "Button",
+      "code": "<Button variant=\"default\" onClick={handler}>Save</Button>"
+    },
+    {
+      "name": "Card",
+      "code": "<Card><CardHeader><CardTitle>Title</CardTitle></CardHeader><CardContent>...</CardContent></Card>"
+    },
+    {
+      "name": "Form field with label",
+      "code": "<div className=\"space-y-2\">\n  <Label htmlFor=\"name\">Name</Label>\n  <Input id=\"name\" {...field.getInputProps()} />\n</div>"
+    },
+    {
+      "name": "Data table",
+      "code": "<DataTable columns={columns} data={data} />"
+    }
+  ],
+  "token_estimate": 80
+}

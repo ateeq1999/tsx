@@ -114,8 +114,16 @@ mod tests {
     }
 }
 
-pub fn ask(question: String, framework: Option<String>, verbose: bool) -> CommandResult {
+pub fn ask(
+    question: String,
+    framework: Option<String>,
+    depth: String,
+    verbose: bool,
+) -> CommandResult {
+    use crate::framework::token_budget::Depth;
+
     let start = Instant::now();
+    let depth = Depth::from_str(&depth);
 
     let mut loader = FrameworkLoader::default();
     let frameworks = loader.load_builtin_frameworks();
@@ -147,30 +155,43 @@ pub fn ask(question: String, framework: Option<String>, verbose: bool) -> Comman
 
         if let Some((q, _)) = best {
             let duration_ms = start.elapsed().as_millis() as u64;
-            let result = AskResult {
-                question: q.topic.clone(),
-                framework: reg.framework.clone(),
-                answer: q.answer.clone(),
-                steps: q
-                    .steps
+
+            // Apply depth filtering.
+            let steps = if depth.include_steps() {
+                q.steps
                     .iter()
                     .map(|s| AskStep {
                         action: s.action.clone(),
                         code: s.code.clone(),
                         description: s.description.clone(),
                     })
-                    .collect(),
-                files_affected: q.files_affected.clone(),
-                dependencies: q.dependencies.clone(),
-                learn_more: q.learn_more.clone(),
+                    .collect()
+            } else {
+                vec![]
+            };
+            let (files_affected, dependencies, learn_more) = if depth.include_extras() {
+                (q.files_affected.clone(), q.dependencies.clone(), q.learn_more.clone())
+            } else {
+                (vec![], vec![], vec![])
             };
 
-            let response = ResponseEnvelope::success(
-                "ask",
-                serde_json::to_value(result).unwrap(),
-                duration_ms,
-            );
+            let mut result = serde_json::json!({
+                "question": q.topic,
+                "framework": reg.framework,
+                "answer": q.answer,
+                "depth": depth.to_string(),
+                "token_estimate": estimate_result_tokens(&q.answer, &steps),
+            });
+            if depth.include_steps() {
+                result["steps"] = serde_json::to_value(&steps).unwrap();
+            }
+            if depth.include_extras() {
+                result["files_affected"] = serde_json::to_value(&files_affected).unwrap();
+                result["dependencies"] = serde_json::to_value(&dependencies).unwrap();
+                result["learn_more"] = serde_json::to_value(&learn_more).unwrap();
+            }
 
+            let response = ResponseEnvelope::success("ask", result, duration_ms);
             if verbose {
                 let context = crate::json::response::Context {
                     project_root: std::env::current_dir()
@@ -201,4 +222,17 @@ pub fn ask(question: String, framework: Option<String>, verbose: bool) -> Comman
     let error = ErrorResponse::validation(&format!("Framework not found: {}", target_framework));
     ResponseEnvelope::error("ask", error, duration_ms).print();
     CommandResult::err("ask", "Framework not found")
+}
+
+fn estimate_result_tokens(answer: &str, steps: &[AskStep]) -> u32 {
+    let base = (answer.len() / 4) as u32;
+    let steps_tokens: u32 = steps
+        .iter()
+        .map(|s| {
+            let action_len = s.action.len() / 4;
+            let code_len = s.code.as_deref().unwrap_or("").len() / 4;
+            (action_len + code_len) as u32
+        })
+        .sum();
+    base + steps_tokens
 }

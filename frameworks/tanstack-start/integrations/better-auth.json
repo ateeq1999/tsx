@@ -1,0 +1,28 @@
+{
+  "package": "better-auth",
+  "version": "^1.0",
+  "description": "Database-backed auth with session management",
+  "install": "npm install better-auth",
+  "generate_command": "tsx add:auth --provider email",
+  "files_created": ["lib/auth.ts", "lib/auth-client.ts"],
+  "setup_steps": [
+    { "step": 1, "action": "Run generator", "code": "tsx add:auth --provider email" },
+    { "step": 2, "action": "Run migration", "code": "tsx add:migration" },
+    { "step": 3, "action": "Set env vars", "code": "BETTER_AUTH_SECRET=...\nBETTER_AUTH_URL=http://localhost:3000" }
+  ],
+  "patterns": [
+    {
+      "name": "Get session in server function",
+      "code": "const session = await auth.api.getSession({ headers: getHeaders() })"
+    },
+    {
+      "name": "Get session in route loader",
+      "code": "const session = await auth.api.getSession({ headers: getHeaders() })"
+    },
+    {
+      "name": "Auth guard beforeLoad",
+      "code": "beforeLoad: async ({ context }) => {\n  if (!context.session) throw redirect({ to: '/login' })\n}"
+    }
+  ],
+  "token_estimate": 95
+}

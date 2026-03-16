@@ -1,0 +1,13 @@
+[package]
+name = "forge"
+version = "0.1.0"
+edition = "2021"
+description = "4-tier code generation engine for the tsx Framework Protocol"
+
+[dependencies]
+tera = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+heck = { workspace = true }
+walkdir = { workspace = true }

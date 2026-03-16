@@ -1,0 +1,12 @@
+{
+  "id": "with-auth",
+  "name": "With Auth Starter",
+  "description": "TanStack Start with Better Auth email/password authentication",
+  "token_estimate": 50,
+  "steps": [
+    { "cmd": "init", "args": {} },
+    { "cmd": "add:auth", "args": { "provider": "email" } },
+    { "cmd": "add:migration", "args": {} },
+    { "cmd": "add:page", "args": { "path": "dashboard", "auth": true } }
+  ]
+}

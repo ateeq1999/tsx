@@ -1,0 +1,15 @@
+{
+  "id": "saas",
+  "name": "SaaS Starter",
+  "description": "Full-stack SaaS app with auth, DB, dashboard, and user management",
+  "token_estimate": 60,
+  "steps": [
+    { "cmd": "init", "args": {} },
+    { "cmd": "add:auth", "args": { "provider": "email" } },
+    { "cmd": "add:schema", "args": { "name": "organizations", "fields": [{ "name": "name", "type": "string", "required": true }, { "name": "slug", "type": "string", "required": true }], "timestamps": true } },
+    { "cmd": "add:schema", "args": { "name": "memberships", "fields": [{ "name": "role", "type": "string", "required": true }], "timestamps": true } },
+    { "cmd": "add:migration", "args": {} },
+    { "cmd": "add:feature", "args": { "name": "users", "fields": [{ "name": "name", "type": "string", "required": true }, { "name": "email", "type": "email", "required": true }], "auth": true } },
+    { "cmd": "add:page", "args": { "path": "dashboard", "auth": true } }
+  ]
+}

@@ -80,6 +80,15 @@ enum Command {
         #[arg(long, default_value = "7331")]
         port: u16,
     },
+    /// Show framework overview and available knowledge cost map (agent entry point)
+    Describe {
+        /// Framework slug to describe (e.g., tanstack-start)
+        #[arg(long)]
+        framework: String,
+        /// Return a specific knowledge section (overview, concepts, patterns, faq, decisions)
+        #[arg(long)]
+        section: Option<String>,
+    },
     /// Answer questions about a framework
     Ask {
         /// The question to ask
@@ -88,6 +97,9 @@ enum Command {
         /// Framework to query (optional)
         #[arg(long)]
         framework: Option<String>,
+        /// Response depth: brief (~50 tokens), default (~150 tokens), full (~400 tokens)
+        #[arg(long, default_value = "default")]
+        depth: String,
     },
     /// Find where things go in a framework
     Where {
@@ -418,16 +430,22 @@ fn main() {
             let result = subscribe::subscribe(port, cli.verbose);
             result.print();
         }
+        Command::Describe { framework, section } => {
+            use tsx::commands::query::describe;
+            let result = describe::describe(framework, section, cli.verbose);
+            result.print();
+        }
         Command::Ask {
             question,
             framework,
+            depth,
         } => {
-            use tsx::commands::ask;
-            let result = ask::ask(question, framework, cli.verbose);
+            use tsx::commands::query::ask;
+            let result = ask::ask(question, framework, depth, cli.verbose);
             result.print();
         }
         Command::Where { thing, framework } => {
-            use tsx::commands::where_cmd;
+            use tsx::commands::query::where_cmd;
             let result = where_cmd::where_cmd(thing, framework, cli.verbose);
             result.print();
         }
@@ -435,12 +453,12 @@ fn main() {
             integration,
             framework,
         } => {
-            use tsx::commands::how;
+            use tsx::commands::query::how;
             let result = how::how(integration, framework, cli.verbose);
             result.print();
         }
         Command::Explain { topic } => {
-            use tsx::commands::explain;
+            use tsx::commands::query::explain;
             let result = explain::explain(topic, cli.verbose);
             result.print();
         }

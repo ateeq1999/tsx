@@ -25,6 +25,18 @@ pub fn get_templates_dir(root: &Path) -> PathBuf {
     root.join("templates")
 }
 
+/// Returns the frameworks directory (next to the binary, or `./frameworks` in cwd).
+/// Mirrors the logic in `FrameworkLoader::default()`.
+pub fn get_frameworks_dir() -> PathBuf {
+    let exe_dir = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()));
+    exe_dir
+        .map(|d| d.join("frameworks"))
+        .filter(|p| p.exists())
+        .unwrap_or_else(|| PathBuf::from("frameworks"))
+}
+
 pub fn find_project_root() -> Result<PathBuf> {
     let mut current_dir = std::env::current_dir().context("Failed to get current directory")?;
 
