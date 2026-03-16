@@ -42,26 +42,123 @@ fn save_registries_index(root: &Path, registries: &[InstalledRegistry]) -> anyho
 }
 
 fn iso_now() -> String {
-    let secs = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    let s = secs % 60;
-    let m = (secs / 60) % 60;
-    let h = (secs / 3600) % 24;
-    let days = secs / 86400;
-    let year = 1970 + days / 365;
-    let doy = days % 365 + 1;
-    let month = (doy / 30).min(11) + 1;
-    let day = doy % 30 + 1;
-    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", year, month, day, h, m, s)
+    unix_secs_to_iso(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0),
+    )
 }
 
-/// Search npm for `tsx-framework-*` packages matching a query.
+/// Convert a Unix timestamp (seconds) to an ISO-8601 UTC string with correct
+/// leap-year and month-length handling.
+pub(crate) fn unix_secs_to_iso(total_secs: u64) -> String {
+    let sec = (total_secs % 60) as u32;
+    let min = ((total_secs / 60) % 60) as u32;
+    let hour = ((total_secs / 3600) % 24) as u32;
+
+    let mut days = total_secs / 86400;
+    let mut year = 1970u32;
+    loop {
+        let in_year = if is_leap_year(year) { 366 } else { 365 };
+        if days < in_year { break; }
+        days -= in_year;
+        year += 1;
+    }
+    let month_days: [u64; 12] = if is_leap_year(year) {
+        [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    } else {
+        [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    };
+    let mut month = 1u32;
+    for &md in &month_days {
+        if days < md { break; }
+        days -= md;
+        month += 1;
+    }
+    let day = days as u32 + 1;
+    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", year, month, day, hour, min, sec)
+}
+
+fn is_leap_year(y: u32) -> bool {
+    (y % 4 == 0 && y % 100 != 0) || (y % 400 == 0)
+}
+
+/// Return the configured registry base URL.
+/// Checks `TSX_REGISTRY_URL` env var; falls back to `None` (→ use npm/unpkg).
+pub(crate) fn registry_url() -> Option<String> {
+    std::env::var("TSX_REGISTRY_URL")
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| s.trim_end_matches('/').to_string())
+}
+
+/// Search for packages. Prefers `TSX_REGISTRY_URL/v1/search` when set,
+/// falls back to the npm registry.
 pub fn registry_search(query: String, verbose: bool) -> CommandResult {
     let start = Instant::now();
 
-    // npm registry search API — returns up to 20 results
+    let client = match reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => return CommandResult::err("registry:search", e.to_string()),
+    };
+
+    // ── hosted registry path ──────────────────────────────────────────────────
+    if let Some(server) = registry_url() {
+        let url = format!(
+            "{}/v1/search?q={}&size=20",
+            server,
+            urlencoding(query.trim())
+        );
+        let result = client
+            .get(&url)
+            .header("Accept", "application/json")
+            .send()
+            .and_then(|r| r.json::<serde_json::Value>());
+
+        let duration_ms = start.elapsed().as_millis() as u64;
+
+        return match result {
+            Ok(json) => {
+                let results = json
+                    .get("data")
+                    .and_then(|d| d.get("results"))
+                    .and_then(|r| r.as_array())
+                    .cloned()
+                    .unwrap_or_default();
+
+                let packages: Vec<serde_json::Value> = results
+                    .into_iter()
+                    .map(|r| serde_json::json!({
+                        "name": r.get("name").and_then(|v| v.as_str()).unwrap_or(""),
+                        "version": r.get("latest_version").and_then(|v| v.as_str()).unwrap_or("?"),
+                        "description": r.get("description").and_then(|v| v.as_str()).unwrap_or(""),
+                        "provides": r.get("provides").cloned().unwrap_or(serde_json::json!([])),
+                        "lang": r.get("lang").cloned().unwrap_or(serde_json::json!([])),
+                        "install": r.get("install").and_then(|v| v.as_str()).unwrap_or(""),
+                    }))
+                    .collect();
+
+                ResponseEnvelope::success(
+                    "registry:search",
+                    serde_json::json!({ "query": query, "results": packages, "source": server }),
+                    duration_ms,
+                )
+                .print();
+                CommandResult::ok("registry:search", vec![])
+            }
+            Err(e) => {
+                let error = ErrorResponse::new(ErrorCode::InternalError, format!("Registry search failed: {}", e));
+                ResponseEnvelope::error("registry:search", error, duration_ms).print();
+                CommandResult::err("registry:search", e.to_string())
+            }
+        };
+    }
+
+    // ── npm fallback ──────────────────────────────────────────────────────────
     let search_text = if query.trim().is_empty() {
         "tsx-framework".to_string()
     } else {
@@ -73,10 +170,10 @@ pub fn registry_search(query: String, verbose: bool) -> CommandResult {
         urlencoding(&search_text)
     );
 
-    let result = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .build()
-        .and_then(|c| c.get(&url).header("Accept", "application/json").send())
+    let result = client
+        .get(&url)
+        .header("Accept", "application/json")
+        .send()
         .and_then(|r| r.json::<serde_json::Value>());
 
     let duration_ms = start.elapsed().as_millis() as u64;
@@ -193,8 +290,19 @@ pub fn registry_install(package: String, verbose: bool) -> CommandResult {
         .to_string();
 
     let (slug, files_written) = if package.starts_with("@tsx-pkg/") {
-        // FPF install: fetch manifest.json + generators/*.json → .tsx/packages/<slug>/
-        match install_fpf_package(&package, &latest, &root, &client) {
+        // FPF install: prefer hosted registry server; fall back to unpkg
+        let fpf_result = if let Some(server) = registry_url() {
+            install_fpf_from_server(&package, &root, &client, &server)
+                .map(|(slug, version, files)| {
+                    // update `latest` in the outer scope via return value
+                    let _ = version;
+                    (slug, files)
+                })
+                .or_else(|_| install_fpf_package(&package, &latest, &root, &client))
+        } else {
+            install_fpf_package(&package, &latest, &root, &client)
+        };
+        match fpf_result {
             Ok(result) => result,
             Err(e) => {
                 let duration_ms = start.elapsed().as_millis() as u64;
@@ -255,6 +363,95 @@ pub fn registry_install(package: String, verbose: bool) -> CommandResult {
     CommandResult::ok("registry:install", files_written)
 }
 
+/// Install a FPF `@tsx-pkg/` package from the hosted registry: downloads tarball,
+/// extracts to `.tsx/packages/<slug>/`, and checks `tsx_min` compatibility.
+/// Returns `(slug, latest_version, files_written)`.
+fn install_fpf_from_server(
+    package: &str,
+    root: &Path,
+    client: &reqwest::blocking::Client,
+    server_url: &str,
+) -> anyhow::Result<(String, String, Vec<String>)> {
+    let encoded = package.replace('@', "%40").replace('/', "%2F");
+    let info_url = format!("{}/v1/packages/{}", server_url, encoded);
+
+    let info: serde_json::Value = client
+        .get(&info_url)
+        .header("Accept", "application/json")
+        .send()?
+        .json()?;
+
+    let data = info
+        .get("data")
+        .ok_or_else(|| anyhow::anyhow!("Invalid response from registry"))?;
+
+    let latest_version = data
+        .get("latest_version")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown")
+        .to_string();
+
+    // Check tsx_min compatibility
+    if let Some(manifest) = data.get("manifest") {
+        check_tsx_min(manifest)?;
+    }
+
+    let slug = package.split('/').last().unwrap_or(package).to_string();
+
+    // Download tarball
+    let tarball_url = format!(
+        "{}/v1/packages/{}/{}/tarball",
+        server_url, encoded, latest_version
+    );
+    let tarball_bytes = client.get(&tarball_url).send()?.bytes()?;
+
+    // Extract to .tsx/packages/<slug>/
+    let dest = root.join(".tsx").join("packages").join(&slug);
+    std::fs::create_dir_all(&dest)?;
+
+    let decoder = flate2::read::GzDecoder::new(std::io::Cursor::new(tarball_bytes));
+    let mut archive = tar::Archive::new(decoder);
+    let mut files = vec![];
+
+    for entry in archive.entries()? {
+        let mut entry = entry?;
+        let entry_path = entry.path()?.into_owned();
+        // Strip leading component (e.g. "package/" added by npm pack)
+        let stripped: std::path::PathBuf = entry_path.components().skip(1).collect();
+        if stripped.as_os_str().is_empty() {
+            continue;
+        }
+        let dest_path = dest.join(&stripped);
+        if let Some(parent) = dest_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        entry.unpack(&dest_path)?;
+        files.push(dest_path.to_string_lossy().to_string());
+    }
+
+    Ok((slug, latest_version, files))
+}
+
+/// Check the `tsx_min` field in a manifest JSON value against the running CLI version.
+fn check_tsx_min(manifest: &serde_json::Value) -> anyhow::Result<()> {
+    let tsx_min = match manifest.get("tsx_min").and_then(|v| v.as_str()) {
+        Some(v) => v,
+        None => return Ok(()),
+    };
+    let cli_ver = env!("CARGO_PKG_VERSION");
+    match (
+        semver::Version::parse(tsx_min),
+        semver::Version::parse(cli_ver),
+    ) {
+        (Ok(min), Ok(cli)) if cli < min => Err(anyhow::anyhow!(
+            "Package requires tsx >= {} but you are running {}. Run `cargo install tsx` to upgrade.",
+            tsx_min,
+            cli_ver
+        )),
+        _ => Ok(()),
+    }
+}
+
 /// Install a FPF `@tsx-pkg/` package: downloads manifest.json and all generators to
 /// `.tsx/packages/<slug>/`.  Returns `(slug, files_written)`.
 fn install_fpf_package(
@@ -272,6 +469,9 @@ fn install_fpf_package(
         .header("Accept", "application/json")
         .send()?
         .json()?;
+
+    // Check tsx_min compatibility
+    check_tsx_min(&manifest)?;
 
     // Derive slug from package name: @tsx-pkg/tanstack-start → tanstack-start
     let slug = package
@@ -837,17 +1037,64 @@ fn urlencoding(s: &str) -> String {
         .collect()
 }
 
-/// Fetch metadata for a single npm package and display version, description,
-/// provides[], and integrates_with from its FPF manifest (if available).
+/// Fetch metadata for a single package. Prefers `TSX_REGISTRY_URL` when set,
+/// falls back to npm + unpkg.
 pub fn registry_info(package: String, _verbose: bool) -> CommandResult {
     let start = Instant::now();
 
-    let url = format!("https://registry.npmjs.org/{}", urlencoding(&package));
-
-    let result = reqwest::blocking::Client::builder()
+    let client = match reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()
-        .and_then(|c| c.get(&url).header("Accept", "application/json").send())
+    {
+        Ok(c) => c,
+        Err(e) => return CommandResult::err("registry:info", e.to_string()),
+    };
+
+    // ── hosted registry path ──────────────────────────────────────────────────
+    if let Some(server) = registry_url() {
+        let encoded = package.replace('@', "%40").replace('/', "%2F");
+        let url = format!("{}/v1/packages/{}", server, encoded);
+        let result = client
+            .get(&url)
+            .header("Accept", "application/json")
+            .send()
+            .and_then(|r| r.json::<serde_json::Value>());
+
+        let duration_ms = start.elapsed().as_millis() as u64;
+
+        return match result {
+            Ok(json) => {
+                let data = json.get("data").cloned().unwrap_or(serde_json::json!({}));
+                let payload = serde_json::json!({
+                    "package": data.get("name").and_then(|v| v.as_str()).unwrap_or(&package),
+                    "version": data.get("latest_version").and_then(|v| v.as_str()).unwrap_or("unknown"),
+                    "description": data.get("description").and_then(|v| v.as_str()).unwrap_or(""),
+                    "lang": data.get("lang").cloned().unwrap_or(serde_json::json!([])),
+                    "provides": data.get("provides").cloned().unwrap_or(serde_json::json!([])),
+                    "integrates_with": data.get("integrates_with").cloned().unwrap_or(serde_json::json!([])),
+                    "downloads": data.get("downloads").cloned().unwrap_or(serde_json::json!(0)),
+                    "manifest": data.get("manifest").cloned().unwrap_or(serde_json::Value::Null),
+                    "install": format!("tsx registry install {}", package),
+                    "source": server,
+                });
+                ResponseEnvelope::success("registry:info", payload, duration_ms).print();
+                CommandResult::ok("registry:info", vec![])
+            }
+            Err(e) => {
+                let error = ErrorResponse::new(ErrorCode::InternalError, format!("Registry request failed: {e}"));
+                ResponseEnvelope::error("registry:info", error, duration_ms).print();
+                CommandResult::err("registry:info", e.to_string())
+            }
+        };
+    }
+
+    // ── npm fallback ──────────────────────────────────────────────────────────
+    let url = format!("https://registry.npmjs.org/{}", urlencoding(&package));
+
+    let result = client
+        .get(&url)
+        .header("Accept", "application/json")
+        .send()
         .and_then(|r| r.json::<serde_json::Value>());
 
     let duration_ms = start.elapsed().as_millis() as u64;
@@ -879,10 +1126,9 @@ pub fn registry_info(package: String, _verbose: bool) -> CommandResult {
 
     // Try to fetch the FPF manifest from unpkg to get provides[] / integrates_with
     let manifest_url = format!("https://unpkg.com/{}/manifest.json", package);
-    let manifest = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .build()
-        .and_then(|c| c.get(&manifest_url).send())
+    let manifest = client
+        .get(&manifest_url)
+        .send()
         .and_then(|r| r.json::<serde_json::Value>())
         .ok();
 

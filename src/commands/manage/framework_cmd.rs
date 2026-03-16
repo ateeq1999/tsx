@@ -700,9 +700,16 @@ struct PublishResult {
     dry_run: bool,
 }
 
-/// Generate a publish-ready `package.json` for the framework directory and run
-/// `npm publish` (or validate what would be published in dry-run mode).
-pub fn framework_publish(path: Option<String>, dry_run: bool, verbose: bool) -> CommandResult {
+/// Generate a publish-ready `package.json` for the framework directory and either:
+/// - `npm publish --access public` (default), or
+/// - multipart-upload to a hosted registry (`--registry <url>`)
+pub fn framework_publish(
+    path: Option<String>,
+    dry_run: bool,
+    registry: Option<String>,
+    api_key: Option<String>,
+    verbose: bool,
+) -> CommandResult {
     let start = Instant::now();
 
     let pkg_dir = match path {
@@ -779,8 +786,81 @@ pub fn framework_publish(path: Option<String>, dry_run: bool, verbose: bool) -> 
 
     let published = if dry_run {
         false
+    } else if let Some(registry_url) = registry {
+        // ── Hosted registry upload ────────────────────────────────────────────
+        // Resolve API key: --api-key flag → TSX_REGISTRY_API_KEY env var
+        let key = api_key
+            .or_else(|| std::env::var("TSX_REGISTRY_API_KEY").ok())
+            .unwrap_or_default();
+
+        // Build a .tar.gz of the package directory in memory
+        let tarball_bytes = match build_tarball(&pkg_dir) {
+            Ok(b) => b,
+            Err(e) => {
+                let duration_ms = start.elapsed().as_millis() as u64;
+                let error = ErrorResponse::new(
+                    crate::json::error::ErrorCode::InternalError,
+                    &format!("Failed to create tarball: {}", e),
+                );
+                ResponseEnvelope::error("framework:publish", error, duration_ms).print();
+                return CommandResult::err("framework:publish", "Tarball creation failed");
+            }
+        };
+
+        let client = match reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(60))
+            .build()
+        {
+            Ok(c) => c,
+            Err(e) => return CommandResult::err("framework:publish", e.to_string()),
+        };
+
+        let url = format!(
+            "{}/v1/packages/publish",
+            registry_url.trim_end_matches('/')
+        );
+        let form = reqwest::blocking::multipart::Form::new()
+            .text("name", package_name.clone())
+            .text("version", fw_version.to_string())
+            .text("manifest", manifest_content.clone())
+            .part(
+                "tarball",
+                reqwest::blocking::multipart::Part::bytes(tarball_bytes)
+                    .file_name(format!("{}-{}.tar.gz", fw_id, fw_version))
+                    .mime_str("application/gzip")
+                    .unwrap(),
+            );
+
+        let mut req = client.post(&url).multipart(form);
+        if !key.is_empty() {
+            req = req.header("Authorization", format!("Bearer {}", key));
+        }
+
+        match req.send() {
+            Ok(resp) if resp.status().is_success() => true,
+            Ok(resp) => {
+                let status = resp.status();
+                let body = resp.text().unwrap_or_default();
+                let duration_ms = start.elapsed().as_millis() as u64;
+                let error = ErrorResponse::validation(&format!(
+                    "Registry publish failed (HTTP {}): {}",
+                    status, body.trim()
+                ));
+                ResponseEnvelope::error("framework:publish", error, duration_ms).print();
+                return CommandResult::err("framework:publish", "Registry publish failed");
+            }
+            Err(e) => {
+                let duration_ms = start.elapsed().as_millis() as u64;
+                let error = ErrorResponse::new(
+                    crate::json::error::ErrorCode::InternalError,
+                    &format!("HTTP request failed: {}", e),
+                );
+                ResponseEnvelope::error("framework:publish", error, duration_ms).print();
+                return CommandResult::err("framework:publish", "HTTP error");
+            }
+        }
     } else {
-        // Run npm publish
+        // ── npm publish ───────────────────────────────────────────────────────
         let output = std::process::Command::new("npm")
             .arg("publish")
             .arg("--access")
@@ -840,4 +920,36 @@ pub fn framework_publish(path: Option<String>, dry_run: bool, verbose: bool) -> 
     }
 
     CommandResult::ok("framework:publish", vec![])
+}
+
+
+// ── Tarball helpers ────────────────────────────────────────────────────────────
+
+/// Build an in-memory `.tar.gz` of a directory for registry upload.
+fn build_tarball(dir: &std::path::Path) -> anyhow::Result<Vec<u8>> {
+    let mut buf = Vec::new();
+    let enc = flate2::write::GzEncoder::new(&mut buf, flate2::Compression::default());
+    let mut archive = tar::Builder::new(enc);
+    append_dir_to_archive(&mut archive, dir, std::path::Path::new("package"))?;
+    let gz_enc = archive.into_inner()?;
+    gz_enc.finish()?;
+    Ok(buf)
+}
+
+fn append_dir_to_archive<W: std::io::Write>(
+    builder: &mut tar::Builder<W>,
+    dir: &std::path::Path,
+    prefix: &std::path::Path,
+) -> anyhow::Result<()> {
+    for entry in std::fs::read_dir(dir)?.flatten() {
+        let path = entry.path();
+        let rel = prefix.join(entry.file_name());
+        if path.is_dir() {
+            append_dir_to_archive(builder, &path, &rel)?;
+        } else {
+            let mut f = std::fs::File::open(&path)?;
+            builder.append_file(&rel, &mut f)?;
+        }
+    }
+    Ok(())
 }

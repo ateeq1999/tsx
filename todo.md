@@ -118,6 +118,25 @@ _Goal: Every feature described in proposal.md is implemented._
 
 ---
 
+---
+
+## Phase 8 — Registry Hardening & CLI-Server Integration
+
+_Goal: The CLI actually talks to `registry.tsx.dev`, search works correctly, and the server is production-ready._
+
+- [x] **Fix `iso_now()`** — correct leap-year and month calendar math in both `crates/registry-server/src/db.rs` and `src/commands/ops/registry.rs`
+- [x] **`TSX_REGISTRY_URL` env var** — all `tsx registry *` commands prefer `$TSX_REGISTRY_URL/v1/...` over hardcoded npm/unpkg; falls back to npm when unset
+- [x] **Tarball extraction on install** — `tsx registry install` downloads `.tar.gz` from registry server and extracts to `.tsx/packages/<slug>/`
+- [x] **`tsx_min` version compat check** — `registry_install` reads `manifest.tsx_min`, rejects install if CLI version is older
+- [x] **Fix search `latest_version` stub** — `GET /v1/search` returns the real latest semver version via `search_with_latest()` DB method
+- [x] **Sort versions by semver** — `get_versions()` sorts by parsed semver DESC, not `published_at`
+- [x] **Fix lang filter** — parse `lang` JSON column properly in Rust so `?lang=rust` never false-matches `trust`
+- [x] **WAL + busy_timeout** — `Mutex<Db>` + `PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;` in registry server migrations
+- [x] **Rate limiting on publish** — `POST /v1/packages/publish` returns HTTP 429 after 10 req/min per IP (per-IP token bucket in `AppState`)
+- [x] **`tsx framework publish --registry <url> --api-key <key>`** — multipart-upload to custom registry instead of only `npm publish`
+
+---
+
 ## Completed (prior sessions)
 
 - [x] `tsx run <id> --json` universal dispatcher

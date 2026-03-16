@@ -49,6 +49,8 @@ pub struct AppState {
     pub data_dir: PathBuf,
     /// Optional API key for the publish endpoint. `None` → endpoint is open (dev mode).
     pub api_key: Option<String>,
+    /// Per-IP rate limiter for the publish endpoint: (request_count, window_start).
+    pub rate_limiter: std::sync::Mutex<std::collections::HashMap<std::net::IpAddr, (u32, std::time::Instant)>>,
 }
 
 use db::Db;
@@ -87,6 +89,7 @@ async fn main() -> anyhow::Result<()> {
         db: std::sync::Mutex::new(db),
         data_dir,
         api_key,
+        rate_limiter: std::sync::Mutex::new(std::collections::HashMap::new()),
     });
 
     let cors = CorsLayer::new()
@@ -126,7 +129,11 @@ async fn main() -> anyhow::Result<()> {
     info!("  POST /v1/packages/publish  (multipart: name, version, manifest, tarball)");
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .await?;
 
     Ok(())
 }

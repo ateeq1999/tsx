@@ -397,6 +397,12 @@ enum FrameworkCmd {
         /// Validate and show what would be published without running npm publish
         #[arg(long)]
         dry_run: bool,
+        /// Upload to a hosted registry instead of npm (e.g. https://registry.tsx.dev)
+        #[arg(long)]
+        registry: Option<String>,
+        /// Bearer token for the hosted registry (or set TSX_REGISTRY_API_KEY)
+        #[arg(long)]
+        api_key: Option<String>,
     },
 }
 
@@ -630,9 +636,9 @@ fn main() {
                 let result = framework_cmd::framework_list(cli.verbose);
                 result.print();
             }
-            FrameworkCmd::Publish { path, dry_run } => {
+            FrameworkCmd::Publish { path, dry_run, registry, api_key } => {
                 use tsx::commands::framework_cmd;
-                let result = framework_cmd::framework_publish(path, dry_run, cli.verbose);
+                let result = framework_cmd::framework_publish(path, dry_run, registry, api_key, cli.verbose);
                 result.print();
             }
         },

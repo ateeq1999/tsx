@@ -32,7 +32,7 @@ pub async fn search(
     let size = params.size.unwrap_or(20).min(50);
 
     let db = state.db.lock().unwrap();
-    match db.search(query, params.lang.as_deref()) {
+    match db.search_with_latest(query, params.lang.as_deref()) {
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::to_value(ApiError::new(e.to_string())).unwrap()),
@@ -41,12 +41,9 @@ pub async fn search(
             let results: Vec<SearchResult> = rows
                 .into_iter()
                 .take(size)
-                .map(|r| SearchResult {
+                .map(|(r, latest_version)| SearchResult {
                     install: format!("tsx registry install {}", r.name),
-                    latest_version: {
-                        // We don't have version in this row; stub — real impl joins versions
-                        "latest".to_string()
-                    },
+                    latest_version,
                     provides: r.provides_vec(),
                     downloads: r.downloads,
                     lang: r.lang_vec(),

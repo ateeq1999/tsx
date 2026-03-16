@@ -1,9 +1,10 @@
 use axum::{
     body::Body,
-    extract::{Multipart, Path, State},
+    extract::{ConnectInfo, Multipart, Path, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Json, Response},
 };
+use std::net::SocketAddr;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{path::PathBuf, sync::Arc};
@@ -197,9 +198,33 @@ pub async fn download_tarball(
 /// `TSX_REGISTRY_API_KEY` environment variable).
 pub async fn publish(
     State(state): State<Arc<AppState>>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     mut multipart: Multipart,
 ) -> (StatusCode, Json<Value>) {
+    // --- Rate limiting: 10 req/min per IP ---
+    {
+        let ip = addr.ip();
+        let mut limiter = state.rate_limiter.lock().unwrap();
+        let now = std::time::Instant::now();
+        let entry = limiter.entry(ip).or_insert((0, now));
+        if now.duration_since(entry.1) >= std::time::Duration::from_secs(60) {
+            *entry = (0, now);
+        }
+        entry.0 += 1;
+        if entry.0 > 10 {
+            return (
+                StatusCode::TOO_MANY_REQUESTS,
+                Json(
+                    serde_json::to_value(ApiError::new(
+                        "Rate limit exceeded: max 10 publishes per minute per IP",
+                    ))
+                    .unwrap(),
+                ),
+            );
+        }
+    }
+
     // --- Auth ---
     if let Some(expected_key) = &state.api_key {
         let provided = headers

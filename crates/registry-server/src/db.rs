@@ -2,6 +2,9 @@ use anyhow::{Context, Result};
 use rusqlite::{Connection, params};
 use std::path::Path;
 
+/// Thread-safe wrapper: `rusqlite::Connection` is `!Sync`, but WAL mode
+/// plus `busy_timeout` allows concurrent readers.  We keep the Mutex but
+/// configure SQLite so writers don't starve readers.
 pub struct Db {
     conn: Connection,
 }
@@ -26,6 +29,7 @@ impl Db {
     fn migrate(&self) -> Result<()> {
         self.conn.execute_batch("
             PRAGMA journal_mode=WAL;
+            PRAGMA busy_timeout=5000;
             PRAGMA foreign_keys=ON;
 
             CREATE TABLE IF NOT EXISTS packages (
@@ -159,9 +163,9 @@ impl Db {
     pub fn get_versions(&self, pkg_id: i64) -> Result<Vec<VersionRow>> {
         let mut stmt = self.conn.prepare(
             "SELECT version, manifest, checksum, size_bytes, tarball_path, published_at
-             FROM versions WHERE package_id = ?1 ORDER BY published_at DESC"
+             FROM versions WHERE package_id = ?1"
         )?;
-        let rows = stmt.query_map(params![pkg_id], |r| {
+        let mut rows: Vec<VersionRow> = stmt.query_map(params![pkg_id], |r| {
             Ok(VersionRow {
                 version:      r.get(0)?,
                 manifest:     r.get(1)?,
@@ -170,8 +174,19 @@ impl Db {
                 tarball_path: r.get(4)?,
                 published_at: r.get(5)?,
             })
-        })?;
-        rows.collect::<rusqlite::Result<Vec<_>>>().map_err(Into::into)
+        })?.collect::<rusqlite::Result<Vec<_>>>()?;
+
+        // Sort by semver descending; fall back to lexicographic on parse error.
+        rows.sort_by(|a, b| {
+            match (
+                semver::Version::parse(&a.version),
+                semver::Version::parse(&b.version),
+            ) {
+                (Ok(va), Ok(vb)) => vb.cmp(&va),
+                _ => b.version.cmp(&a.version),
+            }
+        });
+        Ok(rows)
     }
 
     pub fn get_tarball_path(&self, pkg_id: i64, version: &str) -> Result<Option<String>> {
@@ -188,16 +203,15 @@ impl Db {
 
     pub fn search(&self, query: &str, lang: Option<&str>) -> Result<Vec<PackageRow>> {
         let like = format!("%{}%", query.to_lowercase());
-        let lang_filter = lang.map(|l| format!("%\"{}\" %", l));
 
         let sql = "SELECT id, name, slug, description, lang, runtime, provides, integrates, downloads, published_at, updated_at
                    FROM packages
                    WHERE (LOWER(name) LIKE ?1 OR LOWER(description) LIKE ?1 OR LOWER(provides) LIKE ?1)
                    ORDER BY downloads DESC
-                   LIMIT 30";
+                   LIMIT 50";
 
         let mut stmt = self.conn.prepare(sql)?;
-        let rows = stmt.query_map(params![like], |r| {
+        let mut results: Vec<PackageRow> = stmt.query_map(params![like], |r| {
             Ok(PackageRow {
                 id:           r.get(0)?,
                 name:         r.get(1)?,
@@ -211,17 +225,42 @@ impl Db {
                 published_at: r.get(9)?,
                 updated_at:   r.get(10)?,
             })
-        })?;
-        let mut results: Vec<PackageRow> = rows
-            .collect::<rusqlite::Result<Vec<_>>>()?;
-        // Optional lang filter (SQLite JSON search is tricky without extensions)
-        if let Some(lf) = lang_filter {
+        })?.collect::<rusqlite::Result<Vec<_>>>()?;
+
+        // Lang filter: parse the JSON array and compare as exact strings,
+        // so "rust" never false-matches "trust".
+        if let Some(wanted) = lang {
+            let wanted_lc = wanted.to_lowercase();
             results.retain(|p| {
-                let lang_json = p.lang.to_lowercase();
-                lf.trim_matches('%').split('"').any(|tok| lang_json.contains(tok))
+                serde_json::from_str::<Vec<String>>(&p.lang)
+                    .unwrap_or_default()
+                    .iter()
+                    .any(|l| l.to_lowercase() == wanted_lc)
             });
         }
+
         Ok(results)
+    }
+
+    /// Like `search` but also attaches the latest semver version string for each package.
+    pub fn search_with_latest(
+        &self,
+        query: &str,
+        lang: Option<&str>,
+    ) -> Result<Vec<(PackageRow, String)>> {
+        let packages = self.search(query, lang)?;
+        packages
+            .into_iter()
+            .map(|pkg| {
+                let latest = self
+                    .get_versions(pkg.id)?
+                    .into_iter()
+                    .next()
+                    .map(|v| v.version)
+                    .unwrap_or_else(|| "unknown".to_string());
+                Ok((pkg, latest))
+            })
+            .collect()
     }
 }
 
@@ -291,18 +330,43 @@ pub struct UpsertVersion {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 fn iso_now() -> String {
-    // Simple ISO timestamp without chrono dependency
-    let secs = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    let s = secs % 60;
-    let m = (secs / 60) % 60;
-    let h = (secs / 3600) % 24;
-    let days = secs / 86400;
-    let year = 1970 + days / 365;
-    let doy = (days % 365) + 1;
-    let month = (doy / 30).min(11) + 1;
-    let day = (doy % 30) + 1;
-    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", year, month, day, h, m, s)
+    unix_secs_to_iso(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0),
+    )
+}
+
+/// Convert Unix timestamp to ISO-8601 UTC string with correct
+/// leap-year and month-length handling.
+fn unix_secs_to_iso(total_secs: u64) -> String {
+    let sec  = (total_secs % 60) as u32;
+    let min  = ((total_secs / 60) % 60) as u32;
+    let hour = ((total_secs / 3600) % 24) as u32;
+    let mut days = total_secs / 86400;
+    let mut year = 1970u32;
+    loop {
+        let in_year = if is_leap(year) { 366u64 } else { 365u64 };
+        if days < in_year { break; }
+        days -= in_year;
+        year += 1;
+    }
+    let month_lens: [u64; 12] = if is_leap(year) {
+        [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    } else {
+        [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    };
+    let mut month = 1u32;
+    for &ml in &month_lens {
+        if days < ml { break; }
+        days -= ml;
+        month += 1;
+    }
+    let day = days as u32 + 1;
+    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", year, month, day, hour, min, sec)
+}
+
+fn is_leap(y: u32) -> bool {
+    (y % 4 == 0 && y % 100 != 0) || (y % 400 == 0)
 }
