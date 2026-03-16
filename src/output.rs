@@ -5,6 +5,8 @@ pub struct CommandResult {
     pub success: bool,
     pub command: String,
     pub files_created: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
     pub warnings: Vec<String>,
     pub next_steps: Vec<String>,
 }
@@ -15,6 +17,7 @@ impl CommandResult {
             success: true,
             command: command.into(),
             files_created,
+            error: None,
             warnings: Vec::new(),
             next_steps: Vec::new(),
         }
@@ -25,7 +28,8 @@ impl CommandResult {
             success: false,
             command: command.into(),
             files_created: Vec::new(),
-            warnings: vec![message.into()],
+            error: Some(message.into()),
+            warnings: Vec::new(),
             next_steps: Vec::new(),
         }
     }
@@ -56,6 +60,7 @@ mod tests {
         let json = serde_json::to_string(&result).unwrap();
         let parsed: CommandResult = serde_json::from_str(&json).unwrap();
         assert!(!parsed.success);
-        assert_eq!(parsed.warnings.len(), 1);
+        assert_eq!(parsed.error.as_deref(), Some("Something went wrong"));
+        assert!(parsed.warnings.is_empty());
     }
 }

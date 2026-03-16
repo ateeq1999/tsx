@@ -19,7 +19,7 @@
 - [x] **BUG-06** Input validation missing on all generate commands — no check that `name` is a valid TypeScript identifier, `fields` is non-empty, `path` has no double slashes or traversal
 - [x] **BUG-07** Plugin overrides never applied — `plugin install` copies files to `.tsx/plugins/` but `render_and_write()` never checks for plugin template overrides before rendering built-in templates
 - [x] **BUG-08** `upgrade atoms` only pins version — does not copy updated atom template files into the project; the command name implies an actual upgrade but only writes `tsx.atomsVersion` to package.json
-- [ ] **BUG-09** Inconsistent error representation — commands use three different error formats: `CommandResult` string errors, `ResponseEnvelope + ErrorResponse`, and `BatchError`; consumers must handle all three
+- [x] **BUG-09** Inconsistent error representation — commands use three different error formats: `CommandResult` string errors, `ResponseEnvelope + ErrorResponse`, and `BatchError`; consumers must handle all three
 
 ---
 
@@ -51,7 +51,7 @@
 | BUG-06 | Missing input validation | ✅ fixed |
 | BUG-07 | Plugin overrides not wired | ✅ fixed |
 | BUG-08 | upgrade only pins, doesn't upgrade | ✅ fixed |
-| BUG-09 | Inconsistent error formats | ⬜ pending |
+| BUG-09 | Inconsistent error formats | ✅ fixed |
 | BUG-10 | WebSocket thread leak | ⬜ pending |
 | BUG-11 | Batch no rollback | ⬜ pending |
 | BUG-12 | No structured logging | ⬜ pending |

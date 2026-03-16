@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
+use crate::json::error::ErrorCode;
 use crate::json::payload::BatchPayload;
 use crate::json::response::ResponseEnvelope;
 use crate::output::CommandResult;
@@ -25,7 +26,7 @@ pub struct BatchCommandResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BatchError {
-    pub code: String,
+    pub code: ErrorCode,
     pub message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
@@ -64,15 +65,15 @@ pub fn batch(
                     error: None,
                 }
             }
-            Err(e) => {
+            Err((code, message)) => {
                 failed += 1;
                 BatchCommandResult {
                     index: index as u32,
                     success: false,
                     result: None,
                     error: Some(BatchError {
-                        code: e.0,
-                        message: e.1,
+                        code,
+                        message,
                         path: None,
                     }),
                 }
@@ -142,16 +143,23 @@ fn execute_command(
     options: &serde_json::Value,
     overwrite: bool,
     dry_run: bool,
-) -> Result<Vec<String>, (String, String)> {
+) -> Result<Vec<String>, (ErrorCode, String)> {
     let options_str = serde_json::to_string(options)
-        .map_err(|e| ("INVALID_PAYLOAD".to_string(), e.to_string()))?;
+        .map_err(|e| (ErrorCode::InvalidPayload, e.to_string()))?;
 
     macro_rules! dispatch {
         ($args_type:ty, $handler:expr) => {{
             let args: $args_type = serde_json::from_str(&options_str)
-                .map_err(|e| ("VALIDATION_ERROR".to_string(), e.to_string()))?;
+                .map_err(|e| (ErrorCode::ValidationError, e.to_string()))?;
             let result = $handler(args, overwrite, dry_run);
-            Ok(result.files_created)
+            if result.success {
+                Ok(result.files_created)
+            } else {
+                Err((
+                    ErrorCode::InternalError,
+                    result.error.unwrap_or_else(|| "Command failed".to_string()),
+                ))
+            }
         }};
     }
 
@@ -166,9 +174,6 @@ fn execute_command(
         "add:feature" => dispatch!(crate::schemas::AddFeatureArgs, crate::commands::add_feature::add_feature),
         "add:auth" => dispatch!(crate::schemas::AddAuthArgs, crate::commands::add_auth::add_auth),
         "add:auth-guard" => dispatch!(crate::schemas::AddAuthGuardArgs, crate::commands::add_auth_guard::add_auth_guard),
-        _ => Err((
-            "UNKNOWN_COMMAND".to_string(),
-            format!("Unknown command: {}", command),
-        )),
+        _ => Err((ErrorCode::UnknownCommand, format!("Unknown command: {}", command))),
     }
 }
