@@ -63,6 +63,20 @@ enum Command {
         #[arg(long)]
         kind: String,
     },
+    /// Scaffold a project from a framework starter recipe
+    Create {
+        /// Framework slug to create from (e.g., tanstack-start)
+        #[arg(long)]
+        from: String,
+        /// Starter ID to use (default: basic)
+        #[arg(long)]
+        starter: Option<String>,
+    },
+    /// Manage framework packages (author tools)
+    Framework {
+        #[command(subcommand)]
+        action: FrameworkCmd,
+    },
     /// Inspect current project state
     Inspect,
     /// Execute multiple commands in one invocation
@@ -284,6 +298,39 @@ enum Upgrade {
     },
 }
 
+#[derive(Subcommand)]
+enum FrameworkCmd {
+    /// Scaffold a new framework package directory
+    Init {
+        /// Framework name/slug
+        #[arg(long)]
+        name: String,
+    },
+    /// Validate a framework package directory
+    Validate {
+        /// Path to the framework package (default: current directory)
+        #[arg(long)]
+        path: Option<String>,
+    },
+    /// Render a framework template with test data
+    Preview {
+        /// Path to the template file
+        #[arg(long)]
+        template: String,
+        /// JSON context data for rendering
+        #[arg(long)]
+        data: Option<String>,
+    },
+    /// Install a framework package from a local directory
+    Add {
+        /// Local path to the framework package directory
+        #[arg(long)]
+        source: String,
+    },
+    /// List installed framework packages
+    List,
+}
+
 fn main() {
     use std::io::{self, Read};
 
@@ -412,6 +459,38 @@ fn main() {
             let result = list::list(kind, cli.verbose);
             result.print();
         }
+        Command::Create { from, starter } => {
+            use tsx::commands::create;
+            let result = create::create(from, starter, cli.dry_run, cli.verbose);
+            result.print();
+        }
+        Command::Framework { action } => match action {
+            FrameworkCmd::Init { name } => {
+                use tsx::commands::framework_cmd;
+                let result = framework_cmd::framework_init(name, cli.verbose);
+                result.print();
+            }
+            FrameworkCmd::Validate { path } => {
+                use tsx::commands::framework_cmd;
+                let result = framework_cmd::framework_validate(path, cli.verbose);
+                result.print();
+            }
+            FrameworkCmd::Preview { template, data } => {
+                use tsx::commands::framework_cmd;
+                let result = framework_cmd::framework_preview(template, data, cli.verbose);
+                result.print();
+            }
+            FrameworkCmd::Add { source } => {
+                use tsx::commands::framework_cmd;
+                let result = framework_cmd::framework_add_local(source, cli.verbose);
+                result.print();
+            }
+            FrameworkCmd::List => {
+                use tsx::commands::framework_cmd;
+                let result = framework_cmd::framework_list(cli.verbose);
+                result.print();
+            }
+        },
         Command::Inspect => {
             use tsx::commands::inspect;
             let result = inspect::inspect(cli.verbose);
@@ -441,7 +520,12 @@ fn main() {
             depth,
         } => {
             use tsx::commands::query::ask;
-            let result = ask::ask(question, framework, depth, cli.verbose);
+            // Auto-detect framework from package.json when not specified
+            let resolved_framework = framework.or_else(|| {
+                let root = std::env::current_dir().ok()?;
+                tsx::framework::detect::detect_framework(&root)
+            });
+            let result = ask::ask(question, resolved_framework, depth, cli.verbose);
             result.print();
         }
         Command::Where { thing, framework } => {

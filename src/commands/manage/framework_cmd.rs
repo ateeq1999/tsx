@@ -1,0 +1,547 @@
+use serde::Serialize;
+use std::time::Instant;
+
+use crate::json::error::ErrorResponse;
+use crate::json::response::ResponseEnvelope;
+use crate::output::CommandResult;
+use crate::utils::paths::get_frameworks_dir;
+
+// ── framework init ────────────────────────────────────────────────────────────
+
+#[derive(Serialize)]
+struct FrameworkInitResult {
+    path: String,
+    files_created: Vec<String>,
+}
+
+/// Scaffold a new framework package directory at `<frameworks_dir>/<name>/`.
+pub fn framework_init(name: String, verbose: bool) -> CommandResult {
+    let start = Instant::now();
+    let frameworks_dir = get_frameworks_dir();
+    let pkg_dir = frameworks_dir.join(&name);
+
+    if pkg_dir.exists() {
+        let duration_ms = start.elapsed().as_millis() as u64;
+        let error = ErrorResponse::validation(&format!(
+            "Framework '{}' already exists at {}",
+            name,
+            pkg_dir.display()
+        ));
+        ResponseEnvelope::error("framework:init", error, duration_ms).print();
+        return CommandResult::err("framework:init", "Framework already exists");
+    }
+
+    let mut files_created: Vec<String> = vec![];
+
+    let dirs = [
+        pkg_dir.join("knowledge"),
+        pkg_dir.join("integrations"),
+        pkg_dir.join("starters"),
+        pkg_dir.join("templates").join("atoms"),
+        pkg_dir.join("templates").join("molecules"),
+    ];
+
+    for dir in &dirs {
+        if let Err(e) = std::fs::create_dir_all(dir) {
+            let duration_ms = start.elapsed().as_millis() as u64;
+            let error = ErrorResponse::new(crate::json::error::ErrorCode::InternalError, &format!("Failed to create directory: {}", e));
+            ResponseEnvelope::error("framework:init", error, duration_ms).print();
+            return CommandResult::err("framework:init", "Failed to create directory");
+        }
+    }
+
+    // manifest.json
+    let manifest = serde_json::json!({
+        "id": name,
+        "name": name,
+        "version": "0.1.0",
+        "category": "fullstack",
+        "generators": [],
+        "starters": ["basic"],
+        "integrations": []
+    });
+    let manifest_path = pkg_dir.join("manifest.json");
+    std::fs::write(&manifest_path, serde_json::to_string_pretty(&manifest).unwrap()).ok();
+    files_created.push(manifest_path.to_string_lossy().to_string());
+
+    // knowledge/overview.md
+    let overview = format!(
+        "---\ntitle: {name} Overview\ntoken_estimate: 80\n---\n\n# {name}\n\nDescribe your framework here.\n"
+    );
+    let overview_path = pkg_dir.join("knowledge").join("overview.md");
+    std::fs::write(&overview_path, overview).ok();
+    files_created.push(overview_path.to_string_lossy().to_string());
+
+    // starters/basic.json
+    let basic_starter = serde_json::json!({
+        "id": "basic",
+        "name": "Basic Starter",
+        "description": "Minimal project",
+        "token_estimate": 30,
+        "steps": [
+            { "cmd": "init", "args": {} }
+        ]
+    });
+    let starter_path = pkg_dir.join("starters").join("basic.json");
+    std::fs::write(&starter_path, serde_json::to_string_pretty(&basic_starter).unwrap()).ok();
+    files_created.push(starter_path.to_string_lossy().to_string());
+
+    let duration_ms = start.elapsed().as_millis() as u64;
+
+    let result = FrameworkInitResult {
+        path: pkg_dir.to_string_lossy().to_string(),
+        files_created: files_created.clone(),
+    };
+
+    let response = ResponseEnvelope::success(
+        "framework:init",
+        serde_json::to_value(result).unwrap(),
+        duration_ms,
+    );
+
+    if verbose {
+        let context = crate::json::response::Context {
+            project_root: std::env::current_dir()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default(),
+            tsx_version: env!("CARGO_PKG_VERSION").to_string(),
+        };
+        response.with_context(context).print();
+    } else {
+        response.print();
+    }
+
+    CommandResult::ok("framework:init", files_created)
+}
+
+// ── framework validate ────────────────────────────────────────────────────────
+
+#[derive(Serialize)]
+struct ValidateResult {
+    framework: String,
+    path: String,
+    valid: bool,
+    issues: Vec<String>,
+    warnings: Vec<String>,
+}
+
+/// Lint a framework package directory: check manifest.json, knowledge files, starter schemas.
+pub fn framework_validate(path: Option<String>, verbose: bool) -> CommandResult {
+    let start = Instant::now();
+
+    let pkg_dir = match path {
+        Some(p) => std::path::PathBuf::from(p),
+        None => std::env::current_dir().unwrap_or_default(),
+    };
+
+    let mut issues: Vec<String> = vec![];
+    let mut warnings: Vec<String> = vec![];
+
+    // 1. Check manifest.json exists and parses
+    let manifest_path = pkg_dir.join("manifest.json");
+    let framework_id = if manifest_path.exists() {
+        match std::fs::read_to_string(&manifest_path) {
+            Ok(content) => {
+                match serde_json::from_str::<serde_json::Value>(&content) {
+                    Ok(m) => {
+                        // Required fields
+                        for field in ["id", "name", "version"] {
+                            if m.get(field).is_none() {
+                                issues.push(format!("manifest.json: missing required field '{}'", field));
+                            }
+                        }
+                        m.get("id")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("unknown")
+                            .to_string()
+                    }
+                    Err(e) => {
+                        issues.push(format!("manifest.json: invalid JSON — {}", e));
+                        "unknown".to_string()
+                    }
+                }
+            }
+            Err(e) => {
+                issues.push(format!("manifest.json: cannot read — {}", e));
+                "unknown".to_string()
+            }
+        }
+    } else {
+        issues.push("manifest.json not found".to_string());
+        "unknown".to_string()
+    };
+
+    // 2. Check knowledge directory
+    let knowledge_dir = pkg_dir.join("knowledge");
+    if knowledge_dir.exists() {
+        let sections = ["overview", "concepts", "patterns", "faq", "decisions"];
+        let has_any = sections.iter().any(|s| {
+            knowledge_dir.join(format!("{}.md", s)).exists()
+        });
+        if !has_any {
+            warnings.push("knowledge/: no standard sections found (overview, concepts, patterns, faq, decisions)".to_string());
+        }
+
+        // Check each .md file has frontmatter token_estimate
+        if let Ok(entries) = std::fs::read_dir(&knowledge_dir) {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.extension().map_or(false, |e| e == "md") {
+                    if let Ok(content) = std::fs::read_to_string(&p) {
+                        if !content.starts_with("---") {
+                            warnings.push(format!(
+                                "knowledge/{}: missing frontmatter (expected token_estimate)",
+                                p.file_name().unwrap_or_default().to_string_lossy()
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        warnings.push("knowledge/ directory not found".to_string());
+    }
+
+    // 3. Check starters
+    let starters_dir = pkg_dir.join("starters");
+    if starters_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&starters_dir) {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.extension().map_or(false, |e| e == "json") {
+                    match std::fs::read_to_string(&p) {
+                        Ok(content) => {
+                            if let Err(e) = serde_json::from_str::<serde_json::Value>(&content) {
+                                issues.push(format!(
+                                    "starters/{}: invalid JSON — {}",
+                                    p.file_name().unwrap_or_default().to_string_lossy(),
+                                    e
+                                ));
+                            }
+                        }
+                        Err(e) => {
+                            issues.push(format!(
+                                "starters/{}: cannot read — {}",
+                                p.file_name().unwrap_or_default().to_string_lossy(),
+                                e
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        warnings.push("starters/ directory not found".to_string());
+    }
+
+    let valid = issues.is_empty();
+    let duration_ms = start.elapsed().as_millis() as u64;
+
+    let result = ValidateResult {
+        framework: framework_id,
+        path: pkg_dir.to_string_lossy().to_string(),
+        valid,
+        issues,
+        warnings,
+    };
+
+    let response = ResponseEnvelope::success(
+        "framework:validate",
+        serde_json::to_value(result).unwrap(),
+        duration_ms,
+    );
+
+    if verbose {
+        let context = crate::json::response::Context {
+            project_root: std::env::current_dir()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default(),
+            tsx_version: env!("CARGO_PKG_VERSION").to_string(),
+        };
+        response.with_context(context).print();
+    } else {
+        response.print();
+    }
+
+    CommandResult::ok("framework:validate", vec![])
+}
+
+// ── framework preview ─────────────────────────────────────────────────────────
+
+/// Render a forge template with test data and print to stdout.
+pub fn framework_preview(template: String, data: Option<String>, verbose: bool) -> CommandResult {
+    let start = Instant::now();
+
+    let template_path = std::path::Path::new(&template);
+    if !template_path.exists() {
+        let duration_ms = start.elapsed().as_millis() as u64;
+        let error = ErrorResponse::validation(&format!(
+            "Template not found: {}",
+            template
+        ));
+        ResponseEnvelope::error("framework:preview", error, duration_ms).print();
+        return CommandResult::err("framework:preview", "Template not found");
+    }
+
+    // Parse context from --data JSON or use empty context
+    let ctx_value: serde_json::Value = match data.as_deref() {
+        Some(d) => match serde_json::from_str(d) {
+            Ok(v) => v,
+            Err(e) => {
+                let duration_ms = start.elapsed().as_millis() as u64;
+                let error = ErrorResponse::validation(&format!("Invalid --data JSON: {}", e));
+                ResponseEnvelope::error("framework:preview", error, duration_ms).print();
+                return CommandResult::err("framework:preview", "Invalid data JSON");
+            }
+        },
+        None => serde_json::json!({}),
+    };
+
+    let mut engine = forge::Engine::default();
+
+    // Load the single template file
+    let file_name = template_path
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+
+    let content = match std::fs::read_to_string(template_path) {
+        Ok(c) => c,
+        Err(e) => {
+            let duration_ms = start.elapsed().as_millis() as u64;
+            let error = ErrorResponse::new(crate::json::error::ErrorCode::InternalError, &format!("Failed to read template: {}", e));
+            ResponseEnvelope::error("framework:preview", error, duration_ms).print();
+            return CommandResult::err("framework:preview", "Failed to read template");
+        }
+    };
+
+    if let Err(e) = engine.add_raw(&file_name, &content) {
+        let duration_ms = start.elapsed().as_millis() as u64;
+        let error = ErrorResponse::new(crate::json::error::ErrorCode::InternalError, &format!("Failed to load template: {}", e));
+        ResponseEnvelope::error("framework:preview", error, duration_ms).print();
+        return CommandResult::err("framework:preview", "Failed to load template");
+    }
+
+    let forge_ctx = match forge::ForgeContext::from_serialize(&ctx_value) {
+        Ok(c) => c,
+        Err(e) => {
+            let duration_ms = start.elapsed().as_millis() as u64;
+            let error = ErrorResponse::new(crate::json::error::ErrorCode::InternalError, &format!("Context error: {}", e));
+            ResponseEnvelope::error("framework:preview", error, duration_ms).print();
+            return CommandResult::err("framework:preview", "Context error");
+        }
+    };
+
+    match engine.render(&file_name, &forge_ctx) {
+        Ok(rendered) => {
+            let duration_ms = start.elapsed().as_millis() as u64;
+            let result = serde_json::json!({
+                "template": file_name,
+                "output": rendered,
+                "tier": engine.tier_of(&file_name).to_string(),
+            });
+            let response = ResponseEnvelope::success("framework:preview", result, duration_ms);
+            if verbose {
+                let context = crate::json::response::Context {
+                    project_root: std::env::current_dir()
+                        .map(|p| p.to_string_lossy().to_string())
+                        .unwrap_or_default(),
+                    tsx_version: env!("CARGO_PKG_VERSION").to_string(),
+                };
+                response.with_context(context).print();
+            } else {
+                response.print();
+            }
+            CommandResult::ok("framework:preview", vec![])
+        }
+        Err(e) => {
+            let duration_ms = start.elapsed().as_millis() as u64;
+            let error = ErrorResponse::new(crate::json::error::ErrorCode::InternalError, &format!("Render error: {}", e));
+            ResponseEnvelope::error("framework:preview", error, duration_ms).print();
+            CommandResult::err("framework:preview", "Render failed")
+        }
+    }
+}
+
+// ── framework add ─────────────────────────────────────────────────────────────
+
+#[derive(Serialize)]
+struct FrameworkAddResult {
+    source: String,
+    installed_to: String,
+    files_copied: u32,
+}
+
+/// Install a framework package from a local directory path.
+pub fn framework_add_local(source: String, verbose: bool) -> CommandResult {
+    let start = Instant::now();
+    let source_path = std::path::Path::new(&source);
+
+    if !source_path.exists() || !source_path.is_dir() {
+        let duration_ms = start.elapsed().as_millis() as u64;
+        let error = ErrorResponse::validation(&format!("Source path not found: {}", source));
+        ResponseEnvelope::error("framework:add", error, duration_ms).print();
+        return CommandResult::err("framework:add", "Source not found");
+    }
+
+    // Read manifest to get the framework id
+    let manifest_path = source_path.join("manifest.json");
+    let framework_id = if manifest_path.exists() {
+        match std::fs::read_to_string(&manifest_path) {
+            Ok(content) => {
+                let m: serde_json::Value = serde_json::from_str(&content).unwrap_or_default();
+                m.get("id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_else(|| {
+                        source_path.file_name().unwrap_or_default().to_str().unwrap_or("unknown")
+                    })
+                    .to_string()
+            }
+            Err(_) => source_path
+                .file_name()
+                .unwrap_or_default()
+                .to_str()
+                .unwrap_or("unknown")
+                .to_string(),
+        }
+    } else {
+        source_path
+            .file_name()
+            .unwrap_or_default()
+            .to_str()
+            .unwrap_or("unknown")
+            .to_string()
+    };
+
+    let frameworks_dir = get_frameworks_dir();
+    let dest = frameworks_dir.join(&framework_id);
+
+    if let Err(e) = std::fs::create_dir_all(&dest) {
+        let duration_ms = start.elapsed().as_millis() as u64;
+        let error = ErrorResponse::new(crate::json::error::ErrorCode::InternalError, &format!("Failed to create destination: {}", e));
+        ResponseEnvelope::error("framework:add", error, duration_ms).print();
+        return CommandResult::err("framework:add", "Failed to create destination");
+    }
+
+    let files_copied = copy_dir_recursive(source_path, &dest);
+
+    let duration_ms = start.elapsed().as_millis() as u64;
+    let result = FrameworkAddResult {
+        source: source.clone(),
+        installed_to: dest.to_string_lossy().to_string(),
+        files_copied,
+    };
+
+    let response = ResponseEnvelope::success(
+        "framework:add",
+        serde_json::to_value(result).unwrap(),
+        duration_ms,
+    );
+
+    if verbose {
+        let context = crate::json::response::Context {
+            project_root: std::env::current_dir()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default(),
+            tsx_version: env!("CARGO_PKG_VERSION").to_string(),
+        };
+        response.with_context(context).print();
+    } else {
+        response.print();
+    }
+
+    CommandResult::ok("framework:add", vec![])
+}
+
+fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> u32 {
+    let mut count = 0u32;
+    let Ok(entries) = std::fs::read_dir(src) else { return 0; };
+    for entry in entries.flatten() {
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+        if src_path.is_dir() {
+            let _ = std::fs::create_dir_all(&dst_path);
+            count += copy_dir_recursive(&src_path, &dst_path);
+        } else {
+            if std::fs::copy(&src_path, &dst_path).is_ok() {
+                count += 1;
+            }
+        }
+    }
+    count
+}
+
+// ── framework list ────────────────────────────────────────────────────────────
+
+#[derive(Serialize)]
+struct FrameworkEntry {
+    id: String,
+    name: String,
+    version: String,
+    starters: Vec<String>,
+    path: String,
+}
+
+pub fn framework_list(verbose: bool) -> CommandResult {
+    let start = Instant::now();
+    let frameworks_dir = get_frameworks_dir();
+    let mut entries: Vec<FrameworkEntry> = vec![];
+
+    if frameworks_dir.exists() {
+        if let Ok(dir_entries) = std::fs::read_dir(&frameworks_dir) {
+            for entry in dir_entries.flatten() {
+                let path = entry.path();
+                if !path.is_dir() {
+                    continue;
+                }
+                let manifest_path = path.join("manifest.json");
+                if let Ok(content) = std::fs::read_to_string(&manifest_path) {
+                    if let Ok(m) = serde_json::from_str::<serde_json::Value>(&content) {
+                        let id = m.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        let name = m.get("name").and_then(|v| v.as_str()).unwrap_or(&id).to_string();
+                        let version = m.get("version").and_then(|v| v.as_str()).unwrap_or("0.0.0").to_string();
+                        let starters = m
+                            .get("starters")
+                            .and_then(|v| v.as_array())
+                            .map(|arr| {
+                                arr.iter()
+                                    .filter_map(|s| s.as_str())
+                                    .map(|s| s.to_string())
+                                    .collect()
+                            })
+                            .unwrap_or_default();
+                        entries.push(FrameworkEntry {
+                            id,
+                            name,
+                            version,
+                            starters,
+                            path: path.to_string_lossy().to_string(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    let duration_ms = start.elapsed().as_millis() as u64;
+    let response = ResponseEnvelope::success(
+        "framework:list",
+        serde_json::to_value(&entries).unwrap(),
+        duration_ms,
+    );
+
+    if verbose {
+        let context = crate::json::response::Context {
+            project_root: std::env::current_dir()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default(),
+            tsx_version: env!("CARGO_PKG_VERSION").to_string(),
+        };
+        response.with_context(context).print();
+    } else {
+        response.print();
+    }
+
+    CommandResult::ok("framework:list", vec![])
+}

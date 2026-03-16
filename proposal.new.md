@@ -507,23 +507,23 @@ This becomes the spec every other framework package author follows.
 ### Phase D — New CLI Commands
 
 - [x] D.1 `tsx describe` command — framework cost map, per-section retrieval
-- [ ] D.2 `tsx create` command (replaces `tsx init`)
+- [x] D.2 `tsx create` command (replaces `tsx init`)
 - [ ] D.3 `tsx generate` command (framework-defined generators)
 - [x] D.4 `--depth brief|default|full` flag on `tsx ask`
-- [ ] D.5 `tsx ask` multi-framework auto-routing
+- [x] D.5 `tsx ask` multi-framework auto-routing (detects from package.json)
 
 ### Phase E — Framework Author Tools
 
-- [ ] E.1 `tsx framework init <name>` — scaffold new package
-- [ ] E.2 `tsx framework validate` — lint manifest + templates
-- [ ] E.3 `tsx framework preview` — render template with test data
+- [x] E.1 `tsx framework init <name>` — scaffold new package
+- [x] E.2 `tsx framework validate` — lint manifest + templates
+- [x] E.3 `tsx framework preview` — render template with test data
 - [ ] E.4 `tsx framework publish` — push to npm
 
 ### Phase F — External Package Loading
 
 - [ ] F.1 `tsx framework add @tsx-pkg/stripe` — install from npm
 - [ ] F.2 `tsx create --from github:user/repo` — load from GitHub
-- [ ] F.3 Local package loading: `tsx create --from ./my-pkg`
+- [x] F.3 Local package loading: `tsx framework add ./my-pkg`
 - [ ] F.4 Package caching and version management
 
 ---
@@ -535,9 +535,9 @@ This becomes the spec every other framework package author follows.
 | A | forge crate (Tera engine, ImportCollector, 4-tier system) | 7/9 ✅ |
 | B | Framework Package Standard (manifest, knowledge, token budget) | 4/6 ✅ |
 | C | TanStack Start reference implementation | 4/5 ✅ |
-| D | New CLI commands (describe, --depth) | 2/5 ✅ |
-| E | Framework author tools | 0/4 |
-| F | External package loading | 0/4 |
+| D | New CLI commands (describe, create, --depth, auto-detect) | 4/5 ✅ |
+| E | Framework author tools (init, validate, preview) | 3/4 ✅ |
+| F | External package loading (local path) | 1/4 ✅ |
 
 ---
 

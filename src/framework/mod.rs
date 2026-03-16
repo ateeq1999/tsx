@@ -1,3 +1,4 @@
+pub mod detect;
 pub mod knowledge;
 pub mod loader;
 pub mod registry;
