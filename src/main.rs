@@ -221,6 +221,12 @@ enum RegistryCmd {
     },
     /// List community registries installed in this project
     List,
+    /// Generate a static HTML registry catalog website
+    Website {
+        /// Output directory for the generated site (default: registry-site/)
+        #[arg(long, default_value = "registry-site")]
+        output: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -471,6 +477,11 @@ fn main() {
             RegistryCmd::List => {
                 use tsx::commands::registry;
                 let result = registry::registry_list(cli.verbose);
+                result.print();
+            }
+            RegistryCmd::Website { output } => {
+                use tsx::commands::registry;
+                let result = registry::registry_website(output, cli.verbose);
                 result.print();
             }
         },
