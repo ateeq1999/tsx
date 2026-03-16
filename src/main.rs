@@ -211,6 +211,18 @@ enum Generate {
         #[arg(long)]
         json: Option<String>,
     },
+    /// Run a framework-defined generator by ID
+    Fw {
+        /// Generator ID (e.g., add-schema, add-page)
+        #[arg(long)]
+        id: String,
+        /// Framework slug (auto-detected from package.json if omitted)
+        #[arg(long)]
+        fw: Option<String>,
+        /// Generator arguments as JSON
+        #[arg(long)]
+        json: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -430,6 +442,11 @@ fn main() {
                 let result = add_seed::add_seed(args, cli.overwrite, cli.dry_run);
                 result.print();
             }
+            Generate::Fw { id, fw, json } => {
+                use tsx::commands::fw_generate;
+                let result = fw_generate::generate(id, fw, json, cli.overwrite, cli.dry_run, cli.verbose);
+                result.print();
+            }
         },
         Command::Add { integration } => match integration {
             Add::Auth { json } => {
@@ -482,7 +499,7 @@ fn main() {
             }
             FrameworkCmd::Add { source } => {
                 use tsx::commands::framework_cmd;
-                let result = framework_cmd::framework_add_local(source, cli.verbose);
+                let result = framework_cmd::framework_add(source, cli.verbose);
                 result.print();
             }
             FrameworkCmd::List => {

@@ -5,7 +5,7 @@ use std::path::Path;
 use tera::Tera;
 use walkdir::WalkDir;
 
-use crate::{collector, context::ForgeContext, error::ForgeError, filters, tier::Tier};
+use crate::{collector, context::ForgeContext, error::ForgeError, filters, slots, tier::Tier};
 
 /// The forge rendering engine.
 ///
@@ -72,15 +72,24 @@ impl Engine {
     }
 
     /// Render a template by name with the given context.
-    /// Resets the ImportCollector before rendering.
+    /// Resets the ImportCollector and populates slots before rendering.
     pub fn render(&self, name: &str, ctx: &ForgeContext) -> Result<String, ForgeError> {
         collector::reset();
+        slots::reset();
+        // Populate thread-local slots from the context
+        if let Some(slot_map) = ctx.slots() {
+            for (k, v) in &slot_map {
+                if let Some(content) = v.as_str() {
+                    slots::fill(k, content);
+                }
+            }
+        }
         self.tera
             .render(name, ctx.as_tera())
             .map_err(|e| ForgeError::RenderError(format!("{name}: {e}")))
     }
 
-    /// Render without resetting the ImportCollector.
+    /// Render without resetting the ImportCollector or slots.
     /// Use when rendering multiple templates in sequence and collecting all their imports.
     pub fn render_continue(&self, name: &str, ctx: &ForgeContext) -> Result<String, ForgeError> {
         self.tera
@@ -113,6 +122,7 @@ fn register_extensions(tera: &mut Tera) {
     tera.register_filter("collect_import", filters::collect_import);
     tera.register_filter("collect_import_priority", filters::collect_import_priority);
     tera.register_function("render_imports", filters::render_imports_fn);
+    tera.register_function("slot", slots::make_slot_fn());
 }
 
 #[cfg(test)]

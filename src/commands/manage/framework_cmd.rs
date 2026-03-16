@@ -373,14 +373,127 @@ struct FrameworkAddResult {
     files_copied: u32,
 }
 
+/// Install a framework package — routes to npm or local copy based on the source string.
+/// - `@scope/pkg` or `pkg-name` (no path separators) → npm install
+/// - `./path` or `/abs/path` → local directory copy
+pub fn framework_add(source: String, verbose: bool) -> CommandResult {
+    let is_npm = !source.starts_with('.') && !source.starts_with('/') && !source.contains('\\');
+    if is_npm {
+        framework_add_npm(source, verbose)
+    } else {
+        framework_add_local(source, verbose)
+    }
+}
+
+/// Install a framework package from an npm package (F.1).
+/// Runs `npm install --prefix <tempdir> <package>` then copies to frameworks dir.
+fn framework_add_npm(package: String, verbose: bool) -> CommandResult {
+    let start = Instant::now();
+
+    // Create a temp directory for the npm install
+    let temp_dir = std::env::temp_dir().join(format!("tsx-fw-{}", std::process::id()));
+    if let Err(e) = std::fs::create_dir_all(&temp_dir) {
+        let duration_ms = start.elapsed().as_millis() as u64;
+        let error = ErrorResponse::new(
+            crate::json::error::ErrorCode::InternalError,
+            &format!("Failed to create temp dir: {}", e),
+        );
+        ResponseEnvelope::error("framework:add", error, duration_ms).print();
+        return CommandResult::err("framework:add", "Failed to create temp dir");
+    }
+
+    // Run: npm install --prefix <temp_dir> <package>
+    let install_result = std::process::Command::new("npm")
+        .args(["install", "--prefix", &temp_dir.to_string_lossy(), &package])
+        .output();
+
+    match install_result {
+        Ok(o) if !o.status.success() => {
+            let _ = std::fs::remove_dir_all(&temp_dir);
+            let duration_ms = start.elapsed().as_millis() as u64;
+            let error = ErrorResponse::validation(&format!(
+                "npm install failed: {}",
+                String::from_utf8_lossy(&o.stderr).trim()
+            ));
+            ResponseEnvelope::error("framework:add", error, duration_ms).print();
+            return CommandResult::err("framework:add", "npm install failed");
+        }
+        Err(e) => {
+            let _ = std::fs::remove_dir_all(&temp_dir);
+            let duration_ms = start.elapsed().as_millis() as u64;
+            let error = ErrorResponse::new(
+                crate::json::error::ErrorCode::InternalError,
+                &format!("Failed to run npm: {}", e),
+            );
+            ResponseEnvelope::error("framework:add", error, duration_ms).print();
+            return CommandResult::err("framework:add", "npm not found");
+        }
+        _ => {}
+    }
+
+    // Locate the package in node_modules
+    // npm may strip the scope prefix for scoped packages in the dir name
+    let pkg_dir_name = package.trim_start_matches('@')
+        .replace('/', "__");
+    let node_modules = temp_dir.join("node_modules");
+
+    // Try both @scope/name and flat name
+    let candidate_paths: Vec<std::path::PathBuf> = vec![
+        node_modules.join(&package),
+        node_modules.join(&pkg_dir_name),
+        // scoped: @scope/name → node_modules/@scope/name
+        {
+            if package.starts_with('@') {
+                let parts: Vec<&str> = package.splitn(2, '/').collect();
+                if parts.len() == 2 {
+                    node_modules.join(parts[0]).join(parts[1])
+                } else {
+                    node_modules.join(&package)
+                }
+            } else {
+                node_modules.join(&package)
+            }
+        },
+    ];
+
+    let pkg_path = candidate_paths.into_iter().find(|p| p.exists());
+
+    let pkg_path = match pkg_path {
+        Some(p) => p,
+        None => {
+            let _ = std::fs::remove_dir_all(&temp_dir);
+            let duration_ms = start.elapsed().as_millis() as u64;
+            let error = ErrorResponse::new(
+                crate::json::error::ErrorCode::InternalError,
+                &format!("Package installed but directory not found in node_modules: {}", package),
+            );
+            ResponseEnvelope::error("framework:add", error, duration_ms).print();
+            return CommandResult::err("framework:add", "Package directory not found");
+        }
+    };
+
+    // Now copy from pkg_path into frameworks dir (same as local add)
+    let result = framework_add_local_path(&pkg_path, &package, verbose, start);
+    let _ = std::fs::remove_dir_all(&temp_dir);
+    result
+}
+
 /// Install a framework package from a local directory path.
 pub fn framework_add_local(source: String, verbose: bool) -> CommandResult {
     let start = Instant::now();
-    let source_path = std::path::Path::new(&source);
+    let source_path = std::path::PathBuf::from(&source);
+    framework_add_local_path(&source_path, &source, verbose, start)
+}
 
+fn framework_add_local_path(
+    source_path: &std::path::Path,
+    source_label: &str,
+    verbose: bool,
+    start: std::time::Instant,
+) -> CommandResult {
     if !source_path.exists() || !source_path.is_dir() {
         let duration_ms = start.elapsed().as_millis() as u64;
-        let error = ErrorResponse::validation(&format!("Source path not found: {}", source));
+        let error = ErrorResponse::validation(&format!("Source path not found: {}", source_label));
         ResponseEnvelope::error("framework:add", error, duration_ms).print();
         return CommandResult::err("framework:add", "Source not found");
     }
@@ -428,7 +541,7 @@ pub fn framework_add_local(source: String, verbose: bool) -> CommandResult {
 
     let duration_ms = start.elapsed().as_millis() as u64;
     let result = FrameworkAddResult {
-        source: source.clone(),
+        source: source_label.to_string(),
         installed_to: dest.to_string_lossy().to_string(),
         files_copied,
     };

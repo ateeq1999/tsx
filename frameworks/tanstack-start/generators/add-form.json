@@ -1,0 +1,28 @@
+{
+  "id": "add-form",
+  "command": "add:form",
+  "description": "Generate a TanStack Form component with Zod validation",
+  "token_estimate": 28,
+  "schema": {
+    "type": "object",
+    "required": ["name"],
+    "properties": {
+      "name": { "type": "string", "description": "Form/entity name (PascalCase)" },
+      "fields": {
+        "type": "array",
+        "description": "Form field definitions",
+        "items": {
+          "type": "object",
+          "required": ["name", "type"],
+          "properties": {
+            "name": { "type": "string" },
+            "type": { "type": "string", "enum": ["text", "email", "password", "number", "select", "switch", "date", "textarea"] },
+            "label": { "type": "string" },
+            "required": { "type": "boolean", "default": false }
+          }
+        }
+      },
+      "submit_label": { "type": "string", "default": "Submit" }
+    }
+  }
+}

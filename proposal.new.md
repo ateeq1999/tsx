@@ -482,7 +482,7 @@ This becomes the spec every other framework package author follows.
 - [x] A.3 Wrap Tera engine with tier-aware template loader (`engine.rs`)
 - [x] A.4 Move ImportCollector from tsx into forge as a first-class feature (`collector.rs`)
 - [x] A.5 Add `forge:tier` and `forge:token_estimate` frontmatter parsing (`metadata.rs`, `tier.rs`)
-- [ ] A.6 Add component slots (adapted from atom-engine's slot pattern)
+- [x] A.6 Add component slots (adapted from atom-engine's slot pattern)
 - [ ] A.7 Add Provide/Inject context propagation
 - [x] A.8 Write forge crate tests (engine, collector, tier, metadata — all pass)
 - [x] A.9 tsx depends on forge via workspace path dep (`crates/forge`)
@@ -508,7 +508,7 @@ This becomes the spec every other framework package author follows.
 
 - [x] D.1 `tsx describe` command — framework cost map, per-section retrieval
 - [x] D.2 `tsx create` command (replaces `tsx init`)
-- [ ] D.3 `tsx generate` command (framework-defined generators)
+- [x] D.3 `tsx generate fw --id <id> --fw <framework>` command (framework-defined generators)
 - [x] D.4 `--depth brief|default|full` flag on `tsx ask`
 - [x] D.5 `tsx ask` multi-framework auto-routing (detects from package.json)
 
@@ -521,7 +521,7 @@ This becomes the spec every other framework package author follows.
 
 ### Phase F — External Package Loading
 
-- [ ] F.1 `tsx framework add @tsx-pkg/stripe` — install from npm
+- [x] F.1 `tsx framework add @tsx-pkg/stripe` — install from npm
 - [ ] F.2 `tsx create --from github:user/repo` — load from GitHub
 - [x] F.3 Local package loading: `tsx framework add ./my-pkg`
 - [ ] F.4 Package caching and version management
@@ -532,12 +532,12 @@ This becomes the spec every other framework package author follows.
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| A | forge crate (Tera engine, ImportCollector, 4-tier system) | 7/9 ✅ |
+| A | forge crate (Tera engine, ImportCollector, 4-tier system, slots) | 8/9 ✅ |
 | B | Framework Package Standard (manifest, knowledge, token budget) | 4/6 ✅ |
-| C | TanStack Start reference implementation | 4/5 ✅ |
-| D | New CLI commands (describe, create, --depth, auto-detect) | 4/5 ✅ |
+| C | TanStack Start reference implementation (generator specs) | 5/5 ✅ |
+| D | New CLI commands (describe, create, generate, --depth, auto-detect) | 5/5 ✅ |
 | E | Framework author tools (init, validate, preview) | 3/4 ✅ |
-| F | External package loading (local path) | 1/4 ✅ |
+| F | External package loading (local path + npm) | 2/4 ✅ |
 
 ---
 

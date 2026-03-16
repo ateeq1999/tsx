@@ -1,0 +1,28 @@
+{
+  "id": "add-feature",
+  "command": "add:feature",
+  "description": "Scaffold a complete CRUD feature module (schema + server fns + query hooks + form + table + page)",
+  "token_estimate": 40,
+  "schema": {
+    "type": "object",
+    "required": ["name"],
+    "properties": {
+      "name": { "type": "string", "description": "Feature/entity name (e.g. 'product', 'order')" },
+      "fields": {
+        "type": "array",
+        "description": "Entity field definitions",
+        "items": {
+          "type": "object",
+          "required": ["name", "type"],
+          "properties": {
+            "name": { "type": "string" },
+            "type": { "type": "string", "enum": ["string", "number", "boolean", "date"] },
+            "required": { "type": "boolean", "default": false }
+          }
+        }
+      },
+      "timestamps": { "type": "boolean", "default": true },
+      "auth": { "type": "boolean", "default": false, "description": "Protect feature routes with auth guard" }
+    }
+  }
+}

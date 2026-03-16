@@ -1,0 +1,28 @@
+{
+  "id": "add-table",
+  "command": "add:table",
+  "description": "Generate a TanStack Table component with sorting and pagination",
+  "token_estimate": 28,
+  "schema": {
+    "type": "object",
+    "required": ["name"],
+    "properties": {
+      "name": { "type": "string", "description": "Entity name (PascalCase)" },
+      "columns": {
+        "type": "array",
+        "description": "Table column definitions",
+        "items": {
+          "type": "object",
+          "required": ["key"],
+          "properties": {
+            "key": { "type": "string" },
+            "label": { "type": "string" },
+            "sortable": { "type": "boolean", "default": false }
+          }
+        }
+      },
+      "searchable": { "type": "boolean", "default": false, "description": "Add search input" },
+      "pagination": { "type": "boolean", "default": true }
+    }
+  }
+}

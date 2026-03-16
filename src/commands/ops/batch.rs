@@ -222,6 +222,16 @@ mod tests {
     }
 }
 
+/// Public re-export of the batch command dispatcher for use by `generate.rs`.
+pub fn execute_command_pub(
+    command: &str,
+    options: &serde_json::Value,
+    overwrite: bool,
+    dry_run: bool,
+) -> Result<Vec<String>, (ErrorCode, String)> {
+    execute_command(command, options, overwrite, dry_run)
+}
+
 fn execute_command(
     command: &str,
     options: &serde_json::Value,

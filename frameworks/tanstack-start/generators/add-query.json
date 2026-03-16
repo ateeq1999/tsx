@@ -1,0 +1,20 @@
+{
+  "id": "add-query",
+  "command": "add:query",
+  "description": "Generate a TanStack Query hook (useQuery / useMutation)",
+  "token_estimate": 25,
+  "schema": {
+    "type": "object",
+    "required": ["name"],
+    "properties": {
+      "name": { "type": "string", "description": "Entity name (e.g. 'user', 'post')" },
+      "operations": {
+        "type": "array",
+        "description": "Query operations to generate",
+        "items": { "type": "string", "enum": ["list", "get", "create", "update", "delete"] },
+        "default": ["list", "get", "create", "update", "delete"]
+      },
+      "server_fn": { "type": "string", "description": "Linked server function name" }
+    }
+  }
+}

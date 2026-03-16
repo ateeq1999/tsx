@@ -25,6 +25,7 @@ pub use manage::plugin;
 pub use manage::upgrade;
 
 pub use ops::batch;
+pub use ops::generate as fw_generate;
 pub use ops::inspect;
 pub use ops::list;
 pub use ops::publish;
