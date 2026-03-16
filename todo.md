@@ -137,6 +137,44 @@ _Goal: The CLI actually talks to `registry.tsx.dev`, search works correctly, and
 
 ---
 
+## Phase 9 — Web Platform & Examples
+
+_Goal: A complete web presence — registry dashboard, docs site, and installable example projects._
+
+- [x] **`apps/registry-web/`** — TanStack Start registry web app (port 3000)
+  - Landing page: hero, install command, stats cards, recent packages grid
+  - `/browse` — searchable package index with lazy loading
+  - `/packages/$name` — package detail with versions table, install command, meta sidebar
+  - `/_protected/dashboard/` — admin stats dashboard (Better Auth protected)
+  - `src/lib/api.ts` — typed fetch client for Rust registry server
+  - `src/lib/types.ts` — `Package`, `SearchResult`, `RegistryStats` types
+  - `src/features/packages/hooks/` — react-query options for all registry endpoints
+  - `src/integrations/tanstack-query/` — `getContext()` singleton + QueryClientProvider
+  - sea-ink/lagoon CSS palette, `nav-link` + `island-shell` utility classes
+  - Header/Footer/ThemeToggle with THEME_INIT_SCRIPT for flicker-free dark mode
+- [x] **`apps/docs/`** — TanStack Start documentation site (port 3001)
+  - Landing page with quick-nav cards (Getting Started / CLI / Registry)
+  - Sidebar layout (`docs.tsx`) with nested routes
+  - `Getting Started`, `CLI Reference`, `Registry API` doc pages
+  - Same sea-ink/lagoon palette, ThemeProvider, Header/Footer
+- [x] **`examples/basic-crud/`** — complete CRUD example (products, drizzle-pg, react-query)
+- [x] **`examples/with-auth/`** — complete Better Auth example (auth server, client, middleware, dashboard)
+- [x] **`examples/with-shadcn/`** — DataTable + feature-based hooks example (items)
+- [x] **`examples/full-saas/`** — multi-org SaaS example (org + billing feature hooks, dashboard)
+
+### Phase 9 — Pending / Next Up
+
+- [ ] **`apps/registry-web/` — auth publish flow** — logged-in users can publish packages from the UI
+- [ ] **`apps/registry-web/` — package README rendering** — fetch + render markdown from tarball
+- [ ] **`apps/docs/` — FPF format docs** — `stack.json` reference, `output_paths`, slot system
+- [ ] **`apps/docs/` — Examples gallery** — link to all examples with generated preview screenshots
+- [ ] **Registry server: `GET /v1/stats`** — implement the stats endpoint in Axum (currently stubbed)
+- [ ] **Registry server: `GET /v1/packages?sort=recent`** — recent packages endpoint for landing page
+- [ ] **CI/CD** — GitHub Actions workflow: `cargo test`, `cargo build --release`, `bun install && bun run build` for both apps
+- [ ] **Deploy** — Dockerfile for registry server + Fly.io config; Vercel/Netlify config for apps
+
+---
+
 ## Completed (prior sessions)
 
 - [x] `tsx run <id> --json` universal dispatcher
