@@ -1,0 +1,339 @@
+[
+  {
+    "key": "atom",
+    "version": "1.0.0",
+    "purpose": "Atoms are the smallest reusable UI components that cannot be broken down further",
+    "decisions": [
+      {
+        "title": "Single file component",
+        "rationale": "Atoms should be self-contained in a single file for easy reuse",
+        "alternative": "Consider splitting if the component grows complex"
+      },
+      {
+        "title": "No internal state",
+        "rationale": "Atoms should be stateless - use molecules for components with state",
+        "alternative": "Use useState or useReducer in molecules instead"
+      },
+      {
+        "title": "Named exports",
+        "rationale": "Use named exports for better tree-shaking",
+        "alternative": "Default exports work but are less explicit"
+      }
+    ],
+    "tree": {
+      "root": "Is this the smallest possible unit?",
+      "branches": [
+        { "condition": "Yes → no further decomposition needed", "outcome": "This is an Atom — place in templates/atoms/", "children": [] },
+        { "condition": "No → contains multiple concerns", "outcome": "Break it down: extract sub-pieces as Atoms, compose in a Molecule", "children": [] },
+        { "condition": "Has internal state?", "outcome": "Promote to Molecule", "children": [] },
+        { "condition": "Includes other atoms?", "outcome": "Promote to Molecule", "children": [] }
+      ]
+    },
+    "learn_more": [
+      { "label": "RustGen Atoms Architecture", "url": "https://github.com/your-org/tsx/wiki/atoms" },
+      { "label": "MiniJinja include docs", "url": "https://docs.rs/minijinja/latest/minijinja/" }
+    ],
+    "changelog": [
+      { "version": "1.0.0", "date": "2026-03-16", "change": "Initial atom tier definition with drizzle, zod, form, query atoms" }
+    ]
+  },
+  {
+    "key": "molecule",
+    "version": "1.0.0",
+    "purpose": "Molecules are composite components that combine atoms with local state",
+    "decisions": [
+      {
+        "title": "Props drilling avoidance",
+        "rationale": "Molecules manage their own state to avoid prop drilling",
+        "alternative": "For deeply nested state, use context in organisms"
+      },
+      {
+        "title": "Composition over creation",
+        "rationale": "Molecules compose atoms rather than creating new UI",
+        "alternative": "Reuse existing atoms before creating new ones"
+      }
+    ],
+    "tree": {
+      "root": "Does this compose multiple atoms?",
+      "branches": [
+        { "condition": "Yes + has local state", "outcome": "This is a Molecule — place in templates/molecules/", "children": [] },
+        { "condition": "Yes + no state", "outcome": "Consider making it a parameterised Atom", "children": [] },
+        { "condition": "No — single concern", "outcome": "Keep as Atom", "children": [] },
+        { "condition": "Needs cross-feature state?", "outcome": "Promote to Feature or use context", "children": [] }
+      ]
+    },
+    "learn_more": [
+      { "label": "MiniJinja macro docs", "url": "https://docs.rs/minijinja/latest/minijinja/syntax/index.html" }
+    ],
+    "changelog": [
+      { "version": "1.0.0", "date": "2026-03-16", "change": "Initial molecules: drizzle table_body, zod schema_block, server_fn handler, query hooks, form component, data table, auth config" }
+    ]
+  },
+  {
+    "key": "layout",
+    "version": "1.0.0",
+    "purpose": "Layouts define the structure and wrapping of routes using Jinja2 extends/block",
+    "decisions": [
+      {
+        "title": "File-based routing",
+        "rationale": "Layouts map directly to route file structure",
+        "alternative": "Use nested routes for complex hierarchies"
+      },
+      {
+        "title": "Import hoisting via render_imports()",
+        "rationale": "Layouts drain the ImportCollector as the first statement so imports appear at the top of every generated file",
+        "alternative": "Without hoisting, imports would be scattered where atoms render them"
+      },
+      {
+        "title": "Shared state via context",
+        "rationale": "Layouts can provide context to child routes",
+        "alternative": "Keep layout state minimal to avoid coupling"
+      }
+    ],
+    "tree": {
+      "root": "What wraps this file?",
+      "branches": [
+        { "condition": "A React component file", "outcome": "Use templates/layouts/component.jinja", "children": [] },
+        { "condition": "A TanStack Router route", "outcome": "Use templates/layouts/route.jinja", "children": [] },
+        { "condition": "A raw TypeScript file", "outcome": "Use templates/layouts/base.jinja", "children": [] }
+      ]
+    },
+    "learn_more": [
+      { "label": "Jinja2 template inheritance", "url": "https://jinja.palletsprojects.com/en/3.1.x/templates/#template-inheritance" },
+      { "label": "ImportCollector design", "url": "https://github.com/your-org/tsx/wiki/import-collector" }
+    ],
+    "changelog": [
+      { "version": "1.0.0", "date": "2026-03-16", "change": "Initial layouts: base, component, route — all with render_imports() drain" }
+    ]
+  },
+  {
+    "key": "feature",
+    "version": "1.0.0",
+    "purpose": "Features are complete CRUD modules with routes, components, and server functions",
+    "decisions": [
+      {
+        "title": "Convention over configuration",
+        "rationale": "Features follow strict conventions for consistency",
+        "alternative": "Custom structures require more maintenance"
+      },
+      {
+        "title": "Server functions colocated",
+        "rationale": "Server functions live next to their route for co-location",
+        "alternative": "Extract to lib/ only if shared across features"
+      },
+      {
+        "title": "Barrel exports",
+        "rationale": "Features export everything from index for clean imports",
+        "alternative": "Barrels can hide internal structure - use with care"
+      }
+    ],
+    "tree": {
+      "root": "What does this feature need?",
+      "branches": [
+        { "condition": "Full CRUD (list, create, update, delete)", "outcome": "Use tsx generate feature — creates 7+ files", "children": [] },
+        { "condition": "Read-only list", "outcome": "Use tsx generate feature with operations=[list]", "children": [] },
+        { "condition": "Single page, no data", "outcome": "Use tsx generate page directly", "children": [] },
+        { "condition": "Needs auth guard?", "outcome": "Pass auth=true to generate feature or add it with tsx add auth-guard", "children": [] }
+      ]
+    },
+    "learn_more": [
+      { "label": "tsx generate feature docs", "url": "https://github.com/your-org/tsx/wiki/generate-feature" },
+      { "label": "TanStack Start file conventions", "url": "https://tanstack.com/start/latest/docs/framework/react/guide/file-based-routing" }
+    ],
+    "changelog": [
+      { "version": "1.0.0", "date": "2026-03-16", "change": "Initial feature: schema + server_fn + query + table + form + 2 route pages" }
+    ]
+  },
+  {
+    "key": "schema",
+    "version": "1.0.0",
+    "purpose": "Database schemas define table structures using Drizzle ORM with full TypeScript type inference",
+    "decisions": [
+      {
+        "title": "Type safety",
+        "rationale": "Schemas generate TypeScript types automatically via Drizzle inferSelect/inferInsert",
+        "alternative": "Manual types can drift from schema"
+      },
+      {
+        "title": "Idiomatic column order",
+        "rationale": "id (auto-increment), created_at, updated_at, then domain columns",
+        "alternative": "Consistent order helps readability and tooling"
+      },
+      {
+        "title": "SQLite by default",
+        "rationale": "TSX targets SQLite for zero-config local development",
+        "alternative": "PostgreSQL dialect is a drop-in swap in drizzle.config.ts"
+      }
+    ],
+    "tree": {
+      "root": "What kind of data?",
+      "branches": [
+        { "condition": "Simple key-value entity", "outcome": "Use string/number/boolean fields", "children": [] },
+        { "condition": "Relational (belongs to another table)", "outcome": "Use id field type with references", "children": [] },
+        { "condition": "Needs soft delete?", "outcome": "Pass softDelete=true — adds deletedAt column", "children": [] },
+        { "condition": "Needs timestamps?", "outcome": "Pass timestamps=true (default) — adds createdAt/updatedAt", "children": [] }
+      ]
+    },
+    "learn_more": [
+      { "label": "Drizzle ORM docs", "url": "https://orm.drizzle.team/docs/overview" },
+      { "label": "tsx generate schema", "url": "https://github.com/your-org/tsx/wiki/generate-schema" }
+    ],
+    "changelog": [
+      { "version": "1.0.0", "date": "2026-03-16", "change": "Initial schema template: all 11 FieldTypes, timestamps, soft_delete, relations" }
+    ]
+  },
+  {
+    "key": "server function",
+    "version": "1.0.0",
+    "purpose": "Server functions are type-safe RPC calls between TanStack Start client and server",
+    "decisions": [
+      {
+        "title": "Named exports",
+        "rationale": "Server functions must be named exports for tree-shaking",
+        "alternative": "Anonymous functions lose type information"
+      },
+      {
+        "title": "Input validation via Zod",
+        "rationale": "Always validate inputs to prevent injection and type errors",
+        "alternative": "Skip only for trusted internal callers"
+      },
+      {
+        "title": "createServerFn pattern",
+        "rationale": "Uses @tanstack/start createServerFn() for automatic serialisation",
+        "alternative": "Raw API routes lack type safety"
+      }
+    ],
+    "tree": {
+      "root": "What operation?",
+      "branches": [
+        { "condition": "list — fetch many rows", "outcome": "Returns array, no input required", "children": [] },
+        { "condition": "create — insert one row", "outcome": "Takes validated input, returns created row", "children": [] },
+        { "condition": "update — modify existing", "outcome": "Takes id + partial input, returns updated row", "children": [] },
+        { "condition": "delete — remove row", "outcome": "Takes id, returns void", "children": [] },
+        { "condition": "Needs auth?", "outcome": "Pass auth=true — wraps handler with session check", "children": [] }
+      ]
+    },
+    "learn_more": [
+      { "label": "TanStack Start server functions", "url": "https://tanstack.com/start/latest/docs/framework/react/guide/server-functions" },
+      { "label": "tsx generate server-fn", "url": "https://github.com/your-org/tsx/wiki/generate-server-fn" }
+    ],
+    "changelog": [
+      { "version": "1.0.0", "date": "2026-03-16", "change": "Initial server_fn template: all 4 CRUD operations with optional auth guard" }
+    ]
+  },
+  {
+    "key": "query",
+    "version": "1.0.0",
+    "purpose": "TanStack Query hooks provide caching, background refetch, and Suspense-compatible data fetching",
+    "decisions": [
+      {
+        "title": "Query keys as arrays",
+        "rationale": "Use [resource, id] format for fine-grained cache invalidation",
+        "alternative": "String keys prevent partial invalidation"
+      },
+      {
+        "title": "useSuspenseQuery by default",
+        "rationale": "Suspense mode integrates cleanly with TanStack Router loaders",
+        "alternative": "useQuery with isLoading checks is more verbose"
+      },
+      {
+        "title": "Mutation returns invalidateQueries",
+        "rationale": "After a mutation, invalidate the relevant list query key",
+        "alternative": "Optimistic updates are faster but more complex"
+      }
+    ],
+    "tree": {
+      "root": "Fetching or mutating?",
+      "branches": [
+        { "condition": "Fetching data (read)", "outcome": "Use useSuspenseQuery with queryKey + queryFn", "children": [] },
+        { "condition": "Writing data (create/update/delete)", "outcome": "Use useMutation + onSuccess → queryClient.invalidateQueries", "children": [] },
+        { "condition": "Needs pagination?", "outcome": "Add page param to queryKey and queryFn", "children": [] },
+        { "condition": "Needs infinite scroll?", "outcome": "Use useInfiniteQuery instead", "children": [] }
+      ]
+    },
+    "learn_more": [
+      { "label": "TanStack Query docs", "url": "https://tanstack.com/query/latest/docs/framework/react/overview" },
+      { "label": "tsx generate query", "url": "https://github.com/your-org/tsx/wiki/generate-query" }
+    ],
+    "changelog": [
+      { "version": "1.0.0", "date": "2026-03-16", "change": "Initial query template: useSuspenseQuery + useMutation with queryKey atoms" }
+    ]
+  },
+  {
+    "key": "form",
+    "version": "1.0.0",
+    "purpose": "TanStack Form components provide type-safe, field-level validation with minimal re-renders",
+    "decisions": [
+      {
+        "title": "Controlled inputs",
+        "rationale": "Forms use controlled components for predictable state",
+        "alternative": "Uncontrolled (ref-based) has performance benefits but less control"
+      },
+      {
+        "title": "Field-level validation",
+        "rationale": "Validate each field independently for better UX",
+        "alternative": "Form-level validation is simpler but less responsive"
+      },
+      {
+        "title": "useForm with validators",
+        "rationale": "TanStack Form validators run on blur and submit",
+        "alternative": "Manual onChange validation is more verbose"
+      }
+    ],
+    "tree": {
+      "root": "What input types?",
+      "branches": [
+        { "condition": "Text/email/password/url/number", "outcome": "Renders field_input atom", "children": [] },
+        { "condition": "Boolean/toggle", "outcome": "Renders field_switch atom", "children": [] },
+        { "condition": "Enum/select", "outcome": "Renders field_select atom", "children": [] },
+        { "condition": "Date", "outcome": "Renders field_datepicker atom", "children": [] },
+        { "condition": "Long text", "outcome": "Renders field_textarea atom", "children": [] }
+      ]
+    },
+    "learn_more": [
+      { "label": "TanStack Form docs", "url": "https://tanstack.com/form/latest/docs/overview" },
+      { "label": "tsx generate form", "url": "https://github.com/your-org/tsx/wiki/generate-form" }
+    ],
+    "changelog": [
+      { "version": "1.0.0", "date": "2026-03-16", "change": "Initial form template: 5 field atoms dispatched by FieldType" }
+    ]
+  },
+  {
+    "key": "auth",
+    "version": "1.0.0",
+    "purpose": "Authentication via Better Auth — a modern, TypeScript-first auth framework",
+    "decisions": [
+      {
+        "title": "Singleton pattern",
+        "rationale": "One auth instance exported from lib/auth.ts, reused everywhere",
+        "alternative": "Multiple instances can cause session conflicts"
+      },
+      {
+        "title": "Database sessions",
+        "rationale": "Sessions stored in SQLite via Drizzle adapter",
+        "alternative": "JWT sessions are stateless but harder to revoke"
+      },
+      {
+        "title": "Provider-based",
+        "rationale": "GitHub/Google OAuth configured in betterAuth({ socialProviders: {} })",
+        "alternative": "Email/password also supported via emailAndPassword plugin"
+      }
+    ],
+    "tree": {
+      "root": "What auth do you need?",
+      "branches": [
+        { "condition": "Social login (GitHub/Google)", "outcome": "Pass providers=['github','google'] to tsx add auth", "children": [] },
+        { "condition": "Email + password", "outcome": "Pass providers=['email'] — enables emailAndPassword plugin", "children": [] },
+        { "condition": "Protect a route", "outcome": "Use tsx add auth-guard --route /path", "children": [] },
+        { "condition": "Check session in server fn?", "outcome": "Pass auth=true to tsx generate server-fn", "children": [] }
+      ]
+    },
+    "learn_more": [
+      { "label": "Better Auth docs", "url": "https://www.better-auth.com/docs" },
+      { "label": "tsx add auth", "url": "https://github.com/your-org/tsx/wiki/add-auth" }
+    ],
+    "changelog": [
+      { "version": "1.0.0", "date": "2026-03-16", "change": "Initial auth: betterAuth config with social providers and session fields" }
+    ]
+  }
+]
