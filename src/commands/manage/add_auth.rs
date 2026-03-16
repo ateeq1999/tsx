@@ -3,7 +3,7 @@ use crate::render::render_and_write;
 use crate::schemas::AddAuthArgs;
 use crate::utils::format::format_typescript;
 use crate::utils::paths::resolve_output_path;
-use std::path::PathBuf;
+use std::path::Path;
 use std::process::Command;
 
 pub fn add_auth(args: AddAuthArgs, overwrite: bool, dry_run: bool) -> CommandResult {
@@ -22,29 +22,32 @@ pub fn add_auth(args: AddAuthArgs, overwrite: bool, dry_run: bool) -> CommandRes
     );
 
     if result.success && !dry_run {
-        result.files_created.extend(install_better_auth());
+        match install_better_auth() {
+            Ok(msg) => result.files_created.push(msg),
+            Err(e) => result.warnings.push(format!("better-auth install failed: {}", e)),
+        }
     }
 
     result.next_steps = vec!["Configure your auth providers in .env".to_string()];
     result
 }
 
-fn install_better_auth() -> Vec<String> {
-    let root = match crate::utils::paths::find_project_root() {
-        Ok(r) => r,
-        Err(_) => return vec![],
-    };
+fn install_better_auth() -> Result<String, String> {
+    let root = crate::utils::paths::find_project_root()
+        .map_err(|e| format!("Could not find project root: {}", e))?;
     install_better_auth_in(&root)
 }
 
-fn install_better_auth_in(root: &PathBuf) -> Vec<String> {
+fn install_better_auth_in(root: &Path) -> Result<String, String> {
     let output = Command::new("npm")
         .args(["install", "better-auth", "@better-auth/react"])
         .current_dir(root)
-        .output();
+        .output()
+        .map_err(|e| format!("npm could not run: {}", e))?;
 
-    match output {
-        Ok(o) if o.status.success() => vec!["better-auth installed".to_string()],
-        _ => vec![],
+    if output.status.success() {
+        Ok("better-auth installed".to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
     }
 }

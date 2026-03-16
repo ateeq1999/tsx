@@ -15,6 +15,7 @@ pub fn init(name: Option<String>) -> CommandResult {
         .output();
 
     let mut files_created = vec![];
+    let mut warnings = vec![];
 
     match output {
         Ok(o) if o.status.success() => {
@@ -24,12 +25,17 @@ pub fn init(name: Option<String>) -> CommandResult {
             return CommandResult::err(
                 "init",
                 format!(
-                    "Failed to create project: {}",
-                    String::from_utf8_lossy(&o.stderr)
+                    "npm create tanstack failed: {}",
+                    String::from_utf8_lossy(&o.stderr).trim()
                 ),
             );
         }
-        Err(_) => return CommandResult::err("init", "Failed to run npm create tanstack"),
+        Err(e) => {
+            return CommandResult::err(
+                "init",
+                format!("Failed to run npm create tanstack: {}", e),
+            );
+        }
     }
 
     let project_dir = std::env::current_dir()
@@ -37,31 +43,53 @@ pub fn init(name: Option<String>) -> CommandResult {
         .join(&project_name);
 
     if project_dir.exists() {
-        if let Ok(o) = Command::new("npm")
+        // npm install — surface failure as error, not silence
+        match Command::new("npm")
             .args(["install"])
             .current_dir(&project_dir)
             .output()
         {
-            if o.status.success() {
+            Ok(o) if o.status.success() => {
                 files_created.push("Dependencies installed".to_string());
+            }
+            Ok(o) => {
+                warnings.push(format!(
+                    "npm install failed: {}",
+                    String::from_utf8_lossy(&o.stderr).trim()
+                ));
+            }
+            Err(e) => {
+                warnings.push(format!("npm install could not run: {}", e));
             }
         }
 
-        if let Ok(o) = Command::new("npx")
+        // shadcn/ui — warn on failure but do not abort (optional tooling)
+        match Command::new("npx")
             .args(["shadcn@latest", "init", "-d"])
             .current_dir(&project_dir)
             .output()
         {
-            if o.status.success() {
+            Ok(o) if o.status.success() => {
                 files_created.push("shadcn/ui initialized".to_string());
+            }
+            Ok(o) => {
+                warnings.push(format!(
+                    "shadcn/ui init failed (non-fatal): {}",
+                    String::from_utf8_lossy(&o.stderr).trim()
+                ));
+            }
+            Err(e) => {
+                warnings.push(format!("npx shadcn could not run (non-fatal): {}", e));
             }
         }
 
         create_drizzle_config(&project_dir);
         files_created.push("drizzle.config.ts created".to_string());
+        files_created.push(".env.example created".to_string());
     }
 
     let mut result = CommandResult::ok("init", files_created);
+    result.warnings = warnings;
     result.next_steps = vec![
         format!("cd {}", project_name),
         "tsx add auth".to_string(),

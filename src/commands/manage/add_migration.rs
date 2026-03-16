@@ -8,41 +8,57 @@ pub fn add_migration() -> CommandResult {
         Err(e) => return CommandResult::err("add:migration", e.to_string()),
     };
 
-    let mut warnings = Vec::new();
-
+    // Step 1: drizzle-kit generate — hard failure
     let generate_output = Command::new("npx")
         .args(["drizzle-kit", "generate"])
         .current_dir(&root)
         .output();
 
     match generate_output {
-        Ok(o) if !o.status.success() => {
-            warnings.push(format!(
-                "Generate failed: {}",
-                String::from_utf8_lossy(&o.stderr)
-            ));
+        Ok(o) if o.status.success() => {}
+        Ok(o) => {
+            return CommandResult::err(
+                "add:migration",
+                format!(
+                    "drizzle-kit generate failed:\n{}",
+                    String::from_utf8_lossy(&o.stderr).trim()
+                ),
+            );
         }
-        Err(_) => warnings.push("Failed to run drizzle-kit generate".to_string()),
-        _ => {}
+        Err(e) => {
+            return CommandResult::err(
+                "add:migration",
+                format!("Failed to run drizzle-kit generate: {}", e),
+            );
+        }
     }
 
+    // Step 2: drizzle-kit migrate — hard failure
     let migrate_output = Command::new("npx")
         .args(["drizzle-kit", "migrate"])
         .current_dir(&root)
         .output();
 
     match migrate_output {
-        Ok(o) if !o.status.success() => {
-            warnings.push(format!(
-                "Migrate failed: {}",
-                String::from_utf8_lossy(&o.stderr)
-            ));
+        Ok(o) if o.status.success() => {}
+        Ok(o) => {
+            return CommandResult::err(
+                "add:migration",
+                format!(
+                    "drizzle-kit migrate failed:\n{}",
+                    String::from_utf8_lossy(&o.stderr).trim()
+                ),
+            );
         }
-        Err(_) => warnings.push("Failed to run drizzle-kit migrate".to_string()),
-        _ => {}
+        Err(e) => {
+            return CommandResult::err(
+                "add:migration",
+                format!("Failed to run drizzle-kit migrate: {}", e),
+            );
+        }
     }
 
     let mut result = CommandResult::ok("add:migration", vec![]);
-    result.warnings = warnings;
+    result.next_steps = vec!["Migration applied. Run tsx generate feature to scaffold a new resource.".to_string()];
     result
 }
