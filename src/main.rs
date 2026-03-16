@@ -128,6 +128,11 @@ enum Command {
         #[command(subcommand)]
         action: Publish,
     },
+    /// Discover and manage community framework registries
+    Registry {
+        #[command(subcommand)]
+        action: RegistryCmd,
+    },
 }
 
 #[derive(Subcommand)]
@@ -198,6 +203,24 @@ enum Add {
     },
     /// Run drizzle-kit generate + migrate
     Migration,
+}
+
+#[derive(Subcommand)]
+enum RegistryCmd {
+    /// Search npm for community tsx-framework-* packages
+    Search {
+        /// Search query (leave empty to list all tsx-framework packages)
+        #[arg(long, default_value = "")]
+        query: String,
+    },
+    /// Install a community registry from an npm package
+    Install {
+        /// npm package name
+        #[arg(long)]
+        package: String,
+    },
+    /// List community registries installed in this project
+    List,
 }
 
 #[derive(Subcommand)]
@@ -431,6 +454,23 @@ fn main() {
             Publish::List => {
                 use tsx::commands::publish;
                 let result = publish::publish_list(cli.verbose);
+                result.print();
+            }
+        },
+        Command::Registry { action } => match action {
+            RegistryCmd::Search { query } => {
+                use tsx::commands::registry;
+                let result = registry::registry_search(query, cli.verbose);
+                result.print();
+            }
+            RegistryCmd::Install { package } => {
+                use tsx::commands::registry;
+                let result = registry::registry_install(package, cli.verbose);
+                result.print();
+            }
+            RegistryCmd::List => {
+                use tsx::commands::registry;
+                let result = registry::registry_list(cli.verbose);
                 result.print();
             }
         },
