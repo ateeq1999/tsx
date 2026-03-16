@@ -1,7 +1,10 @@
 {
-  "name": "start-app",
+  "name": "registry-web",
   "private": true,
   "type": "module",
+  "imports": {
+    "#/*": "./src/*"
+  },
   "scripts": {
     "dev": "vite dev --port 3000",
     "build": "vite build",
@@ -14,7 +17,9 @@
     "db:pull": "drizzle-kit pull",
     "db:studio": "drizzle-kit studio",
     "db:clear": "bun drizzle/clear.ts",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx}\"",
+    "format": "biome format --write",
+    "lint": "biome lint",
+    "check": "biome check",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -23,6 +28,8 @@
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-devtools": "^0.7.0",
     "@tanstack/react-form": "^1.28.5",
+    "@tanstack/react-query": "latest",
+    "@tanstack/react-query-devtools": "latest",
     "@tanstack/react-router": "^1.132.0",
     "@tanstack/react-router-devtools": "^1.132.0",
     "@tanstack/react-router-ssr-query": "^1.131.7",
@@ -57,8 +64,8 @@
     "vite-tsconfig-paths": "^5.1.4"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.4.5",
     "@tanstack/devtools-vite": "^0.3.11",
-    "@tanstack/eslint-config": "^0.3.0",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.2.0",
     "@types/node": "^22.10.2",
