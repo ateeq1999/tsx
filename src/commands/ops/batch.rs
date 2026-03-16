@@ -12,6 +12,8 @@ pub struct BatchResult {
     pub succeeded: u32,
     pub failed: u32,
     pub results: Vec<BatchCommandResult>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub rolled_back_files: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,6 +47,8 @@ pub fn batch(
     let mut succeeded: u32 = 0;
     let mut failed: u32 = 0;
     let mut results: Vec<BatchCommandResult> = Vec::new();
+    // All file paths written so far, for rollback.
+    let mut all_files_written: Vec<String> = Vec::new();
 
     for (index, cmd) in payload.commands.iter().enumerate() {
         let cmd_start = Instant::now();
@@ -53,6 +57,7 @@ pub fn batch(
 
         let batch_cmd_result = match result {
             Ok(files_created) => {
+                all_files_written.extend(files_created.clone());
                 succeeded += 1;
                 BatchCommandResult {
                     index: index as u32,
@@ -95,6 +100,16 @@ pub fn batch(
         }
     }
 
+    // Rollback: delete all files written by earlier commands if requested.
+    let mut rolled_back_files: Vec<String> = Vec::new();
+    if failed > 0 && payload.rollback_on_failure && !dry_run {
+        for path in &all_files_written {
+            if std::fs::remove_file(path).is_ok() {
+                rolled_back_files.push(path.clone());
+            }
+        }
+    }
+
     let duration_ms = start.elapsed().as_millis() as u64;
 
     let batch_result = BatchResult {
@@ -102,6 +117,7 @@ pub fn batch(
         succeeded,
         failed,
         results,
+        rolled_back_files,
     };
 
     let response = ResponseEnvelope::success(

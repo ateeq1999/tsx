@@ -26,7 +26,7 @@
 ## 🟡 Medium — Robustness
 
 - [x] **BUG-10** `dev --ws-port` thread leak — `JoinHandle` from `start_ws_server()` is immediately dropped, which detaches the thread silently; should be stored and awaited on shutdown
-- [ ] **BUG-11** `batch` has no rollback — if command N of M fails mid-scaffold, commands 1..N-1 already wrote files; no cleanup, no atomicity, no record of partial state
+- [x] **BUG-11** `batch` has no rollback — if command N of M fails mid-scaffold, commands 1..N-1 already wrote files; no cleanup, no atomicity, no record of partial state
 - [ ] **BUG-12** No structured logging — errors go to `eprintln!` with no context about which command, which template, or which file was being processed
 
 ---
@@ -53,7 +53,7 @@
 | BUG-08 | upgrade only pins, doesn't upgrade | ✅ fixed |
 | BUG-09 | Inconsistent error formats | ✅ fixed |
 | BUG-10 | WebSocket thread leak | ✅ fixed |
-| BUG-11 | Batch no rollback | ⬜ pending |
+| BUG-11 | Batch no rollback | ✅ fixed |
 | BUG-12 | No structured logging | ⬜ pending |
 | BUG-13 | explain hardcoded knowledge base | ⬜ pending |
 | BUG-14 | Stub framework registries | ⬜ pending |
