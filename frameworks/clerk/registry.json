@@ -66,34 +66,65 @@
   "questions": [
     {
       "topic": "how to setup authentication",
-      "answer": "Install @clerk/nextjs and configure middleware",
+      "answer": "Install @clerk/nextjs, add API keys to .env.local, wrap app in ClerkProvider, and create middleware.",
       "steps": [
-        {
-          "action": "Install Clerk",
-          "code": "npm install @clerk/nextjs"
-        },
-        {
-          "action": "Create middleware",
-          "description": "Create src/middleware.ts"
-        },
-        {
-          "action": "Add keys",
-          "description": "Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY"
-        }
+        { "action": "Install Clerk", "code": "npm install @clerk/nextjs" },
+        { "action": "Add env keys", "code": "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...\nCLERK_SECRET_KEY=sk_..." },
+        { "action": "Wrap in ClerkProvider", "code": "import { ClerkProvider } from '@clerk/nextjs'\nexport default function RootLayout({ children }) {\n  return <ClerkProvider>{children}</ClerkProvider>\n}" },
+        { "action": "Create middleware", "code": "import { clerkMiddleware } from '@clerk/nextjs/server'\nexport default clerkMiddleware()\nexport const config = { matcher: ['/((?!_next).*)'] }" }
       ],
-      "files_affected": ["src/middleware.ts", ".env.local"],
+      "files_affected": ["src/middleware.ts", ".env.local", "src/app/layout.tsx"],
       "dependencies": ["@clerk/nextjs"]
     },
     {
       "topic": "how to protect a route",
-      "answer": "Use clerkMiddleware to protect routes",
+      "answer": "Use createRouteMatcher in clerkMiddleware to protect specific routes.",
       "steps": [
-        {
-          "action": "Configure middleware",
-          "description": "Define which routes to protect"
-        }
+        { "action": "Define protected routes", "code": "const isProtected = createRouteMatcher(['/dashboard(.*)', '/profile(.*)'])" },
+        { "action": "Enforce auth", "code": "export default clerkMiddleware((auth, req) => {\n  if (isProtected(req)) auth().protect()\n})" }
       ],
       "files_affected": ["src/middleware.ts"],
+      "dependencies": ["@clerk/nextjs"]
+    },
+    {
+      "topic": "how to get the current user",
+      "answer": "Use currentUser() in server components or useUser() in client components.",
+      "steps": [
+        { "action": "Server component", "code": "import { currentUser } from '@clerk/nextjs/server'\nconst user = await currentUser()" },
+        { "action": "Client component", "code": "import { useUser } from '@clerk/nextjs'\nconst { user, isLoaded } = useUser()" }
+      ],
+      "files_affected": [],
+      "dependencies": ["@clerk/nextjs"]
+    },
+    {
+      "topic": "how to sign out",
+      "answer": "Use the <SignOutButton> component or call signOut() from useClerk().",
+      "steps": [
+        { "action": "Use component", "code": "import { SignOutButton } from '@clerk/nextjs'\n<SignOutButton />" },
+        { "action": "Programmatic", "code": "const { signOut } = useClerk()\nawait signOut({ redirectUrl: '/' })" }
+      ],
+      "files_affected": [],
+      "dependencies": ["@clerk/nextjs"]
+    },
+    {
+      "topic": "how to add sign in and sign up pages",
+      "answer": "Create catch-all routes at /sign-in and /sign-up using Clerk's prebuilt components.",
+      "steps": [
+        { "action": "Create sign-in page", "code": "// src/app/sign-in/[[...sign-in]]/page.tsx\nimport { SignIn } from '@clerk/nextjs'\nexport default function SignInPage() { return <SignIn /> }" },
+        { "action": "Create sign-up page", "code": "// src/app/sign-up/[[...sign-up]]/page.tsx\nimport { SignUp } from '@clerk/nextjs'\nexport default function SignUpPage() { return <SignUp /> }" },
+        { "action": "Add env vars", "code": "NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in\nNEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up" }
+      ],
+      "files_affected": ["src/app/sign-in/**/*.tsx", "src/app/sign-up/**/*.tsx", ".env.local"],
+      "dependencies": ["@clerk/nextjs"]
+    },
+    {
+      "topic": "how to access session in server action",
+      "answer": "Use auth() from @clerk/nextjs/server to get the userId in server actions or route handlers.",
+      "steps": [
+        { "action": "Import auth", "code": "import { auth } from '@clerk/nextjs/server'" },
+        { "action": "Get userId", "code": "const { userId } = await auth()\nif (!userId) throw new Error('Unauthorized')" }
+      ],
+      "files_affected": [],
       "dependencies": ["@clerk/nextjs"]
     }
   ]

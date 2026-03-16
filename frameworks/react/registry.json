@@ -68,34 +68,63 @@
   "questions": [
     {
       "topic": "how to create a component",
-      "answer": "Create a new component in src/components/",
+      "answer": "Create a .tsx file in src/components/ with a named export function.",
       "steps": [
-        {
-          "action": "Create component file",
-          "description": "Create src/components/name/name.tsx"
-        },
-        {
-          "action": "Export component",
-          "description": "Use named export"
-        }
+        { "action": "Create file", "code": "touch src/components/button/button.tsx" },
+        { "action": "Define component", "code": "interface ButtonProps { label: string; onClick(): void }\nexport function Button({ label, onClick }: ButtonProps) {\n  return <button onClick={onClick}>{label}</button>\n}" }
       ],
       "files_affected": ["src/components/**/*.tsx"],
       "dependencies": []
     },
     {
       "topic": "how to create a custom hook",
-      "answer": "Create a hook in src/hooks/",
+      "answer": "Create a TypeScript file in src/hooks/ starting with 'use'. Hooks must start with 'use' to follow React's rules.",
       "steps": [
-        {
-          "action": "Create hook file",
-          "code": "src/hooks/useCounter.ts"
-        },
-        {
-          "action": "Name with use prefix",
-          "description": "Hooks must start with 'use'"
-        }
+        { "action": "Create file", "code": "touch src/hooks/useCounter.ts" },
+        { "action": "Define hook", "code": "import { useState } from 'react'\nexport function useCounter(initial = 0) {\n  const [count, setCount] = useState(initial)\n  const increment = () => setCount(c => c + 1)\n  return { count, increment }\n}" }
       ],
       "files_affected": ["src/hooks/*.ts"],
+      "dependencies": []
+    },
+    {
+      "topic": "how to manage global state with context",
+      "answer": "Create a context with createContext, wrap children in a Provider, and consume with useContext.",
+      "steps": [
+        { "action": "Create context file", "code": "touch src/lib/auth-context.tsx" },
+        { "action": "Define context", "code": "const AuthContext = createContext<User | null>(null)\nexport function AuthProvider({ children }) {\n  const [user, setUser] = useState(null)\n  return <AuthContext.Provider value={user}>{children}</AuthContext.Provider>\n}" },
+        { "action": "Consume context", "code": "const user = useContext(AuthContext)" }
+      ],
+      "files_affected": ["src/lib/*-context.tsx"],
+      "dependencies": []
+    },
+    {
+      "topic": "how to fetch data",
+      "answer": "Use useEffect + useState for basic fetching, or TanStack Query for caching and background refetch.",
+      "steps": [
+        { "action": "Basic fetch", "code": "const [data, setData] = useState(null)\nuseEffect(() => {\n  fetch('/api/items').then(r => r.json()).then(setData)\n}, [])" },
+        { "action": "With TanStack Query", "code": "const { data } = useQuery({ queryKey: ['items'], queryFn: fetchItems })" }
+      ],
+      "files_affected": [],
+      "dependencies": []
+    },
+    {
+      "topic": "how to handle forms",
+      "answer": "Use controlled inputs with useState, or TanStack Form for complex validation with minimal re-renders.",
+      "steps": [
+        { "action": "Controlled input", "code": "const [email, setEmail] = useState('')\n<input value={email} onChange={e => setEmail(e.target.value)} />" },
+        { "action": "With TanStack Form", "code": "const form = useForm({ onSubmit: async ({ value }) => console.log(value) })\n<form.Field name=\"email\" />" }
+      ],
+      "files_affected": [],
+      "dependencies": []
+    },
+    {
+      "topic": "how to use refs",
+      "answer": "Use useRef to access DOM elements directly or store mutable values that don't trigger re-renders.",
+      "steps": [
+        { "action": "DOM ref", "code": "const inputRef = useRef<HTMLInputElement>(null)\n<input ref={inputRef} />\n// inputRef.current?.focus()" },
+        { "action": "Mutable value", "code": "const countRef = useRef(0)\ncountRef.current++ // no re-render" }
+      ],
+      "files_affected": [],
       "dependencies": []
     }
   ]

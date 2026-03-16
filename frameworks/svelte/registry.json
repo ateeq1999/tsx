@@ -60,14 +60,66 @@
   "questions": [
     {
       "topic": "how to create a component",
-      "answer": "Create a .svelte file in src/lib/components/",
+      "answer": "Create a .svelte file in src/lib/components/ with a <script lang=\"ts\"> block.",
       "steps": [
-        {
-          "action": "Create component",
-          "code": "touch src/lib/components/Button.svelte"
-        }
+        { "action": "Create file", "code": "touch src/lib/components/Button.svelte" },
+        { "action": "Add script", "code": "<script lang=\"ts\">\n  export let label: string\n</script>" },
+        { "action": "Add markup", "code": "<button>{label}</button>" }
       ],
       "files_affected": ["src/lib/components/*.svelte"],
+      "dependencies": []
+    },
+    {
+      "topic": "how to create a SvelteKit route",
+      "answer": "Add a +page.svelte file in src/routes/. The file path maps directly to the URL.",
+      "steps": [
+        { "action": "Create route directory", "code": "mkdir -p src/routes/about" },
+        { "action": "Create page", "code": "touch src/routes/about/+page.svelte" },
+        { "action": "Add content", "code": "<h1>About</h1>" }
+      ],
+      "files_affected": ["src/routes/**/*.svelte"],
+      "dependencies": ["@sveltejs/kit"]
+    },
+    {
+      "topic": "how to load data server side",
+      "answer": "Create a +page.server.ts with an exported load function alongside the +page.svelte file.",
+      "steps": [
+        { "action": "Create server load", "code": "touch src/routes/posts/+page.server.ts" },
+        { "action": "Define load", "code": "export async function load() {\n  const posts = await getPosts()\n  return { posts }\n}" },
+        { "action": "Use in page", "code": "<script>\n  export let data\n</script>\n{#each data.posts as post}...{/each}" }
+      ],
+      "files_affected": ["src/routes/**/*.server.ts", "src/routes/**/*.svelte"],
+      "dependencies": ["@sveltejs/kit"]
+    },
+    {
+      "topic": "how to create a store",
+      "answer": "Use Svelte's built-in writable/readable stores for shared reactive state.",
+      "steps": [
+        { "action": "Create store file", "code": "touch src/lib/stores/user.ts" },
+        { "action": "Define store", "code": "import { writable } from 'svelte/store'\nexport const user = writable(null)" },
+        { "action": "Use in component", "code": "import { user } from '$lib/stores/user'\n$user // reactive value" }
+      ],
+      "files_affected": ["src/lib/stores/*.ts"],
+      "dependencies": []
+    },
+    {
+      "topic": "how to handle form actions",
+      "answer": "Use SvelteKit form actions in +page.server.ts for progressive enhancement form handling.",
+      "steps": [
+        { "action": "Define action", "code": "export const actions = {\n  default: async ({ request }) => {\n    const data = await request.formData()\n    // handle form\n  }\n}" },
+        { "action": "Use in form", "code": "<form method=\"POST\">\n  <input name=\"email\">\n  <button>Submit</button>\n</form>" }
+      ],
+      "files_affected": ["src/routes/**/*.server.ts"],
+      "dependencies": ["@sveltejs/kit"]
+    },
+    {
+      "topic": "how to add TypeScript",
+      "answer": "SvelteKit supports TypeScript out of the box. Use lang=\"ts\" in script blocks and create .ts files.",
+      "steps": [
+        { "action": "Enable in components", "code": "<script lang=\"ts\">\n  let count: number = 0\n</script>" },
+        { "action": "Type page data", "code": "import type { PageData } from './$types'\nexport let data: PageData" }
+      ],
+      "files_affected": ["src/**/*.svelte", "src/**/*.ts"],
       "dependencies": []
     }
   ]
