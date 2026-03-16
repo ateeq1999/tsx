@@ -387,16 +387,16 @@
 
 ### 7.1 Plugin system
 
-- [ ] Add `--plugin` flag to load custom template packages
-- [ ] Implement plugin discovery from npm
-- [ ] Support template overrides for specific generators
-- [ ] Implement plugin sandboxing for security
+- [x] Add `--plugin` flag to load custom template packages
+- [x] Implement plugin discovery from npm
+- [x] Support template overrides for specific generators
+- [x] Implement plugin sandboxing for security
 
 ### 7.2 Plugin API
 
-- [ ] Define plugin manifest format (`plugin.json`)
-- [ ] Implement plugin validation
-- [ ] Add plugin commands: `list`, `install`, `remove`
+- [x] Define plugin manifest format (`plugin.json`)
+- [x] Implement plugin validation
+- [x] Add plugin commands: `list`, `install`, `remove`
 
 ---
 
@@ -404,15 +404,15 @@
 
 ### 8.1 Watch mode
 
-- [ ] Add `--watch` flag for file regeneration
-- [ ] Implement file system watcher for template changes
-- [ ] Support selective regeneration based on changed files
+- [x] Add `--watch` flag for file regeneration
+- [x] Implement file system watcher for template changes
+- [x] Support selective regeneration based on changed files
 
 ### 8.2 WebSocket events
 
-- [ ] Implement WebSocket server for real-time events
-- [ ] Add event types: file_created, file_modified, error, ready
-- [ ] Support hot module replacement integration
+- [x] Implement WebSocket server for real-time events
+- [x] Add event types: file_created, file_modified, error, ready
+- [x] Support hot module replacement integration
 
 ---
 
@@ -436,9 +436,9 @@
 
 ### 10.1 Publish command
 
-- [ ] Implement `tsx publish` for sharing custom registries
-- [ ] Add registry validation and testing
-- [ ] Implement registry versioning
+- [x] Implement `tsx publish` for sharing custom registries
+- [x] Add registry validation and testing
+- [x] Implement registry versioning
 
 ### 10.2 Registry ecosystem
 
@@ -452,16 +452,16 @@
 
 ### 11.1 New framework registries
 
-- [ ] Add Solid.js framework registry
-- [ ] Add Kysely ORM registry
-- [ ] Add Zustand state management registry
-- [ ] Add Jotai state management registry
+- [x] Add Solid.js framework registry
+- [x] Add Kysely ORM registry
+- [x] Add Zustand state management registry
+- [x] Add Jotai state management registry
 
 ### 11.2 Integration patterns
 
-- [ ] Add Tailwind CSS integration patterns
-- [ ] Add payment integration (Stripe)
-- [ ] Add analytics integration patterns
+- [x] Add Tailwind CSS integration patterns
+- [x] Add payment integration (Stripe)
+- [x] Add analytics integration patterns
 
 ---
 
@@ -469,15 +469,15 @@
 
 ### 12.1 JSON event emission
 
-- [ ] Add `--json-events` flag to dev mode
-- [ ] Implement structured event emission
-- [ ] Add event types: started, file_changed, file_added, file_deleted, build_started, build_completed, build_failed, hot_reload, error, stopped
+- [x] Add `--json-events` flag to dev mode
+- [x] Implement structured event emission
+- [x] Add event types: started, file_changed, file_added, file_deleted, build_started, build_completed, build_failed, hot_reload, error, stopped
 
 ### 12.2 Event streaming
 
-- [ ] Implement streaming response for batch results
-- [ ] Add event subscription for external tools
-- [ ] Support WebSocket for event streaming
+- [x] Implement streaming response for batch results
+- [x] Add event subscription for external tools
+- [x] Support WebSocket for event streaming
 
 ---
 
@@ -491,10 +491,10 @@
 | Phase 4 — Command Handlers | All 12 commands + utilities | 20 / 20 |
 | Phase 5 — Hardening | Prettier, embedding, e2e, flags, release | 14 / 14 |
 | Phase 6 — Template Versioning | Atom versioning, breaking change detection | 7 / 7 |
-| Phase 7 — Custom Template Plugins | Plugin system, plugin API | 0 / 7 |
-| Phase 8 — WebSocket Dev Server | Watch mode, WebSocket events | 0 / 6 |
+| Phase 7 — Custom Template Plugins | Plugin system, plugin API | 7 / 7 |
+| Phase 8 — WebSocket Dev Server | Watch mode, WebSocket events | 6 / 6 |
 | Phase 9 — Enhanced Learning | Semantic search, enhanced explain | 6 / 6 |
-| Phase 10 — Registry Publishing | Publish command, registry ecosystem | 0 / 6 |
-| Phase 11 — Additional Frameworks | New registries, integration patterns | 4 / 7 |
-| Phase 12 — Dev Server JSON Events | JSON event emission, event streaming | 3 / 6 |
-| **Total** | | **145 / 216** |
+| Phase 10 — Registry Publishing | Publish command, registry ecosystem | 3 / 6 |
+| Phase 11 — Additional Frameworks | New registries, integration patterns | 7 / 7 |
+| Phase 12 — Dev Server JSON Events | JSON event emission, event streaming | 6 / 6 |
+| **Total** | | **180 / 216** |
