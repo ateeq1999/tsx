@@ -40,15 +40,41 @@ where
 
     let template = match engine.get_template(template_name) {
         Ok(t) => t,
-        Err(e) => return CommandResult::err(command, format!("Template error: {}", e)),
+        Err(e) => {
+            return CommandResult::err(
+                command,
+                format!(
+                    "Template not found: {} — {}",
+                    template_name, e
+                ),
+            )
+        }
     };
 
     let rendered = match template.render(ctx) {
         Ok(r) => r,
-        Err(e) => return CommandResult::err(command, format!("Render error: {}", e)),
+        Err(e) => {
+            return CommandResult::err(
+                command,
+                format!(
+                    "Render failed for template {}: {}",
+                    template_name, e
+                ),
+            )
+        }
     };
 
-    let formatted = format_fn(&rendered).unwrap_or_else(|_| rendered);
+    let (formatted, format_warning) = match format_fn(&rendered) {
+        Ok(f) => (f, None),
+        Err(e) => (
+            rendered,
+            Some(format!(
+                "Formatter failed for {}: {} (writing unformatted output)",
+                output_path.display(),
+                e
+            )),
+        ),
+    };
 
     let files_created = if dry_run {
         vec![output_path.to_string_lossy().to_string()]
@@ -58,9 +84,18 @@ where
                 vec![output_path.to_string_lossy().to_string()]
             }
             Ok(WriteOutcome::Skipped) => vec![],
-            Err(e) => return CommandResult::err(command, format!("Write error: {}", e)),
+            Err(e) => {
+                return CommandResult::err(
+                    command,
+                    format!("Failed to write {}: {}", output_path.display(), e),
+                )
+            }
         }
     };
 
-    CommandResult::ok(command, files_created)
+    let mut result = CommandResult::ok(command, files_created);
+    if let Some(warning) = format_warning {
+        result.warnings.push(warning);
+    }
+    result
 }
