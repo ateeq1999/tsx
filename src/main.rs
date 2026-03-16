@@ -70,6 +70,15 @@ enum Command {
         /// JSON payload with array of commands
         #[arg(long)]
         json: Option<String>,
+        /// Stream each result as newline-delimited JSON as it completes
+        #[arg(long)]
+        stream: bool,
+    },
+    /// Start an SSE event subscription server for external tool integration
+    Subscribe {
+        /// Port to listen on (default: 7331)
+        #[arg(long, default_value = "7331")]
+        port: u16,
     },
     /// Answer questions about a framework
     Ask {
@@ -367,12 +376,17 @@ fn main() {
             let result = inspect::inspect(cli.verbose);
             result.print();
         }
-        Command::Batch { json } => {
+        Command::Batch { json, stream } => {
             use tsx::commands::batch;
             use tsx::json::payload::BatchPayload;
 
             let payload: BatchPayload = serde_json::from_str(&json.unwrap()).unwrap();
-            let result = batch::batch(payload, cli.overwrite, cli.dry_run, cli.verbose);
+            let result = batch::batch(payload, cli.overwrite, cli.dry_run, cli.verbose, stream);
+            result.print();
+        }
+        Command::Subscribe { port } => {
+            use tsx::commands::subscribe;
+            let result = subscribe::subscribe(port, cli.verbose);
             result.print();
         }
         Command::Ask {

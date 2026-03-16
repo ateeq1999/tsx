@@ -36,6 +36,7 @@ pub fn batch(
     overwrite: bool,
     dry_run: bool,
     verbose: bool,
+    stream: bool,
 ) -> CommandResult {
     let start = Instant::now();
 
@@ -45,24 +46,27 @@ pub fn batch(
     let mut results: Vec<BatchCommandResult> = Vec::new();
 
     for (index, cmd) in payload.commands.iter().enumerate() {
+        let cmd_start = Instant::now();
         let result = execute_command(&cmd.command, &cmd.options, overwrite, dry_run);
+        let cmd_duration_ms = cmd_start.elapsed().as_millis() as u64;
 
-        match result {
+        let batch_cmd_result = match result {
             Ok(files_created) => {
                 succeeded += 1;
-                results.push(BatchCommandResult {
+                BatchCommandResult {
                     index: index as u32,
                     success: true,
                     result: Some(serde_json::json!({
                         "kind": cmd.command.clone(),
-                        "files": files_created
+                        "files": files_created,
+                        "duration_ms": cmd_duration_ms,
                     })),
                     error: None,
-                });
+                }
             }
             Err(e) => {
                 failed += 1;
-                results.push(BatchCommandResult {
+                BatchCommandResult {
                     index: index as u32,
                     success: false,
                     result: None,
@@ -71,12 +75,22 @@ pub fn batch(
                         message: e.1,
                         path: None,
                     }),
-                });
-
-                if payload.stop_on_failure {
-                    break;
                 }
             }
+        };
+
+        if stream {
+            // Emit each result immediately as a newline-delimited JSON event.
+            if let Ok(line) = serde_json::to_string(&batch_cmd_result) {
+                println!("{}", line);
+            }
+        }
+
+        let should_stop = batch_cmd_result.error.is_some() && payload.stop_on_failure;
+        results.push(batch_cmd_result);
+
+        if should_stop {
+            break;
         }
     }
 
@@ -95,16 +109,29 @@ pub fn batch(
         duration_ms,
     );
 
-    if verbose {
-        let context = crate::json::response::Context {
-            project_root: std::env::current_dir()
-                .map(|p| p.to_string_lossy().to_string())
-                .unwrap_or_default(),
-            tsx_version: env!("CARGO_PKG_VERSION").to_string(),
-        };
-        response.with_context(context).print();
+    if !stream {
+        if verbose {
+            let context = crate::json::response::Context {
+                project_root: std::env::current_dir()
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_default(),
+                tsx_version: env!("CARGO_PKG_VERSION").to_string(),
+            };
+            response.with_context(context).print();
+        } else {
+            response.print();
+        }
     } else {
-        response.print();
+        // In stream mode, emit a final summary line.
+        if let Ok(summary) = serde_json::to_string(&serde_json::json!({
+            "event": "batch_complete",
+            "total": total,
+            "succeeded": succeeded,
+            "failed": failed,
+            "duration_ms": duration_ms,
+        })) {
+            println!("{}", summary);
+        }
     }
 
     CommandResult::ok("batch", vec![])

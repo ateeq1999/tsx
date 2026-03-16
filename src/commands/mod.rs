@@ -26,6 +26,7 @@ pub use ops::batch;
 pub use ops::inspect;
 pub use ops::list;
 pub use ops::publish;
+pub use ops::subscribe;
 
 pub use query::ask;
 pub use query::explain;
