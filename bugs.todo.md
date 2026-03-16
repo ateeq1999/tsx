@@ -6,17 +6,17 @@
 
 ## 🔴 Critical — Correctness
 
-- [ ] **BUG-01** `init`: silent failure — `npm install` and `shadcn init` errors are swallowed; user gets success with missing files
-- [ ] **BUG-02** `add_auth`: silent failure — `npm install better-auth` failure returns empty vec, no warning surfaced to user
-- [ ] **BUG-03** `add_migration`: returns `success: true` even when drizzle-kit generate/migrate fail (failures demoted to warnings)
-- [ ] **BUG-04** `add_auth_guard`: fragile string replacement — `content.replace("export const Route = createFileRoute", ...)` inserts guard code in wrong position; guard must be inside the route options object, not appended to the function call
-- [ ] **BUG-05** `add_table`: wrong schema type — accepts `AddFormArgs` (includes `submit_fn`, `layout`) instead of its own `AddTableArgs`; table-specific columns/sorting/pagination options are absent
+- [x] **BUG-01** `init`: silent failure — `npm install` and `shadcn init` errors are swallowed; user gets success with missing files
+- [x] **BUG-02** `add_auth`: silent failure — `npm install better-auth` failure returns empty vec, no warning surfaced to user
+- [x] **BUG-03** `add_migration`: returns `success: true` even when drizzle-kit generate/migrate fail (failures demoted to warnings)
+- [x] **BUG-04** `add_auth_guard`: fragile string replacement — `content.replace("export const Route = createFileRoute", ...)` inserts guard code in wrong position; guard must be inside the route options object, not appended to the function call
+- [x] **BUG-05** `add_table`: wrong schema type — accepts `AddFormArgs` (includes `submit_fn`, `layout`) instead of its own `AddTableArgs`; table-specific columns/sorting/pagination options are absent
 
 ---
 
 ## 🟠 High — Quality
 
-- [ ] **BUG-06** Input validation missing on all generate commands — no check that `name` is a valid TypeScript identifier, `fields` is non-empty, `path` has no double slashes or traversal
+- [x] **BUG-06** Input validation missing on all generate commands — no check that `name` is a valid TypeScript identifier, `fields` is non-empty, `path` has no double slashes or traversal
 - [ ] **BUG-07** Plugin overrides never applied — `plugin install` copies files to `.tsx/plugins/` but `render_and_write()` never checks for plugin template overrides before rendering built-in templates
 - [ ] **BUG-08** `upgrade atoms` only pins version — does not copy updated atom template files into the project; the command name implies an actual upgrade but only writes `tsx.atomsVersion` to package.json
 - [ ] **BUG-09** Inconsistent error representation — commands use three different error formats: `CommandResult` string errors, `ResponseEnvelope + ErrorResponse`, and `BatchError`; consumers must handle all three
@@ -43,12 +43,12 @@
 
 | ID | Description | Status |
 |----|-------------|--------|
-| BUG-01 | init silent failures | ⬜ pending |
-| BUG-02 | add_auth silent npm failure | ⬜ pending |
-| BUG-03 | add_migration returns success on failure | ⬜ pending |
-| BUG-04 | add_auth_guard fragile string replace | ⬜ pending |
-| BUG-05 | add_table wrong schema type | ⬜ pending |
-| BUG-06 | Missing input validation | ⬜ pending |
+| BUG-01 | init silent failures | ✅ fixed |
+| BUG-02 | add_auth silent npm failure | ✅ fixed |
+| BUG-03 | add_migration returns success on failure | ✅ fixed |
+| BUG-04 | add_auth_guard fragile string replace | ✅ fixed |
+| BUG-05 | add_table wrong schema type | ✅ fixed |
+| BUG-06 | Missing input validation | ✅ fixed |
 | BUG-07 | Plugin overrides not wired | ⬜ pending |
 | BUG-08 | upgrade only pins, doesn't upgrade | ⬜ pending |
 | BUG-09 | Inconsistent error formats | ⬜ pending |

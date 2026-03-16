@@ -3,8 +3,13 @@ use crate::render::render_and_write;
 use crate::schemas::AddSeedArgs;
 use crate::utils::format::format_typescript;
 use crate::utils::paths::resolve_output_path;
+use crate::utils::validate::validate_identifier;
 
 pub fn add_seed(args: AddSeedArgs, overwrite: bool, dry_run: bool) -> CommandResult {
+    if let Err(e) = validate_identifier(&args.name) {
+        return CommandResult::err("add:seed", format!("Invalid name: {}", e));
+    }
+
     render_and_write(
         "add:seed",
         "features/seed.jinja",
