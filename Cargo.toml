@@ -23,7 +23,7 @@ categories = ["command-line-utilities", "development-tools"]
 exclude = ["frameworks/", "templates/", "target/", ".tsx/"]
 
 [dependencies]
-forge = { path = "crates/forge" }
+forge = { path = "crates/forge", version = "0.1.0" }
 clap = { version = "4", features = ["derive"] }
 minijinja = { version = "2", features = ["loader"] }
 serde = { workspace = true }
