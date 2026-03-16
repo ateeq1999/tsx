@@ -3,6 +3,10 @@ name = "forge"
 version = "0.1.0"
 edition = "2021"
 description = "4-tier code generation engine for the tsx Framework Protocol"
+license = "MIT"
+repository = "https://github.com/ateeq1999/tsx"
+keywords = ["codegen", "template", "tera", "framework"]
+categories = ["template-engine", "development-tools"]
 
 [dependencies]
 tera = { workspace = true }
