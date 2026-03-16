@@ -85,6 +85,12 @@ fn fuzzy_score(needle: &str, haystack: &str) -> u32 {
     0
 }
 
+/// Exposed for tests.
+#[cfg(test)]
+pub(crate) fn score_for_test(needle: &str, haystack: &str) -> u32 {
+    fuzzy_score(needle, haystack)
+}
+
 pub fn explain(topic: String, verbose: bool) -> CommandResult {
     let start = Instant::now();
     let knowledge_base = load_knowledge_base();
@@ -138,4 +144,58 @@ pub fn explain(topic: String, verbose: bool) -> CommandResult {
     ));
     ResponseEnvelope::error("explain", error, duration_ms).print();
     CommandResult::err("explain", "Topic not found")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fuzzy_exact_match_scores_100() {
+        assert_eq!(score_for_test("atom", "atom"), 100);
+    }
+
+    #[test]
+    fn fuzzy_substring_match_scores_80() {
+        assert_eq!(score_for_test("auth", "auth"), 100);
+        assert!(score_for_test("aut", "auth") >= 80);
+    }
+
+    #[test]
+    fn fuzzy_no_match_scores_0() {
+        assert_eq!(score_for_test("xyz123", "atom"), 0);
+    }
+
+    #[test]
+    fn fuzzy_case_insensitive() {
+        assert_eq!(score_for_test("ATOM", "atom"), 100);
+        assert_eq!(score_for_test("Atom", "atom"), 100);
+    }
+
+    #[test]
+    fn knowledge_base_loads_all_topics() {
+        let kb = load_knowledge_base();
+        assert!(!kb.is_empty(), "knowledge base should not be empty");
+        let keys: Vec<&str> = kb.iter().map(|e| e.key.as_str()).collect();
+        assert!(keys.contains(&"atom"), "should contain atom");
+        assert!(keys.contains(&"feature"), "should contain feature");
+        assert!(keys.contains(&"auth"), "should contain auth");
+    }
+
+    #[test]
+    fn knowledge_base_entries_have_decisions_and_tree() {
+        let kb = load_knowledge_base();
+        for entry in &kb {
+            assert!(!entry.decisions.is_empty(), "entry {} should have decisions", entry.key);
+            assert!(!entry.tree.branches.is_empty(), "entry {} tree should have branches", entry.key);
+        }
+    }
+
+    #[test]
+    fn knowledge_base_entries_have_learn_more() {
+        let kb = load_knowledge_base();
+        for entry in &kb {
+            assert!(!entry.learn_more.is_empty(), "entry {} should have learn_more links", entry.key);
+        }
+    }
 }

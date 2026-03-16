@@ -21,7 +21,7 @@ fn test_add_schema_creates_file() {
             "generate",
             "schema",
             "--json",
-            r#"{"name":"products","fields":[]}"#,
+            r#"{"name":"products","fields":[{"name":"title","type":"string","required":true}]}"#,
         ])
         .current_dir(&project_root)
         .output()
@@ -65,7 +65,7 @@ fn test_dry_run_no_files_created() {
             "schema",
             "--dry-run",
             "--json",
-            r#"{"name":"test","fields":[]}"#,
+            r#"{"name":"test","fields":[{"name":"title","type":"string","required":true}]}"#,
         ])
         .current_dir(&project_root)
         .output()
@@ -104,7 +104,7 @@ fn test_missing_package_json_returns_error() {
             "generate",
             "schema",
             "--json",
-            r#"{"name":"test","fields":[]}"#,
+            r#"{"name":"test","fields":[{"name":"title","type":"string","required":true}]}"#,
         ])
         .current_dir(&project_root)
         .output()

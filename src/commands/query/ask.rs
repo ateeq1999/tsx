@@ -54,6 +54,66 @@ fn fuzzy_score(needle: &str, haystack: &str) -> u32 {
     0
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn exact_match_scores_100() {
+        assert_eq!(fuzzy_score("how to create a component", "how to create a component"), 100);
+    }
+
+    #[test]
+    fn substring_match_scores_80() {
+        assert!(fuzzy_score("component", "how to create a component") >= 80);
+    }
+
+    #[test]
+    fn word_overlap_scores_60_plus() {
+        let score = fuzzy_score("create component", "how to create a component");
+        assert!(score >= 60, "expected >= 60, got {}", score);
+    }
+
+    #[test]
+    fn partial_token_scores_40() {
+        let score = fuzzy_score("routing", "how to add routing");
+        assert!(score >= 40, "expected >= 40, got {}", score);
+    }
+
+    #[test]
+    fn no_match_scores_0() {
+        assert_eq!(fuzzy_score("xyzzy", "how to create a component"), 0);
+    }
+
+    #[test]
+    fn case_insensitive_matching() {
+        assert_eq!(
+            fuzzy_score("HOW TO CREATE A COMPONENT", "how to create a component"),
+            100
+        );
+    }
+
+    #[test]
+    fn ask_result_serialises() {
+        let result = AskResult {
+            question: "how to create a component".to_string(),
+            framework: "Vue".to_string(),
+            answer: "Create a .vue file".to_string(),
+            steps: vec![AskStep {
+                action: "touch MyComponent.vue".to_string(),
+                code: Some("touch src/components/MyComponent.vue".to_string()),
+                description: None,
+            }],
+            files_affected: vec!["src/components/*.vue".to_string()],
+            dependencies: vec![],
+            learn_more: vec![],
+        };
+        let json = serde_json::to_string(&result).unwrap();
+        assert!(json.contains("how to create a component"));
+        assert!(json.contains("Vue"));
+    }
+}
+
 pub fn ask(question: String, framework: Option<String>, verbose: bool) -> CommandResult {
     let start = Instant::now();
 

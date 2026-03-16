@@ -35,7 +35,7 @@
 
 - [x] **BUG-13** `explain` knowledge base is hardcoded Rust — 400-line match expression baked into source; adding/editing topics requires recompile; should live in `data/explain.json`
 - [x] **BUG-14** Stub framework registries — `vue`, `svelte`, `clerk`, `react` registries are minimal placeholders; `tsx ask --framework vue` returns empty results
-- [ ] **BUG-15** Zero command unit tests — 44 command files, 0 unit tests; only the render engine and file writer are tested
+- [x] **BUG-15** Zero command unit tests — 44 command files, 0 unit tests; only the render engine and file writer are tested
 
 ---
 
@@ -57,4 +57,4 @@
 | BUG-12 | No structured logging | ✅ fixed |
 | BUG-13 | explain hardcoded knowledge base | ✅ fixed |
 | BUG-14 | Stub framework registries | ✅ fixed |
-| BUG-15 | Zero command unit tests | ⬜ pending |
+| BUG-15 | Zero command unit tests | ✅ fixed |
