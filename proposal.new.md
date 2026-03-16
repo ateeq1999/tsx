@@ -477,7 +477,7 @@ This becomes the spec every other framework package author follows.
 
 ### Phase A — forge Crate (Foundation)
 
-- [ ] A.1 Run empirical benchmarks: MiniJinja vs Tera on tsx render pipeline — `cargo bench`
+- [x] A.1 Run empirical benchmarks: MiniJinja vs Tera on tsx render pipeline — `cargo bench`
 - [x] A.2 Create `crates/forge/` with `Cargo.toml` + Cargo workspace setup
 - [x] A.3 Wrap Tera engine with tier-aware template loader (`engine.rs`)
 - [x] A.4 Move ImportCollector from tsx into forge as a first-class feature (`collector.rs`)
@@ -500,7 +500,7 @@ This becomes the spec every other framework package author follows.
 
 - [x] C.1 Write 16 FAQ entries with token estimates (`knowledge/faq.md`)
 - [x] C.2 Write overview.md, concepts.md, patterns.md, decisions.md
-- [ ] C.3 Migrate all 8 generator templates to forge format
+- [x] C.3 Migrate all 8 generator templates to forge format
 - [x] C.4 Write 3 starter template recipes (basic, with-auth, saas)
 - [x] C.5 Write 5 integration files (better-auth, drizzle-orm, shadcn-ui, react-query, react-router)
 
@@ -524,7 +524,7 @@ This becomes the spec every other framework package author follows.
 - [x] F.1 `tsx framework add @tsx-pkg/stripe` — install from npm
 - [x] F.2 `tsx create --from github:user/repo` — load from GitHub
 - [x] F.3 Local package loading: `tsx framework add ./my-pkg`
-- [ ] F.4 Package caching and version management
+- [x] F.4 Package caching and version management
 
 ---
 
@@ -532,12 +532,12 @@ This becomes the spec every other framework package author follows.
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| A | forge crate (Tera engine, ImportCollector, 4-tier, slots, provide/inject) | 9/9 ✅ |
+| A | forge crate (Tera engine, ImportCollector, 4-tier, slots, provide/inject, benchmarks) | 9/9 ✅ |
 | B | Framework Package Standard (manifest, knowledge, token budget, loader, validation) | 6/6 ✅ |
-| C | TanStack Start reference implementation (generator specs) | 5/5 ✅ |
+| C | TanStack Start reference implementation (generator specs, forge templates) | 5/5 ✅ |
 | D | New CLI commands (describe, create, generate, --depth, auto-detect) | 5/5 ✅ |
 | E | Framework author tools (init, validate, preview, publish) | 4/4 ✅ |
-| F | External package loading (local, npm, github) | 3/4 ✅ |
+| F | External package loading (local, npm, github, version cache) | 4/4 ✅ |
 
 ---
 

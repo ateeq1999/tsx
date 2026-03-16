@@ -11,3 +11,11 @@ serde_json = { workspace = true }
 anyhow = { workspace = true }
 heck = { workspace = true }
 walkdir = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+minijinja = "2"
+
+[[bench]]
+name = "render_bench"
+harness = false

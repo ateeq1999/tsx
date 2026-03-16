@@ -1,0 +1,7 @@
+<div class="flex items-center space-x-2">
+  <Switch
+    id="{{ field.name }}"
+    {...form.register("{{ field.name }}")}
+  />
+  <Label for="{{ field.name }}">{{ field.name | pascal_case }}</Label>
+</div>

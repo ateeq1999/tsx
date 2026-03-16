@@ -9,6 +9,7 @@ anyhow = "1"
 heck = "0.5"
 tera = "1"
 walkdir = "2"
+criterion = { version = "0.5", features = ["html_reports"] }
 
 [package]
 name = "tsx"

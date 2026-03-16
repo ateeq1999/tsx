@@ -33,5 +33,7 @@
     "add-seed"
   ],
   "starters": ["basic", "with-auth", "saas"],
-  "integrations": ["better-auth", "drizzle-orm", "shadcn-ui", "react-query", "react-router"]
+  "integrations": ["better-auth", "drizzle-orm", "shadcn-ui", "react-query", "react-router"],
+  "templates_dir": "templates",
+  "template_format": "forge"
 }

@@ -1,0 +1,11 @@
+{% extends "layouts/route.forge" %}
+{% block loader %}
+loader: ({ context: { queryClient } }) => {
+  return queryClient.ensureQueryData({{ name }}QueryOptions());
+},
+{% endblock %}
+{% block body %}
+{% with name=name %}
+<{{ name | pascal_case }}Table />
+{% endwith %}
+{% endblock %}

@@ -1,0 +1,7 @@
+{{ "import { z } from 'zod'" | collect_import }}
+
+export const {{ name }}Schema = z.object({
+  {% for field in fields %}
+  {% include "atoms/zod/field_rule.forge" %}
+  {% endfor %}
+})

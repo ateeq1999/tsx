@@ -1,0 +1,9 @@
+{{ "import { eq, desc } from 'drizzle-orm'" | collect_import }}
+
+export const defaultSelect = {
+  orderBy: {
+    createdAt: desc,
+  }
+}
+
+export const defaultRelations = {}

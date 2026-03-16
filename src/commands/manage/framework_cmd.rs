@@ -1,6 +1,7 @@
 use serde::Serialize;
 use std::time::Instant;
 
+use crate::framework::package_cache::PackageCache;
 use crate::json::error::ErrorResponse;
 use crate::json::response::ResponseEnvelope;
 use crate::output::CommandResult;
@@ -473,21 +474,29 @@ fn framework_add_npm(package: String, verbose: bool) -> CommandResult {
     };
 
     // Now copy from pkg_path into frameworks dir (same as local add)
-    let result = framework_add_local_path(&pkg_path, &package, verbose, start);
+    let result = framework_add_local_path(&pkg_path, &package, "npm", verbose, start);
     let _ = std::fs::remove_dir_all(&temp_dir);
     result
+}
+
+/// Install a framework package extracted from a GitHub download (used by `tsx create github:...`).
+pub fn framework_add_github(source: String, verbose: bool) -> CommandResult {
+    let start = Instant::now();
+    let source_path = std::path::PathBuf::from(&source);
+    framework_add_local_path(&source_path, &source, "github", verbose, start)
 }
 
 /// Install a framework package from a local directory path.
 pub fn framework_add_local(source: String, verbose: bool) -> CommandResult {
     let start = Instant::now();
     let source_path = std::path::PathBuf::from(&source);
-    framework_add_local_path(&source_path, &source, verbose, start)
+    framework_add_local_path(&source_path, &source, "local", verbose, start)
 }
 
 fn framework_add_local_path(
     source_path: &std::path::Path,
     source_label: &str,
+    source_kind: &str,
     verbose: bool,
     start: std::time::Instant,
 ) -> CommandResult {
@@ -538,6 +547,21 @@ fn framework_add_local_path(
     }
 
     let files_copied = copy_dir_recursive(source_path, &dest);
+
+    // Record the install in the package cache
+    let fw_version = {
+        let m_path = dest.join("manifest.json");
+        std::fs::read_to_string(&m_path)
+            .ok()
+            .and_then(|c| serde_json::from_str::<serde_json::Value>(&c).ok())
+            .and_then(|m| m.get("version").and_then(|v| v.as_str()).map(|s| s.to_string()))
+            .unwrap_or_else(|| "0.0.0".to_string())
+    };
+    {
+        let mut cache = PackageCache::load();
+        cache.record(&framework_id, &fw_version, source_kind);
+        let _ = cache.save();
+    }
 
     let duration_ms = start.elapsed().as_millis() as u64;
     let result = FrameworkAddResult {
@@ -593,12 +617,15 @@ struct FrameworkEntry {
     name: String,
     version: String,
     starters: Vec<String>,
+    source: Option<String>,
+    installed_at: Option<u64>,
     path: String,
 }
 
 pub fn framework_list(verbose: bool) -> CommandResult {
     let start = Instant::now();
     let frameworks_dir = get_frameworks_dir();
+    let cache = PackageCache::load();
     let mut entries: Vec<FrameworkEntry> = vec![];
 
     if frameworks_dir.exists() {
@@ -624,11 +651,14 @@ pub fn framework_list(verbose: bool) -> CommandResult {
                                     .collect()
                             })
                             .unwrap_or_default();
+                        let cached = cache.get(&id);
                         entries.push(FrameworkEntry {
                             id,
                             name,
                             version,
                             starters,
+                            source: cached.map(|c| c.source.clone()),
+                            installed_at: cached.map(|c| c.installed_at),
                             path: path.to_string_lossy().to_string(),
                         });
                     }

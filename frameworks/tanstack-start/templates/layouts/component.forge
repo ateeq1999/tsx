@@ -1,0 +1,4 @@
+{{ "import React from 'react'" | collect_import_priority }}
+{{ render_imports() }}
+
+{% block body %}{% endblock %}

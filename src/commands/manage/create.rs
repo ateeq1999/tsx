@@ -289,8 +289,8 @@ fn install_from_github(source: &str, verbose: bool) -> Result<String, String> {
         repo_name.to_string()
     };
 
-    // Copy to frameworks dir using the local add machinery
-    let result = crate::commands::manage::framework_cmd::framework_add(
+    // Copy to frameworks dir — record source as "github"
+    let result = crate::commands::manage::framework_cmd::framework_add_github(
         inner_dir.to_string_lossy().to_string(),
         verbose,
     );

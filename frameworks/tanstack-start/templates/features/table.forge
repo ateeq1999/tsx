@@ -1,0 +1,6 @@
+{% extends "layouts/component.forge" %}
+{% block body %}
+{% with name=name, fields=fields %}
+{% include "molecules/table/data_table.forge" %}
+{% endwith %}
+{% endblock %}
