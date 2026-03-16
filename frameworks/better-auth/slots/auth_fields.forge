@@ -1,0 +1,3 @@
+{# forge:tier atom #}
+{# forge:token_estimate 5 #}
+userId: text("user_id").notNull().references(() => usersTable.id),

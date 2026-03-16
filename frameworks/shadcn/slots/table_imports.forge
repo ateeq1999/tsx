@@ -1,0 +1,10 @@
+{# forge:tier atom #}
+{# forge:token_estimate 12 #}
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "~/components/ui/table"

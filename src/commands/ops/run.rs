@@ -5,6 +5,7 @@ use crate::framework::command_registry::{apply_defaults, validate_input, Command
 use crate::json::error::ErrorResponse;
 use crate::json::response::ResponseEnvelope;
 use crate::output::CommandResult;
+use crate::utils::paths::get_frameworks_dir;
 
 #[derive(Serialize)]
 struct RunResult {
@@ -16,6 +17,9 @@ struct RunResult {
     next_steps: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     dry_run_paths: Option<Vec<String>>,
+    /// Approximate tokens an LLM would have spent writing this code manually.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tokens_saved: Option<u32>,
 }
 
 #[derive(Serialize)]
@@ -68,7 +72,11 @@ pub fn run(
                                 "Generator '{}' not found in framework '{}'. Available: {}",
                                 id,
                                 fw,
-                                if available.is_empty() { "none" } else { &available }
+                                if available.is_empty() {
+                                    "none"
+                                } else {
+                                    &available
+                                }
                             ));
                             ResponseEnvelope::error("run", error, duration_ms).print();
                             return CommandResult::err("run", "Generator not found");
@@ -121,13 +129,13 @@ pub fn run(
     // Inject style vars as __style_* so forge templates can use them.
     // These use a double-underscore prefix to avoid colliding with user input fields.
     if let Some(obj) = input.as_object_mut() {
-        let style = stack
-            .as_ref()
-            .map(|p| p.style.clone())
-            .unwrap_or_default();
-        obj.entry("__style_quotes").or_insert_with(|| serde_json::json!(style.quotes));
-        obj.entry("__style_indent").or_insert_with(|| serde_json::json!(style.indent));
-        obj.entry("__style_semicolons").or_insert_with(|| serde_json::json!(style.semicolons));
+        let style = stack.as_ref().map(|p| p.style.clone()).unwrap_or_default();
+        obj.entry("__style_quotes")
+            .or_insert_with(|| serde_json::json!(style.quotes));
+        obj.entry("__style_indent")
+            .or_insert_with(|| serde_json::json!(style.indent));
+        obj.entry("__style_semicolons")
+            .or_insert_with(|| serde_json::json!(style.semicolons));
     }
 
     // Apply schema defaults then validate.
@@ -164,6 +172,7 @@ pub fn run(
             files_created: vec![],
             next_steps: spec.next_steps.clone(),
             dry_run_paths: Some(dry_run_paths),
+            tokens_saved: spec.token_estimate,
         };
         ResponseEnvelope::success("run", serde_json::to_value(result).unwrap(), duration_ms)
             .print();
@@ -182,6 +191,7 @@ pub fn run(
                 files_created: files_created.clone(),
                 next_steps: spec.next_steps.clone(),
                 dry_run_paths: None,
+                tokens_saved: spec.token_estimate,
             };
             let response = ResponseEnvelope::success(
                 "run",
@@ -290,7 +300,11 @@ fn apply_path_prefix(template: &str, cfg: &crate::stack::PathConfig) -> String {
     for (default_prefix, override_dir) in overrides {
         if let Some(dir) = override_dir {
             if template.starts_with(default_prefix) {
-                return format!("{}/{}", dir.trim_end_matches('/'), &template[default_prefix.len()..]);
+                return format!(
+                    "{}/{}",
+                    dir.trim_end_matches('/'),
+                    &template[default_prefix.len()..]
+                );
             }
         }
     }

@@ -1,0 +1,49 @@
+{
+  "id": "shadcn",
+  "name": "shadcn/ui",
+  "version": "1.0.0",
+  "category": "ui",
+  "description": "shadcn/ui component patterns — accessible, customizable components built with Radix UI and Tailwind CSS.",
+  "docs": "https://ui.shadcn.com",
+  "github": "https://github.com/shadcn/ui",
+  "peer_dependencies": {
+    "react": "^18.0",
+    "tailwindcss": "^3.4"
+  },
+  "fpf_version": "1.1",
+  "tsx_pkg_name": "@tsx-pkg/shadcn",
+  "lang": ["typescript"],
+  "runtime": ["node", "bun", "deno"],
+  "tsx_min": "0.1.0",
+  "provides": [
+    "add:ui-button",
+    "add:ui-input",
+    "add:ui-label",
+    "add:ui-select",
+    "add:ui-table",
+    "add:ui-card",
+    "add:ui-dialog",
+    "add:ui-dropdown-menu"
+  ],
+  "integrates_with": {
+    "tanstack-start": {
+      "slot": "ui_imports",
+      "description": "Replaces raw HTML elements with shadcn/ui components in form and table generators"
+    },
+    "drizzle-pg": {
+      "slot": "table_components",
+      "description": "Uses shadcn/ui Table components for generated table templates"
+    }
+  },
+  "generators": [
+    "add:ui-button",
+    "add:ui-input", 
+    "add:ui-label",
+    "add:ui-select",
+    "add:ui-table",
+    "add:ui-card",
+    "add:ui-dialog",
+    "add:ui-dropdown-menu"
+  ],
+  "template_format": "forge"
+}

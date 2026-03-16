@@ -1,0 +1,6 @@
+{# forge:tier atom #}
+{# forge:token_estimate 12 #}
+import { auth } from "~/lib/auth";
+import { getWebRequest } from "@tanstack/start/server";
+
+const session = await auth.api.getSession({ headers: getWebRequest().headers });

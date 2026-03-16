@@ -1,0 +1,4 @@
+{# forge:tier atom #}
+{# forge:token_estimate 6 #}
+import { db } from "~/db";
+import { eq } from "drizzle-orm";
