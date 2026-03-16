@@ -5,7 +5,7 @@ use std::path::Path;
 use tera::Tera;
 use walkdir::WalkDir;
 
-use crate::{collector, context::ForgeContext, error::ForgeError, filters, slots, tier::Tier};
+use crate::{collector, context::ForgeContext, error::ForgeError, filters, provide, slots, tier::Tier};
 
 /// The forge rendering engine.
 ///
@@ -76,11 +76,20 @@ impl Engine {
     pub fn render(&self, name: &str, ctx: &ForgeContext) -> Result<String, ForgeError> {
         collector::reset();
         slots::reset();
+        provide::reset();
         // Populate thread-local slots from the context
         if let Some(slot_map) = ctx.slots() {
             for (k, v) in &slot_map {
                 if let Some(content) = v.as_str() {
                     slots::fill(k, content);
+                }
+            }
+        }
+        // Populate thread-local provides from the context
+        if let Some(provides_map) = ctx.provides() {
+            for (k, v) in &provides_map {
+                if let Some(content) = v.as_str() {
+                    provide::provide(k, content);
                 }
             }
         }
@@ -123,6 +132,7 @@ fn register_extensions(tera: &mut Tera) {
     tera.register_filter("collect_import_priority", filters::collect_import_priority);
     tera.register_function("render_imports", filters::render_imports_fn);
     tera.register_function("slot", slots::make_slot_fn());
+    tera.register_function("inject", provide::make_inject_fn());
 }
 
 #[cfg(test)]

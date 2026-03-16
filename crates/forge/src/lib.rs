@@ -31,6 +31,7 @@ pub mod engine;
 pub mod error;
 pub mod filters;
 pub mod metadata;
+pub mod provide;
 pub mod slots;
 pub mod tier;
 

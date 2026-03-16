@@ -658,3 +658,156 @@ pub fn framework_list(verbose: bool) -> CommandResult {
 
     CommandResult::ok("framework:list", vec![])
 }
+
+// ── framework publish ─────────────────────────────────────────────────────────
+
+#[derive(Serialize)]
+struct PublishResult {
+    framework: String,
+    version: String,
+    package_name: String,
+    published: bool,
+    dry_run: bool,
+}
+
+/// Generate a publish-ready `package.json` for the framework directory and run
+/// `npm publish` (or validate what would be published in dry-run mode).
+pub fn framework_publish(path: Option<String>, dry_run: bool, verbose: bool) -> CommandResult {
+    let start = Instant::now();
+
+    let pkg_dir = match path {
+        Some(p) => std::path::PathBuf::from(p),
+        None => std::env::current_dir().unwrap_or_default(),
+    };
+
+    // Read manifest.json
+    let manifest_path = pkg_dir.join("manifest.json");
+    if !manifest_path.exists() {
+        let duration_ms = start.elapsed().as_millis() as u64;
+        let error = ErrorResponse::validation("No manifest.json found. Run from a framework package directory.");
+        ResponseEnvelope::error("framework:publish", error, duration_ms).print();
+        return CommandResult::err("framework:publish", "No manifest.json");
+    }
+
+    let manifest_content = match std::fs::read_to_string(&manifest_path) {
+        Ok(c) => c,
+        Err(e) => {
+            let duration_ms = start.elapsed().as_millis() as u64;
+            let error = ErrorResponse::new(
+                crate::json::error::ErrorCode::InternalError,
+                &format!("Failed to read manifest.json: {}", e),
+            );
+            ResponseEnvelope::error("framework:publish", error, duration_ms).print();
+            return CommandResult::err("framework:publish", "Failed to read manifest.json");
+        }
+    };
+
+    let manifest: serde_json::Value = match serde_json::from_str(&manifest_content) {
+        Ok(m) => m,
+        Err(e) => {
+            let duration_ms = start.elapsed().as_millis() as u64;
+            let error = ErrorResponse::validation(&format!("Invalid manifest.json: {}", e));
+            ResponseEnvelope::error("framework:publish", error, duration_ms).print();
+            return CommandResult::err("framework:publish", "Invalid manifest.json");
+        }
+    };
+
+    let fw_id = manifest.get("id").and_then(|v| v.as_str()).unwrap_or("unknown");
+    let fw_version = manifest.get("version").and_then(|v| v.as_str()).unwrap_or("0.0.0");
+    let fw_name = manifest.get("name").and_then(|v| v.as_str()).unwrap_or(fw_id);
+    let fw_description = manifest.get("description").and_then(|v| v.as_str()).unwrap_or("");
+
+    // The npm package name follows the @tsx-pkg/<id> convention
+    let package_name = format!("@tsx-pkg/{}", fw_id);
+
+    // Generate package.json if it doesn't exist
+    let npm_pkg_path = pkg_dir.join("package.json");
+    if !npm_pkg_path.exists() {
+        let npm_pkg = serde_json::json!({
+            "name": package_name,
+            "version": fw_version,
+            "description": fw_description,
+            "keywords": ["tsx-framework", fw_id],
+            "license": "MIT",
+            "files": [
+                "manifest.json",
+                "knowledge/",
+                "integrations/",
+                "starters/",
+                "generators/",
+                "templates/"
+            ]
+        });
+        if !dry_run {
+            std::fs::write(
+                &npm_pkg_path,
+                serde_json::to_string_pretty(&npm_pkg).unwrap(),
+            )
+            .ok();
+        }
+    }
+
+    let published = if dry_run {
+        false
+    } else {
+        // Run npm publish
+        let output = std::process::Command::new("npm")
+            .arg("publish")
+            .arg("--access")
+            .arg("public")
+            .current_dir(&pkg_dir)
+            .output();
+
+        match output {
+            Ok(o) if o.status.success() => true,
+            Ok(o) => {
+                let duration_ms = start.elapsed().as_millis() as u64;
+                let stderr = String::from_utf8_lossy(&o.stderr);
+                let error = ErrorResponse::validation(&format!(
+                    "npm publish failed: {}",
+                    stderr.trim()
+                ));
+                ResponseEnvelope::error("framework:publish", error, duration_ms).print();
+                return CommandResult::err("framework:publish", "npm publish failed");
+            }
+            Err(e) => {
+                let duration_ms = start.elapsed().as_millis() as u64;
+                let error = ErrorResponse::new(
+                    crate::json::error::ErrorCode::InternalError,
+                    &format!("Failed to run npm: {}", e),
+                );
+                ResponseEnvelope::error("framework:publish", error, duration_ms).print();
+                return CommandResult::err("framework:publish", "npm not found");
+            }
+        }
+    };
+
+    let duration_ms = start.elapsed().as_millis() as u64;
+    let result = PublishResult {
+        framework: fw_name.to_string(),
+        version: fw_version.to_string(),
+        package_name,
+        published,
+        dry_run,
+    };
+
+    let response = ResponseEnvelope::success(
+        "framework:publish",
+        serde_json::to_value(result).unwrap(),
+        duration_ms,
+    );
+
+    if verbose {
+        let context = crate::json::response::Context {
+            project_root: std::env::current_dir()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default(),
+            tsx_version: env!("CARGO_PKG_VERSION").to_string(),
+        };
+        response.with_context(context).print();
+    } else {
+        response.print();
+    }
+
+    CommandResult::ok("framework:publish", vec![])
+}

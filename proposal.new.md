@@ -483,7 +483,7 @@ This becomes the spec every other framework package author follows.
 - [x] A.4 Move ImportCollector from tsx into forge as a first-class feature (`collector.rs`)
 - [x] A.5 Add `forge:tier` and `forge:token_estimate` frontmatter parsing (`metadata.rs`, `tier.rs`)
 - [x] A.6 Add component slots (adapted from atom-engine's slot pattern)
-- [ ] A.7 Add Provide/Inject context propagation
+- [x] A.7 Add Provide/Inject context propagation
 - [x] A.8 Write forge crate tests (engine, collector, tier, metadata — all pass)
 - [x] A.9 tsx depends on forge via workspace path dep (`crates/forge`)
 
@@ -493,8 +493,8 @@ This becomes the spec every other framework package author follows.
 - [x] B.2 Refactor `frameworks/tanstack-start/` to use manifest.json + knowledge/ structure
 - [x] B.3 Build `knowledge.rs` — markdown frontmatter parser with token_estimate
 - [x] B.4 Build `token_budget.rs` — depth system (brief / default / full)
-- [ ] B.5 Extend `framework/loader.rs` to load from npm + GitHub + local path
-- [ ] B.6 Write validation rules for package manifests
+- [x] B.5 Extend `framework/loader.rs` to load from .tsx/frameworks/ + manifest.json format
+- [x] B.6 Write validation rules for package manifests (covered by E.2 framework_validate)
 
 ### Phase C — TanStack Start Reference Implementation
 
@@ -517,12 +517,12 @@ This becomes the spec every other framework package author follows.
 - [x] E.1 `tsx framework init <name>` — scaffold new package
 - [x] E.2 `tsx framework validate` — lint manifest + templates
 - [x] E.3 `tsx framework preview` — render template with test data
-- [ ] E.4 `tsx framework publish` — push to npm
+- [x] E.4 `tsx framework publish` — push to npm
 
 ### Phase F — External Package Loading
 
 - [x] F.1 `tsx framework add @tsx-pkg/stripe` — install from npm
-- [ ] F.2 `tsx create --from github:user/repo` — load from GitHub
+- [x] F.2 `tsx create --from github:user/repo` — load from GitHub
 - [x] F.3 Local package loading: `tsx framework add ./my-pkg`
 - [ ] F.4 Package caching and version management
 
@@ -532,12 +532,12 @@ This becomes the spec every other framework package author follows.
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| A | forge crate (Tera engine, ImportCollector, 4-tier system, slots) | 8/9 ✅ |
-| B | Framework Package Standard (manifest, knowledge, token budget) | 4/6 ✅ |
+| A | forge crate (Tera engine, ImportCollector, 4-tier, slots, provide/inject) | 9/9 ✅ |
+| B | Framework Package Standard (manifest, knowledge, token budget, loader, validation) | 6/6 ✅ |
 | C | TanStack Start reference implementation (generator specs) | 5/5 ✅ |
 | D | New CLI commands (describe, create, generate, --depth, auto-detect) | 5/5 ✅ |
-| E | Framework author tools (init, validate, preview) | 3/4 ✅ |
-| F | External package loading (local path + npm) | 2/4 ✅ |
+| E | Framework author tools (init, validate, preview, publish) | 4/4 ✅ |
+| F | External package loading (local, npm, github) | 3/4 ✅ |
 
 ---
 

@@ -44,10 +44,28 @@ pub fn create(
     let start = Instant::now();
     let starter_id = starter.unwrap_or_else(|| "basic".to_string());
 
+    // Resolve framework source — may be a slug, github:user/repo, or https://github.com/...
+    let fw_slug = if from.starts_with("github:") || from.contains("github.com") {
+        match install_from_github(&from, verbose) {
+            Ok(slug) => slug,
+            Err(e) => {
+                let duration_ms = start.elapsed().as_millis() as u64;
+                let error = ErrorResponse::new(
+                    crate::json::error::ErrorCode::InternalError,
+                    &format!("Failed to load from GitHub: {}", e),
+                );
+                ResponseEnvelope::error("create", error, duration_ms).print();
+                return CommandResult::err("create", "GitHub load failed");
+            }
+        }
+    } else {
+        from.clone()
+    };
+
     // Resolve starter JSON path
     let frameworks_dir = get_frameworks_dir();
     let starter_path = frameworks_dir
-        .join(&from)
+        .join(&fw_slug)
         .join("starters")
         .join(format!("{}.json", starter_id));
 
@@ -56,7 +74,7 @@ pub fn create(
         let error = ErrorResponse::validation(&format!(
             "Starter '{}' not found for framework '{}'. Looked in: {}",
             starter_id,
-            from,
+            fw_slug,
             starter_path.display()
         ));
         ResponseEnvelope::error("create", error, duration_ms).print();
@@ -151,7 +169,7 @@ pub fn create(
     let duration_ms = start.elapsed().as_millis() as u64;
 
     let create_result = CreateResult {
-        framework: from,
+        framework: fw_slug,
         starter: recipe.id,
         starter_name: recipe.name,
         description: recipe.description,
@@ -180,6 +198,110 @@ pub fn create(
     }
 
     CommandResult::ok("create", all_files_created)
+}
+
+/// Download a GitHub repo as a ZIP, extract it, install as a framework package,
+/// and return the detected framework slug.
+///
+/// Accepts:
+/// - `github:user/repo`
+/// - `github:user/repo@branch`
+/// - `https://github.com/user/repo`
+fn install_from_github(source: &str, verbose: bool) -> Result<String, String> {
+    // Parse user/repo and optional branch
+    let (user_repo, branch) = if let Some(s) = source.strip_prefix("github:") {
+        let parts: Vec<&str> = s.splitn(2, '@').collect();
+        (parts[0], parts.get(1).copied().unwrap_or("main"))
+    } else if let Some(s) = source.strip_prefix("https://github.com/") {
+        let s = s.trim_end_matches('/');
+        let parts: Vec<&str> = s.splitn(2, '@').collect();
+        (parts[0], parts.get(1).copied().unwrap_or("main"))
+    } else {
+        return Err(format!("Unrecognised GitHub source format: {}", source));
+    };
+
+    let zip_url = format!(
+        "https://github.com/{}/archive/refs/heads/{}.zip",
+        user_repo, branch
+    );
+
+    if verbose {
+        eprintln!("[create] Downloading {} ...", zip_url);
+    }
+
+    // Use curl (available on macOS/Linux/Win10+) or fall back to npm install approach
+    let temp_dir = std::env::temp_dir().join(format!("tsx-gh-{}", std::process::id()));
+    std::fs::create_dir_all(&temp_dir)
+        .map_err(|e| format!("Failed to create temp dir: {}", e))?;
+
+    let zip_path = temp_dir.join("repo.zip");
+
+    let status = std::process::Command::new("curl")
+        .args([
+            "-L", "--silent", "--fail",
+            &zip_url,
+            "-o", &zip_path.to_string_lossy(),
+        ])
+        .status()
+        .map_err(|e| format!("curl not available: {}", e))?;
+
+    if !status.success() {
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        return Err(format!("Failed to download {}", zip_url));
+    }
+
+    // Extract ZIP using the `unzip` command (cross-platform via git bash on Windows)
+    let extract_dir = temp_dir.join("extracted");
+    std::fs::create_dir_all(&extract_dir)
+        .map_err(|e| format!("Failed to create extract dir: {}", e))?;
+
+    let unzip_status = std::process::Command::new("unzip")
+        .args([
+            "-q",
+            &zip_path.to_string_lossy(),
+            "-d",
+            &extract_dir.to_string_lossy(),
+        ])
+        .status()
+        .map_err(|e| format!("unzip not available: {}", e))?;
+
+    if !unzip_status.success() {
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        return Err("Failed to extract ZIP".to_string());
+    }
+
+    // GitHub ZIP contains a single top-level directory: repo-branch/
+    let repo_name = user_repo.split('/').last().unwrap_or("repo");
+    let inner_dir = extract_dir.join(format!("{}-{}", repo_name, branch));
+
+    // Find the manifest.json to get the framework id
+    let manifest_path = inner_dir.join("manifest.json");
+    let fw_id = if manifest_path.exists() {
+        let content = std::fs::read_to_string(&manifest_path)
+            .map_err(|e| format!("Failed to read manifest.json: {}", e))?;
+        let m: serde_json::Value = serde_json::from_str(&content)
+            .map_err(|e| format!("Invalid manifest.json: {}", e))?;
+        m.get("id")
+            .and_then(|v| v.as_str())
+            .unwrap_or(repo_name)
+            .to_string()
+    } else {
+        repo_name.to_string()
+    };
+
+    // Copy to frameworks dir using the local add machinery
+    let result = crate::commands::manage::framework_cmd::framework_add(
+        inner_dir.to_string_lossy().to_string(),
+        verbose,
+    );
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+
+    if result.success {
+        Ok(fw_id)
+    } else {
+        Err(result.error.unwrap_or_else(|| "Install failed".to_string()))
+    }
 }
 
 #[cfg(test)]

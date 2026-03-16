@@ -341,6 +341,15 @@ enum FrameworkCmd {
     },
     /// List installed framework packages
     List,
+    /// Publish a framework package to npm as @tsx-pkg/<id>
+    Publish {
+        /// Path to the framework package (default: current directory)
+        #[arg(long)]
+        path: Option<String>,
+        /// Validate and show what would be published without running npm publish
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 fn main() {
@@ -505,6 +514,11 @@ fn main() {
             FrameworkCmd::List => {
                 use tsx::commands::framework_cmd;
                 let result = framework_cmd::framework_list(cli.verbose);
+                result.print();
+            }
+            FrameworkCmd::Publish { path, dry_run } => {
+                use tsx::commands::framework_cmd;
+                let result = framework_cmd::framework_publish(path, dry_run, cli.verbose);
                 result.print();
             }
         },

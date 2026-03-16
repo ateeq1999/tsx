@@ -48,6 +48,30 @@ impl ForgeContext {
         self
     }
 
+    /// Register a provided value to be made available via `inject(key=...)` in templates.
+    /// Values are stored under `__provides__` and applied to the thread-local store
+    /// at render time by `Engine::render()`.
+    pub fn provide(mut self, key: &str, value: &str) -> Self {
+        let mut current = self
+            .inner
+            .get("__provides__")
+            .and_then(|v| v.as_object().cloned())
+            .unwrap_or_default();
+        current.insert(
+            key.to_string(),
+            serde_json::Value::String(value.to_string()),
+        );
+        self.inner.insert("__provides__", &current);
+        self
+    }
+
+    /// Return the provides map from this context (for engine use at render time).
+    pub(crate) fn provides(&self) -> Option<serde_json::Map<String, serde_json::Value>> {
+        self.inner
+            .get("__provides__")
+            .and_then(|v| v.as_object().cloned())
+    }
+
     /// Return the slot map from this context (for engine use at render time).
     pub(crate) fn slots(&self) -> Option<serde_json::Map<String, serde_json::Value>> {
         self.inner
