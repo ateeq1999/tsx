@@ -103,6 +103,11 @@ enum Command {
         #[command(subcommand)]
         target: Upgrade,
     },
+    /// Manage installed template plugins
+    Plugin {
+        #[command(subcommand)]
+        action: Plugin,
+    },
 }
 
 #[derive(Subcommand)]
@@ -173,6 +178,24 @@ enum Add {
     },
     /// Run drizzle-kit generate + migrate
     Migration,
+}
+
+#[derive(Subcommand)]
+enum Plugin {
+    /// List installed plugins
+    List,
+    /// Install a plugin from a local directory or npm
+    Install {
+        /// Local path or npm package name
+        #[arg(long)]
+        source: String,
+    },
+    /// Remove an installed plugin
+    Remove {
+        /// npm package name of the plugin
+        #[arg(long)]
+        package: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -352,6 +375,23 @@ fn main() {
             Upgrade::Atoms { check } => {
                 use tsx::commands::upgrade;
                 let result = upgrade::upgrade(check, cli.verbose);
+                result.print();
+            }
+        },
+        Command::Plugin { action } => match action {
+            Plugin::List => {
+                use tsx::commands::plugin;
+                let result = plugin::plugin_list(cli.verbose);
+                result.print();
+            }
+            Plugin::Install { source } => {
+                use tsx::commands::plugin;
+                let result = plugin::plugin_install(source, cli.verbose);
+                result.print();
+            }
+            Plugin::Remove { package } => {
+                use tsx::commands::plugin;
+                let result = plugin::plugin_remove(package, cli.verbose);
                 result.print();
             }
         },

@@ -19,6 +19,7 @@ pub use manage::add_auth_guard;
 pub use manage::add_migration;
 pub use manage::dev;
 pub use manage::init;
+pub use manage::plugin;
 pub use manage::upgrade;
 
 pub use ops::batch;
