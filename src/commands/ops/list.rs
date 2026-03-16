@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
+use crate::framework::command_registry::CommandRegistry;
 use crate::framework::loader::FrameworkLoader;
 use crate::json::error::ErrorResponse;
 use crate::json::response::ResponseEnvelope;
@@ -48,10 +49,18 @@ pub struct ComponentInfo {
     pub file: String,
 }
 
-pub fn list(kind: String, verbose: bool) -> CommandResult {
+pub fn list(kind: Option<String>, verbose: bool) -> CommandResult {
     let start = Instant::now();
 
-    let result = match kind.as_str() {
+    // Agent mode: no --kind → return all registry generators as structured JSON
+    let kind_str = match kind {
+        Some(ref k) => k.as_str().to_string(),
+        None => {
+            return list_all_generators(start, verbose);
+        }
+    };
+
+    let result = match kind_str.as_str() {
         "templates" => ListResult {
             templates: Some(vec![
                 TemplateInfo {
@@ -223,9 +232,9 @@ pub fn list(kind: String, verbose: bool) -> CommandResult {
 
         _ => {
             let duration_ms = start.elapsed().as_millis() as u64;
-            let error = ErrorResponse::unknown_kind(&kind);
+            let error = ErrorResponse::unknown_kind(&kind_str);
             ResponseEnvelope::error("list", error, duration_ms).print();
-            return CommandResult::err("list", format!("Unknown kind: {}", kind));
+            return CommandResult::err("list", format!("Unknown kind: {}", kind_str));
         }
     };
 
@@ -245,5 +254,81 @@ pub fn list(kind: String, verbose: bool) -> CommandResult {
         response.print();
     }
 
+    CommandResult::ok("list", vec![])
+}
+
+/// Agent mode: no --kind flag → dump all registry generators with full metadata.
+fn list_all_generators(start: Instant, verbose: bool) -> CommandResult {
+    let registry = CommandRegistry::load_all();
+    let specs = registry.all();
+
+    #[derive(Serialize)]
+    struct AgentGen {
+        id: String,
+        command: String,
+        package: String,
+        description: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        token_estimate: Option<u32>,
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        output_paths: Vec<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        required_inputs: Option<serde_json::Value>,
+        usage: String,
+    }
+
+    let generators: Vec<AgentGen> = specs
+        .iter()
+        .map(|s| {
+            // Extract required field names from schema for quick agent reference
+            let required_inputs = s.schema.as_ref().and_then(|sc| {
+                let required = sc.get("required")?.as_array()?;
+                let props = sc.get("properties")?;
+                let map: serde_json::Map<String, serde_json::Value> = required
+                    .iter()
+                    .filter_map(|r| r.as_str())
+                    .filter_map(|name| {
+                        let prop = props.get(name)?;
+                        let desc = prop.get("description").cloned()
+                            .unwrap_or_else(|| serde_json::json!(prop.get("type").and_then(|t| t.as_str()).unwrap_or("string")));
+                        Some((name.to_string(), desc))
+                    })
+                    .collect();
+                Some(serde_json::Value::Object(map))
+            });
+
+            AgentGen {
+                usage: format!("tsx run {} --json '{{...}}'", s.command),
+                id: s.id.clone(),
+                command: s.command.clone(),
+                package: s.framework.clone(),
+                description: s.description.clone(),
+                token_estimate: s.token_estimate,
+                output_paths: s.output_paths.clone(),
+                required_inputs,
+            }
+        })
+        .collect();
+
+    let count = generators.len();
+    let duration_ms = start.elapsed().as_millis() as u64;
+    let payload = serde_json::json!({
+        "generators": generators,
+        "total": count,
+        "hint": "Pass --kind frameworks|generators|templates|components for legacy list views.",
+    });
+
+    let response = ResponseEnvelope::success("list", payload, duration_ms);
+    if verbose {
+        let ctx = crate::json::response::Context {
+            project_root: std::env::current_dir()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default(),
+            tsx_version: env!("CARGO_PKG_VERSION").to_string(),
+        };
+        response.with_context(ctx).print();
+    } else {
+        response.print();
+    }
     CommandResult::ok("list", vec![])
 }

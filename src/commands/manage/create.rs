@@ -111,7 +111,7 @@ pub fn create(
             "init" => {
                 // Handle init specially — calls init::init()
                 let name = step.args.get("name").and_then(|v| v.as_str()).map(|s| s.to_string());
-                let result = crate::commands::manage::init::init(name);
+                let result = crate::commands::manage::init::init(name, None);
                 if result.success {
                     steps_succeeded += 1;
                     all_files_created.extend(result.files_created);

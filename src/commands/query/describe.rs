@@ -37,8 +37,30 @@ pub struct KnowledgeMeta {
     pub command: String,
 }
 
-pub fn describe(framework: String, section: Option<String>, verbose: bool) -> CommandResult {
+pub fn describe(target: Option<String>, section: Option<String>, verbose: bool) -> CommandResult {
     let start = Instant::now();
+
+    // No target — return a high-level summary of what's available
+    let framework = match target {
+        Some(t) => t,
+        None => {
+            let dur = start.elapsed().as_millis() as u64;
+            let error = ErrorResponse::validation(
+                "Provide a framework slug or generator id. Examples:\n  tsx describe tanstack-start\n  tsx describe add:schema",
+            );
+            ResponseEnvelope::error("describe", error, dur).print();
+            return CommandResult::err("describe", "Missing target");
+        }
+    };
+
+    // Check if it looks like a generator id (contains ':' or matches a known generator)
+    // Try generator lookup first when the target contains ':' or doesn't match framework slugs
+    if framework.contains(':') || !framework_looks_like_slug(&framework) {
+        if let Some(result) = describe_generator(&framework, start) {
+            return result;
+        }
+        // Fall through to framework lookup (e.g. user mistyped)
+    }
 
     let mut loader = FrameworkLoader::default();
     loader.load_builtin_frameworks();
@@ -46,12 +68,16 @@ pub fn describe(framework: String, section: Option<String>, verbose: bool) -> Co
     let reg = match loader.get_registry(&framework) {
         Some(r) => r.clone(),
         None => {
+            // One more attempt: try as generator id even without ':'
+            if let Some(result) = describe_generator(&framework, start) {
+                return result;
+            }
             let dur = start.elapsed().as_millis() as u64;
             let error = ErrorResponse::validation(&format!(
-                "Framework not found: '{framework}'. Run `tsx list --kind frameworks` to see available frameworks."
+                "Not found: '{framework}'. Pass a framework slug (e.g. tanstack-start) or a generator command-id (e.g. add:schema)."
             ));
             ResponseEnvelope::error("describe", error, dur).print();
-            return CommandResult::err("describe", format!("Unknown framework: {framework}"));
+            return CommandResult::err("describe", format!("Unknown target: {framework}"));
         }
     };
 
@@ -150,6 +176,35 @@ fn serve_section(
             CommandResult::err("describe", format!("Section not found: {section}"))
         }
     }
+}
+
+/// Returns true when `s` looks like a framework slug (kebab-case, no ':')
+fn framework_looks_like_slug(s: &str) -> bool {
+    !s.contains(':') && s.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+}
+
+/// Try to resolve `id_or_cmd` as a generator id / command name in the `CommandRegistry`.
+/// Returns `Some(CommandResult)` if found, `None` if not found (caller should fall through).
+fn describe_generator(id_or_cmd: &str, start: std::time::Instant) -> Option<CommandResult> {
+    use crate::framework::command_registry::CommandRegistry;
+
+    let registry = CommandRegistry::load_all();
+    let spec = registry.resolve(id_or_cmd)?;
+
+    let dur = start.elapsed().as_millis() as u64;
+    let payload = serde_json::json!({
+        "id": spec.id,
+        "command": spec.command,
+        "framework": spec.framework,
+        "description": spec.description,
+        "token_estimate": spec.token_estimate,
+        "output_paths": spec.output_paths,
+        "next_steps": spec.next_steps,
+        "schema": spec.schema,
+        "usage": format!("tsx run {} --json '{{...}}'", spec.command),
+    });
+    ResponseEnvelope::success("describe", payload, dur).print();
+    Some(CommandResult::ok("describe", vec![]))
 }
 
 fn list_dir_stems(dir: &std::path::Path) -> Vec<String> {

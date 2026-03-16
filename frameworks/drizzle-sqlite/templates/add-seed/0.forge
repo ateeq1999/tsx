@@ -1,0 +1,21 @@
+{# forge:tier feature #}
+import { db } from "~/db";
+import { {{ name }}Table } from "~/db/schema/{{ name }}";
+
+async function seed{{ name | pascal_case }}() {
+  const rows = Array.from({ length: {{ count }} }, (_, i) => ({
+    // TODO: fill in column values
+    // name: `{{ name | pascal_case }} ${i + 1}`,
+  }));
+
+  for (const row of rows) {
+    await db
+      .insert({{ name }}Table)
+      .values(row)
+      .onConflictDoNothing();
+  }
+
+  console.log(`Seeded ${rows.length} {{ name }} rows`);
+}
+
+seed{{ name | pascal_case }}().catch(console.error);

@@ -1,0 +1,32 @@
+{
+  "id": "drizzle-sqlite",
+  "name": "Drizzle ORM (SQLite)",
+  "version": "1.0.0",
+  "category": "orm",
+  "description": "Drizzle ORM code patterns for SQLite — schema, migrations, and seed files. Works with libsql, Turso, and Bun SQLite.",
+  "docs": "https://orm.drizzle.team/docs/get-started-sqlite",
+  "github": "https://github.com/drizzle-team/drizzle-orm",
+  "peer_dependencies": {
+    "drizzle-orm": "^0.36",
+    "drizzle-kit": "^0.27",
+    "@libsql/client": "^0.6"
+  },
+  "fpf_version": "1.1",
+  "tsx_pkg_name": "@tsx-pkg/drizzle-sqlite",
+  "lang": ["typescript"],
+  "runtime": ["node", "bun", "deno"],
+  "tsx_min": "0.1.0",
+  "provides": [
+    "add:schema",
+    "add:migration",
+    "add:seed"
+  ],
+  "integrates_with": {
+    "better-auth": {
+      "slot": "auth_fields",
+      "description": "Adds userId foreign key and createdAt/updatedAt timestamp fields to generated schemas"
+    }
+  },
+  "generators": ["add-schema", "add-migration", "add-seed"],
+  "template_format": "forge"
+}

@@ -95,6 +95,21 @@ _Goal: `tsx run` actually generates files for every installed FPF package, not j
 
 ---
 
+---
+
+## Phase 7 — Proposal Gap Closure
+
+_Goal: Every feature described in proposal.md is implemented._
+
+- [x] **`tsx describe <command-id>`** — per-generator description: positional `<TARGET>` arg resolves framework slug OR generator id/command, returns `id`, `command`, `framework`, `description`, `token_estimate`, `output_paths`, `schema`, `usage` (`src/commands/query/describe.rs`)
+- [x] **`tsx list` agent mode** — `--kind` is now optional; omitting it returns all registry generators with `id`, `command`, `package`, `description`, `token_estimate`, `output_paths`, `required_inputs`, `usage` for agent discovery (`src/commands/ops/list.rs`)
+- [x] **`tsx stack detect --install`** — `--install` flag auto-installs each detected package via `tsx registry install` (`src/commands/ops/stack.rs`)
+- [x] **`tsx init --stack <packages>`** — `--stack` flag creates `.tsx/stack.json` inside the new project directory after scaffolding (`src/commands/manage/init.rs`)
+- [x] **`@tsx-pkg/drizzle-mysql`** — MySQL variant: manifest, generators (`add:schema`, `add:migration`, `add:seed`), forge templates, knowledge (`frameworks/drizzle-mysql/`)
+- [x] **`@tsx-pkg/drizzle-sqlite`** — SQLite/Turso/Bun variant: manifest, generators (`add:schema`, `add:migration`, `add:seed`), forge templates, knowledge (`frameworks/drizzle-sqlite/`)
+
+---
+
 ## Completed (prior sessions)
 
 - [x] `tsx run <id> --json` universal dispatcher

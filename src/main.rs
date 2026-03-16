@@ -34,6 +34,9 @@ enum Command {
         /// Project name
         #[arg(long)]
         name: Option<String>,
+        /// Comma-separated tsx packages to activate in the new project (e.g. tanstack-start,drizzle-pg,better-auth)
+        #[arg(long)]
+        stack: Option<String>,
     },
     /// Start the development server
     Dev {
@@ -59,9 +62,10 @@ enum Command {
     },
     /// List available templates, generators, components, or frameworks
     List {
-        /// List kind: templates, generators, components, or frameworks
+        /// List kind: templates, generators, components, or frameworks.
+        /// Omit for agent mode: returns all registry generators with full metadata.
         #[arg(long)]
-        kind: String,
+        kind: Option<String>,
     },
     /// Scaffold a project from a framework starter recipe
     Create {
@@ -97,11 +101,15 @@ enum Command {
         #[arg(long, default_value = "7331")]
         port: u16,
     },
-    /// Show framework overview and available knowledge cost map (agent entry point)
+    /// Show framework overview or generator details (agent entry point)
     Describe {
-        /// Framework slug to describe (e.g., tanstack-start)
+        /// Framework slug (e.g., tanstack-start) or generator command-id (e.g., add:schema).
+        /// Can be passed as a positional arg or via --framework.
+        #[arg(value_name = "TARGET")]
+        target: Option<String>,
+        /// Framework slug (alternative to positional arg)
         #[arg(long)]
-        framework: String,
+        framework: Option<String>,
         /// Return a specific knowledge section (overview, concepts, patterns, faq, decisions)
         #[arg(long)]
         section: Option<String>,
@@ -418,7 +426,11 @@ enum StackCmd {
         package: String,
     },
     /// Detect the stack from project files and print suggestions
-    Detect,
+    Detect {
+        /// Automatically install detected packages via `tsx registry install`
+        #[arg(long)]
+        install: bool,
+    },
 }
 
 /// Parse a `--json` argument, printing a structured error and returning `None` on failure.
@@ -473,9 +485,9 @@ fn main() {
     }
 
     match cli.command {
-        Command::Init { name } => {
+        Command::Init { name, stack } => {
             use tsx::commands::init;
-            let result = init::init(name);
+            let result = init::init(name, stack);
             result.print();
         }
         Command::Dev {
@@ -586,6 +598,7 @@ fn main() {
             let result = list::list(kind, cli.verbose);
             result.print();
         }
+
         Command::Create { from, starter } => {
             use tsx::commands::create;
             let result = create::create(from, starter, cli.dry_run, cli.verbose);
@@ -645,9 +658,11 @@ fn main() {
             let result = subscribe::subscribe(port, cli.verbose);
             result.print();
         }
-        Command::Describe { framework, section } => {
+        Command::Describe { target, framework, section } => {
             use tsx::commands::query::describe;
-            let result = describe::describe(framework, section, cli.verbose);
+            // Resolve: positional arg takes precedence over --framework flag
+            let resolved = target.or(framework);
+            let result = describe::describe(resolved, section, cli.verbose);
             result.print();
         }
         Command::Ask {
@@ -767,9 +782,9 @@ fn main() {
                 use tsx::commands::stack;
                 stack::stack_remove(package, cli.verbose).print();
             }
-            StackCmd::Detect => {
+            StackCmd::Detect { install } => {
                 use tsx::commands::stack;
-                stack::stack_detect(cli.verbose).print();
+                stack::stack_detect(install, cli.verbose).print();
             }
         },
         Command::Plan { json } => {

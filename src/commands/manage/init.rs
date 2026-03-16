@@ -1,7 +1,7 @@
 use crate::output::CommandResult;
 use std::process::Command;
 
-pub fn init(name: Option<String>) -> CommandResult {
+pub fn init(name: Option<String>, stack: Option<String>) -> CommandResult {
     let project_name = name.unwrap_or_else(|| "my-app".to_string());
 
     let output = Command::new("npm")
@@ -88,12 +88,27 @@ pub fn init(name: Option<String>) -> CommandResult {
         files_created.push(".env.example created".to_string());
     }
 
+    // If --stack was provided, write .tsx/stack.json inside the new project dir
+    if let Some(pkgs) = stack {
+        if project_dir.exists() {
+            use crate::commands::stack;
+            let prev_dir = std::env::current_dir().ok();
+            if std::env::set_current_dir(&project_dir).is_ok() {
+                stack::stack_init(None, Some(pkgs), false, false);
+                if let Some(d) = prev_dir {
+                    let _ = std::env::set_current_dir(d);
+                }
+                files_created.push(".tsx/stack.json created".to_string());
+            }
+        }
+    }
+
     let mut result = CommandResult::ok("init", files_created);
     result.warnings = warnings;
     result.next_steps = vec![
         format!("cd {}", project_name),
-        "tsx add auth".to_string(),
-        "tsx generate feature".to_string(),
+        "tsx stack show".to_string(),
+        "tsx context".to_string(),
     ];
     result
 }

@@ -1,0 +1,27 @@
+{
+  "id": "add-seed",
+  "command": "add:seed",
+  "description": "Generate a TypeScript seed script using Drizzle's SQLite client",
+  "token_estimate": 22,
+  "output_paths": [
+    "db/seeds/{{name}}.ts"
+  ],
+  "next_steps": [
+    "Run `npx tsx db/seeds/{{name}}.ts` to execute the seed"
+  ],
+  "schema": {
+    "type": "object",
+    "required": ["name"],
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "Seed script name matching the table (e.g. 'users')"
+      },
+      "count": {
+        "type": "number",
+        "default": 10,
+        "description": "Number of seed rows to insert"
+      }
+    }
+  }
+}
