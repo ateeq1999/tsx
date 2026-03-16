@@ -168,10 +168,10 @@ _Goal: A complete web presence — registry dashboard, docs site, and installabl
 - [ ] **`apps/registry-web/` — package README rendering** — fetch + render markdown from tarball
 - [ ] **`apps/docs/` — FPF format docs** — `stack.json` reference, `output_paths`, slot system
 - [ ] **`apps/docs/` — Examples gallery** — link to all examples with generated preview screenshots
-- [ ] **Registry server: `GET /v1/stats`** — implement the stats endpoint in Axum (currently stubbed)
-- [ ] **Registry server: `GET /v1/packages?sort=recent`** — recent packages endpoint for landing page
-- [ ] **CI/CD** — GitHub Actions workflow: `cargo test`, `cargo build --release`, `bun install && bun run build` for both apps
-- [ ] **Deploy** — Dockerfile for registry server + Fly.io config; Vercel/Netlify config for apps
+- [x] **Registry server: `GET /v1/stats`** — implement the stats endpoint in Axum (`routes/stats.rs`; returns total_packages, total_versions, total_downloads, packages_this_week)
+- [x] **Registry server: `GET /v1/packages?sort=recent`** — recent packages endpoint (`list_packages` in `routes/packages.rs`; also adds `GET /v1/packages/:name/versions`)
+- [x] **CI/CD** — GitHub Actions `web` job: `bun install && bun run build` for `apps/registry-web` and `apps/docs` (`.github/workflows/ci.yml`)
+- [x] **Deploy** — `crates/registry-server/Dockerfile` (multi-stage Rust build); `fly.toml` (Fly.io, `/data` volume); `apps/registry-web/vercel.json` + `apps/docs/vercel.json`
 
 ---
 

@@ -2,6 +2,8 @@ use anyhow::{Context, Result};
 use rusqlite::{Connection, params};
 use std::path::Path;
 
+use crate::models::RegistryStats;
+
 /// Thread-safe wrapper: `rusqlite::Connection` is `!Sync`, but WAL mode
 /// plus `busy_timeout` allows concurrent readers.  We keep the Mutex but
 /// configure SQLite so writers don't starve readers.
@@ -199,6 +201,82 @@ impl Db {
         } else {
             Ok(None)
         }
+    }
+
+    /// Returns aggregate registry statistics.
+    pub fn get_stats(&self) -> Result<RegistryStats> {
+        let total_packages: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM packages",
+            [],
+            |r| r.get(0),
+        )?;
+        let total_versions: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM versions",
+            [],
+            |r| r.get(0),
+        )?;
+        let total_downloads: i64 = self.conn.query_row(
+            "SELECT COALESCE(SUM(downloads), 0) FROM packages",
+            [],
+            |r| r.get(0),
+        )?;
+        let seven_days_ago = unix_secs_to_iso(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0)
+                .saturating_sub(7 * 24 * 3600),
+        );
+        let packages_this_week: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM packages WHERE published_at >= ?1",
+            params![seven_days_ago],
+            |r| r.get(0),
+        )?;
+        Ok(RegistryStats {
+            total_packages: total_packages as u64,
+            total_versions: total_versions as u64,
+            total_downloads: total_downloads as u64,
+            packages_this_week: packages_this_week as u64,
+        })
+    }
+
+    /// Returns the N most recently updated packages with their latest version strings.
+    pub fn get_recent(&self, limit: u32) -> Result<Vec<(PackageRow, String)>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, name, slug, description, lang, runtime, provides, integrates, downloads, published_at, updated_at
+             FROM packages
+             ORDER BY updated_at DESC
+             LIMIT ?1",
+        )?;
+        let packages: Vec<PackageRow> = stmt
+            .query_map(params![limit], |r| {
+                Ok(PackageRow {
+                    id:           r.get(0)?,
+                    name:         r.get(1)?,
+                    slug:         r.get(2)?,
+                    description:  r.get(3)?,
+                    lang:         r.get(4)?,
+                    runtime:      r.get(5)?,
+                    provides:     r.get(6)?,
+                    integrates:   r.get(7)?,
+                    downloads:    r.get(8)?,
+                    published_at: r.get(9)?,
+                    updated_at:   r.get(10)?,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        packages
+            .into_iter()
+            .map(|pkg| {
+                let latest = self
+                    .get_versions(pkg.id)?
+                    .into_iter()
+                    .next()
+                    .map(|v| v.version)
+                    .unwrap_or_else(|| "unknown".to_string());
+                Ok((pkg, latest))
+            })
+            .collect()
     }
 
     pub fn search(&self, query: &str, lang: Option<&str>) -> Result<Vec<PackageRow>> {

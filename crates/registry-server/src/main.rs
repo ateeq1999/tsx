@@ -5,8 +5,11 @@
 //! | Method | Path                                    | Description              |
 //! |--------|-----------------------------------------|--------------------------|
 //! | GET    | /health                                 | Health check             |
+//! | GET    | /v1/stats                               | Aggregate stats          |
 //! | GET    | /v1/search?q=&lang=&size=               | Search packages          |
+//! | GET    | /v1/packages?sort=recent&limit=N        | Recent packages          |
 //! | GET    | /v1/packages/:name                      | Package metadata         |
+//! | GET    | /v1/packages/:name/versions             | Version list             |
 //! | GET    | /v1/packages/:name/:version/tarball     | Download tarball         |
 //! | POST   | /v1/packages/publish                    | Publish a package        |
 //!
@@ -100,9 +103,12 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         // ── Health ──────────────────────────────────────────────────────────
         .route("/health", get(routes::health::health))
+        // ── Stats ───────────────────────────────────────────────────────────
+        .route("/v1/stats", get(routes::stats::get_stats))
         // ── Search ──────────────────────────────────────────────────────────
         .route("/v1/search", get(routes::search::search))
         // ── Packages ────────────────────────────────────────────────────────
+        .route("/v1/packages", get(routes::packages::list_packages))
         .route(
             "/v1/packages/publish",
             post(routes::packages::publish),
@@ -110,6 +116,10 @@ async fn main() -> anyhow::Result<()> {
         .route(
             "/v1/packages/:name",
             get(routes::packages::get_package),
+        )
+        .route(
+            "/v1/packages/:name/versions",
+            get(routes::packages::get_package_versions),
         )
         .route(
             "/v1/packages/:name/:version/tarball",
@@ -123,8 +133,11 @@ async fn main() -> anyhow::Result<()> {
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     info!("registry.tsx.dev listening on http://{}", addr);
     info!("  GET  /health");
+    info!("  GET  /v1/stats");
     info!("  GET  /v1/search?q=<query>&lang=<lang>");
+    info!("  GET  /v1/packages?sort=recent&limit=N");
     info!("  GET  /v1/packages/:name");
+    info!("  GET  /v1/packages/:name/versions");
     info!("  GET  /v1/packages/:name/:version/tarball");
     info!("  POST /v1/packages/publish  (multipart: name, version, manifest, tarball)");
 

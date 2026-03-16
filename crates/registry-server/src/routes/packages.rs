@@ -1,6 +1,6 @@
 use axum::{
     body::Body,
-    extract::{ConnectInfo, Multipart, Path, State},
+    extract::{ConnectInfo, Multipart, Path, Query, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Json, Response},
 };
@@ -11,9 +11,102 @@ use std::{path::PathBuf, sync::Arc};
 
 use crate::{
     db::{UpsertPkg, UpsertVersion},
-    models::{ApiError, ApiResponse, PackageMeta, VersionMeta},
+    models::{ApiError, ApiResponse, PackageMeta, SearchResult, VersionMeta},
     AppState,
 };
+
+/// Query params for GET /v1/packages
+#[derive(serde::Deserialize)]
+pub struct ListPackagesQuery {
+    pub sort: Option<String>,
+    pub limit: Option<u32>,
+}
+
+/// GET /v1/packages?sort=recent&limit=N
+///
+/// Returns the N most recently updated packages (default 12, max 50).
+pub async fn list_packages(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<ListPackagesQuery>,
+) -> (StatusCode, Json<Value>) {
+    let limit = params.limit.unwrap_or(12).min(50);
+    let db = state.db.lock().unwrap();
+    match db.get_recent(limit) {
+        Ok(packages) => {
+            let results: Vec<SearchResult> = packages
+                .into_iter()
+                .map(|(pkg, latest)| SearchResult {
+                    name: pkg.name.clone(),
+                    description: pkg.description,
+                    latest_version: latest,
+                    lang: pkg.lang_vec(),
+                    provides: pkg.provides_vec(),
+                    downloads: pkg.downloads,
+                    install: format!("tsx registry install {}", pkg.slug),
+                })
+                .collect();
+            (
+                StatusCode::OK,
+                Json(serde_json::to_value(ApiResponse::ok(results)).unwrap()),
+            )
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::to_value(ApiError::new(e.to_string())).unwrap()),
+        ),
+    }
+}
+
+/// GET /v1/packages/:name/versions
+///
+/// Returns the version list for a package (same data as the `versions` field
+/// in GET /v1/packages/:name, but as a standalone endpoint for clients that
+/// only need version history).
+pub async fn get_package_versions(
+    State(state): State<Arc<AppState>>,
+    Path(name): Path<String>,
+) -> (StatusCode, Json<Value>) {
+    let decoded = urlencoding_decode(&name);
+    let db = state.db.lock().unwrap();
+    match db.get_package(&decoded) {
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::to_value(ApiError::new(e.to_string())).unwrap()),
+        ),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(
+                serde_json::to_value(ApiError::new(format!(
+                    "Package '{}' not found",
+                    decoded
+                )))
+                .unwrap(),
+            ),
+        ),
+        Ok(Some(pkg)) => {
+            let versions: Vec<VersionMeta> = db
+                .get_versions(pkg.id)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|v| VersionMeta {
+                    tarball_url: format!(
+                        "/v1/packages/{}/{}/tarball",
+                        urlencoding_encode(&pkg.name),
+                        v.version
+                    ),
+                    version: v.version,
+                    checksum: v.checksum,
+                    size_bytes: v.size_bytes,
+                    published_at: v.published_at,
+                })
+                .collect();
+            (
+                StatusCode::OK,
+                Json(serde_json::to_value(ApiResponse::ok(versions)).unwrap()),
+            )
+        }
+    }
+}
 
 /// GET /v1/packages/:name
 ///

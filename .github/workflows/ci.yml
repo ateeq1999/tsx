@@ -65,3 +65,32 @@ jobs:
 
       - name: Check formatting
         run: cargo fmt --check
+
+  web:
+    name: Web Apps
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install registry-web dependencies
+        working-directory: apps/registry-web
+        run: bun install
+
+      - name: Build registry-web
+        working-directory: apps/registry-web
+        run: bun run build
+
+      - name: Install docs dependencies
+        working-directory: apps/docs
+        run: bun install
+
+      - name: Build docs
+        working-directory: apps/docs
+        run: bun run build

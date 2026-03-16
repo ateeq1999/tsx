@@ -1,0 +1,9 @@
+{
+  "framework": null,
+  "installCommand": "bun install",
+  "buildCommand": "bun run build",
+  "outputDirectory": "dist",
+  "env": {
+    "VITE_REGISTRY_URL": "https://registry.tsx.dev"
+  }
+}
