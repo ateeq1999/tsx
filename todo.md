@@ -47,7 +47,15 @@ _Goal: Community can publish and install packages._
 - [x] **Wire `tsx registry install`** — FPF (`@tsx-pkg/`) packages: downloads `manifest.json` + generators to `.tsx/packages/<slug>/`; legacy packages: downloads `registry.json` to `.tsx/frameworks/<slug>/`
 - [x] **Wire `tsx registry update`** — checks all installed packages against npm, reinstalls if newer version available
 - [x] **`tsx registry list`** — lists both legacy registries (`.tsx/registries.json`) and FPF packages (`.tsx/packages/`)
-- [ ] **Hosted registry `registry.tsx.dev`** (future — Rust/Axum backend, out of scope for CLI)
+- [x] **Hosted registry `registry.tsx.dev`** — Rust/Axum backend server (`crates/registry-server/`)
+  - `GET  /health` — health check
+  - `GET  /v1/search?q=&lang=&size=` — full-text search across name, description, provides[]
+  - `GET  /v1/packages/:name` — full package metadata + version history + parsed manifest
+  - `GET  /v1/packages/:name/:version/tarball` — stream .tar.gz, increment download counter
+  - `POST /v1/packages/publish` — multipart upload (name, version, manifest JSON, tarball); `Authorization: Bearer <TSX_REGISTRY_API_KEY>`
+  - SQLite storage via rusqlite (packages + versions tables, WAL mode)
+  - `PORT`, `DATA_DIR`, `TSX_REGISTRY_API_KEY` env config
+  - Run: `cargo run -p tsx-registry`
 - [x] **`tsx framework publish`** — `npm publish --access public` wrapper with `@tsx-pkg/<id>` naming (was already complete)
 
 ---
