@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::output::CommandResult;
@@ -57,7 +58,6 @@ fn iso_timestamp() -> String {
     let m = (secs / 60) % 60;
     let h = (secs / 3600) % 24;
     let days = secs / 86400;
-    // Approximate date from epoch (good enough for event timestamps).
     let year = 1970 + days / 365;
     let day_of_year = days % 365 + 1;
     let month = (day_of_year / 30).min(11) + 1;
@@ -68,28 +68,160 @@ fn iso_timestamp() -> String {
     )
 }
 
-/// Run `tsx dev` with optional JSON event emission.
+/// A broadcast channel for WebSocket clients.
+type EventBroadcast = Arc<Mutex<Vec<std::sync::mpsc::Sender<String>>>>;
+
+/// Start a WebSocket server on the given port that broadcasts DevEvents to connected clients.
 ///
-/// In `json_events` mode, every file change, build event, and error is emitted
-/// as a single-line JSON object on stdout. Consumers (IDE plugins, CI) can
-/// pipe and parse these events without screen-scraping.
-pub fn dev(json_events: bool) -> CommandResult {
+/// Each connecting client receives a welcome message, then all subsequent DevEvents
+/// emitted via the returned closure are forwarded to every active connection.
+fn start_ws_server(port: u16) -> (std::thread::JoinHandle<()>, EventBroadcast) {
+    let clients: EventBroadcast = Arc::new(Mutex::new(Vec::new()));
+    let clients_clone = Arc::clone(&clients);
+
+    let handle = std::thread::spawn(move || {
+        use std::net::TcpListener;
+        use tungstenite::accept;
+
+        let addr = format!("127.0.0.1:{}", port);
+        let listener = match TcpListener::bind(&addr) {
+            Ok(l) => l,
+            Err(e) => {
+                eprintln!("[tsx dev] WebSocket server failed to bind {}: {}", addr, e);
+                return;
+            }
+        };
+
+        eprintln!("[tsx dev] WebSocket server listening on ws://{}", addr);
+
+        for stream in listener.incoming().flatten() {
+            let clients_ref = Arc::clone(&clients_clone);
+            std::thread::spawn(move || {
+                let mut ws = match accept(stream) {
+                    Ok(ws) => ws,
+                    Err(_) => return,
+                };
+
+                let (tx, rx) = std::sync::mpsc::channel::<String>();
+                {
+                    let mut lock = clients_ref.lock().unwrap();
+                    lock.push(tx);
+                }
+
+                // Welcome message
+                let welcome = serde_json::to_string(&DevEvent::new(
+                    EventType::Started,
+                    Some(serde_json::json!({ "message": "tsx dev WebSocket connected" })),
+                ))
+                .unwrap_or_default();
+                let _ = ws.send(tungstenite::Message::Text(welcome.into()));
+
+                // Forward events until the channel is closed.
+                for msg in rx {
+                    if ws
+                        .send(tungstenite::Message::Text(msg.into()))
+                        .is_err()
+                    {
+                        break;
+                    }
+                }
+            });
+        }
+    });
+
+    (handle, clients)
+}
+
+/// Broadcast a serialized event to all connected WebSocket clients, pruning dead senders.
+fn broadcast(clients: &EventBroadcast, event: &DevEvent) {
+    if let Ok(json) = serde_json::to_string(event) {
+        let mut lock = clients.lock().unwrap();
+        lock.retain(|tx| tx.send(json.clone()).is_ok());
+    }
+}
+
+/// Run `tsx dev` with optional JSON event emission, watch mode, and WebSocket server.
+pub fn dev(json_events: bool, watch: bool, ws_port: Option<u16>) -> CommandResult {
     let root = match find_project_root() {
         Ok(r) => r,
         Err(e) => return CommandResult::err("dev", e.to_string()),
     };
 
-    if json_events {
-        DevEvent::new(
-            EventType::Started,
-            Some(serde_json::json!({
-                "project_root": root.to_string_lossy(),
-                "tsx_version": env!("CARGO_PKG_VERSION"),
-                "json_events": true
-            })),
-        )
-        .emit();
-    }
+    // Start WebSocket broadcast server if requested.
+    let ws_clients: Option<EventBroadcast> = ws_port.map(|port| {
+        let (_handle, clients) = start_ws_server(port);
+        clients
+    });
+
+    let emit_event = |event: &DevEvent| {
+        if json_events {
+            event.emit();
+        }
+        if let Some(ref clients) = ws_clients {
+            broadcast(clients, event);
+        }
+    };
+
+    emit_event(&DevEvent::new(
+        EventType::Started,
+        Some(serde_json::json!({
+            "project_root": root.to_string_lossy(),
+            "tsx_version": env!("CARGO_PKG_VERSION"),
+            "json_events": json_events,
+            "watch": watch,
+            "ws_port": ws_port,
+        })),
+    ));
+
+    // Spawn the watch thread if --watch is set.
+    let watch_handle: Option<std::thread::JoinHandle<()>> = if watch {
+        use notify::{recommended_watcher, EventKind, RecursiveMode, Watcher};
+        use std::sync::mpsc;
+
+        let (tx, rx) = mpsc::channel();
+        let src_dir = root.join("src");
+        let src_dir_clone = src_dir.clone();
+
+        let watcher_handle = std::thread::spawn(move || {
+            let Ok(mut watcher) = recommended_watcher(move |res| {
+                if let Ok(event) = res {
+                    let _ = tx.send(event);
+                }
+            }) else {
+                return;
+            };
+
+            if watcher.watch(&src_dir_clone, RecursiveMode::Recursive).is_err() {
+                return;
+            }
+
+            // Block until the channel closes (main thread exits).
+            for fs_event in rx {
+                let path_str = fs_event
+                    .paths
+                    .first()
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_default();
+
+                let event_type = match fs_event.kind {
+                    EventKind::Create(_) => EventType::FileAdded,
+                    EventKind::Remove(_) => EventType::FileDeleted,
+                    EventKind::Modify(_) => EventType::FileChanged,
+                    _ => continue,
+                };
+
+                let dev_event = DevEvent::new(
+                    event_type,
+                    Some(serde_json::json!({ "path": path_str })),
+                );
+                dev_event.emit(); // always emit watch events to stdout
+            }
+        });
+
+        Some(watcher_handle)
+    } else {
+        None
+    };
 
     // Spawn the underlying dev server (Vite / TanStack Start).
     let mut child = match std::process::Command::new("npm")
@@ -105,13 +237,10 @@ pub fn dev(json_events: bool) -> CommandResult {
     {
         Ok(c) => c,
         Err(e) => {
-            if json_events {
-                DevEvent::new(
-                    EventType::Error,
-                    Some(serde_json::json!({ "message": e.to_string() })),
-                )
-                .emit();
-            }
+            emit_event(&DevEvent::new(
+                EventType::Error,
+                Some(serde_json::json!({ "message": e.to_string() })),
+            ));
             return CommandResult::err("dev", format!("Failed to start dev server: {}", e));
         }
     };
@@ -125,31 +254,25 @@ pub fn dev(json_events: bool) -> CommandResult {
             for line in reader.lines().filter_map(|l| l.ok()) {
                 let line_lower = line.to_lowercase();
 
-                // Translate Vite/TanStack Start output into structured events.
-                if line_lower.contains("ready in") || line_lower.contains("server running") {
-                    DevEvent::new(
-                        EventType::BuildCompleted,
-                        Some(serde_json::json!({ "message": line })),
-                    )
-                    .emit();
+                let event_type = if line_lower.contains("ready in")
+                    || line_lower.contains("server running")
+                {
+                    Some(EventType::BuildCompleted)
                 } else if line_lower.contains("page reload") || line_lower.contains("hmr update") {
-                    DevEvent::new(
-                        EventType::HotReload,
-                        Some(serde_json::json!({ "message": line })),
-                    )
-                    .emit();
+                    Some(EventType::HotReload)
                 } else if line_lower.contains("error") || line_lower.contains("failed") {
-                    DevEvent::new(
-                        EventType::Error,
-                        Some(serde_json::json!({ "message": line })),
-                    )
-                    .emit();
+                    Some(EventType::Error)
                 } else if line_lower.contains("build") {
-                    DevEvent::new(
-                        EventType::BuildStarted,
+                    Some(EventType::BuildStarted)
+                } else {
+                    None
+                };
+
+                if let Some(et) = event_type {
+                    emit_event(&DevEvent::new(
+                        et,
                         Some(serde_json::json!({ "message": line })),
-                    )
-                    .emit();
+                    ));
                 }
             }
         }
@@ -157,14 +280,16 @@ pub fn dev(json_events: bool) -> CommandResult {
 
     let status = child.wait();
 
-    if json_events {
-        DevEvent::new(
-            EventType::Stopped,
-            Some(serde_json::json!({
-                "exit_code": status.map(|s| s.code()).unwrap_or(None)
-            })),
-        )
-        .emit();
+    emit_event(&DevEvent::new(
+        EventType::Stopped,
+        Some(serde_json::json!({
+            "exit_code": status.map(|s| s.code()).unwrap_or(None)
+        })),
+    ));
+
+    // Wait for watch thread to clean up.
+    if let Some(handle) = watch_handle {
+        drop(handle);
     }
 
     CommandResult::ok("dev", vec![])

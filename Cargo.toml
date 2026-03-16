@@ -12,7 +12,9 @@ anyhow = "1"
 walkdir = "2"
 heck = "0.5"
 reqwest = { version = "0.12", features = ["json"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time"] }
+notify = "6"
+tungstenite = "0.24"
 
 [dev-dependencies]
 tempfile = "3"

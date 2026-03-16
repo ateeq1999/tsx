@@ -40,6 +40,12 @@ enum Command {
         /// Emit structured JSON events to stdout instead of raw terminal output
         #[arg(long)]
         json_events: bool,
+        /// Watch for template and source changes and regenerate automatically
+        #[arg(long)]
+        watch: bool,
+        /// Start WebSocket server for real-time IDE events on this port
+        #[arg(long, value_name = "PORT")]
+        ws_port: Option<u16>,
     },
     /// Generate code from templates
     Generate {
@@ -233,9 +239,13 @@ fn main() {
             let result = init::init(name);
             result.print();
         }
-        Command::Dev { json_events } => {
+        Command::Dev {
+            json_events,
+            watch,
+            ws_port,
+        } => {
             use tsx::commands::dev;
-            let result = dev::dev(json_events);
+            let result = dev::dev(json_events, watch, ws_port);
             result.print();
         }
         Command::Generate { generator } => match generator {
