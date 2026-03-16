@@ -1,0 +1,18 @@
+{
+  "version": "1.1",
+  "lang": "typescript",
+  "runtime": "node",
+  "packages": ["tanstack-start", "drizzle-pg"],
+  "style": {
+    "quotes": "double",
+    "indent": 2,
+    "semicolons": true
+  },
+  "paths": {
+    "components": "components",
+    "routes": "routes",
+    "db": "db",
+    "server-functions": "server-functions",
+    "hooks": "hooks"
+  }
+}
