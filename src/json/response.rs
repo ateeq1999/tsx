@@ -7,6 +7,10 @@ use crate::json::error::ErrorResponse;
 pub struct Metadata {
     pub timestamp: String,
     pub duration_ms: u64,
+    /// Approximate tokens this command saved an agent from generating manually.
+    /// Derived from the generator's `token_estimate` field.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tokens_used: Option<u32>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<String>,
 }
@@ -19,6 +23,7 @@ impl Metadata {
                 .map(|d| chrono_lite_timestamp(d.as_secs()))
                 .unwrap_or_else(|_| "2026-01-01T00:00:00Z".to_string()),
             duration_ms,
+            tokens_used: None,
             warnings: Vec::new(),
         }
     }
@@ -125,6 +130,12 @@ impl ResponseEnvelope {
 
     pub fn with_dry_run(mut self, is_dry_run: bool) -> Self {
         self.dry_run = Some(is_dry_run);
+        self
+    }
+
+    /// Set the approximate token count this command saved the agent from generating manually.
+    pub fn with_tokens_used(mut self, tokens: u32) -> Self {
+        self.metadata.tokens_used = Some(tokens);
         self
     }
 

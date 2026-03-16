@@ -56,7 +56,7 @@ _Goal: Community can publish and install packages._
 
 _Goal: First-party packages for the most common stacks._
 
-- [ ] **`@tsx-pkg/tanstack-start`** — extract + rewrite current `frameworks/tanstack-start/` as installable package
+- [x] **`@tsx-pkg/tanstack-start`** — FPF v1.1 manifest finalized; generators list trimmed to files that exist (`frameworks/tanstack-start/`)
 - [x] **`@tsx-pkg/drizzle-pg`** — Drizzle ORM PostgreSQL generators: `add:schema`, `add:migration`, `add:seed` (`frameworks/drizzle-pg/`)
 - [x] **`@tsx-pkg/better-auth`** — Better Auth generators: `add:auth-setup`, `add:auth-guard`, `add:session` (`frameworks/better-auth/`)
 - [x] **`@tsx-pkg/shadcn`** — shadcn/ui form/table/dialog generators (`frameworks/shadcn/`)
@@ -72,7 +72,7 @@ _Goal: Agents get maximum signal with minimum tokens._
 - [x] **`tsx context`** — single command dumps full stack context for agent system prompt
   - Output: stack summary, active packages, available commands with token estimates, human-readable `summary` string
 - [x] **`tsx plan --json '[{"goal":"..."}]'`** — translate natural-language goals into a command sequence (`src/commands/ops/plan.rs`)
-- [ ] **Token accounting** — all responses include `tokens_used` (already on run, extend to all commands)
+- [x] **Token accounting** — `metadata.tokens_used` added to `ResponseEnvelope`; wired in `run` (per-generator estimate) and `batch`/`batch:plan` (summed)
 - [x] **`tsx batch --plan`** — resolves all commands against the registry, returns `would_create` paths + token estimates per step without executing
 
 ---

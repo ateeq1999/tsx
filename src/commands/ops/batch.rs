@@ -113,6 +113,14 @@ pub fn batch(
 
     let duration_ms = start.elapsed().as_millis() as u64;
 
+    // Sum token estimates for all commands that were resolved via the registry.
+    let registry = CommandRegistry::load_all();
+    let total_tokens: u32 = payload
+        .commands
+        .iter()
+        .filter_map(|cmd| registry.resolve(&cmd.command)?.token_estimate)
+        .sum();
+
     let batch_result = BatchResult {
         total,
         succeeded,
@@ -125,7 +133,8 @@ pub fn batch(
         "batch",
         serde_json::to_value(batch_result).unwrap(),
         duration_ms,
-    );
+    )
+    .with_tokens_used(total_tokens);
 
     if !stream {
         if verbose {
@@ -286,6 +295,7 @@ pub fn batch_plan(payload: BatchPayload, _verbose: bool) -> ResponseEnvelope {
         }),
         duration_ms,
     )
+    .with_tokens_used(total_tokens)
 }
 
 /// Simple path template expander used for plan output (mirrors run.rs logic without

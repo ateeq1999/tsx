@@ -180,8 +180,11 @@ pub fn run(
             dry_run_paths: Some(dry_run_paths),
             tokens_saved: spec.token_estimate,
         };
-        ResponseEnvelope::success("run", serde_json::to_value(result).unwrap(), duration_ms)
-            .print();
+        let mut env = ResponseEnvelope::success("run", serde_json::to_value(result).unwrap(), duration_ms);
+        if let Some(t) = spec.token_estimate {
+            env = env.with_tokens_used(t);
+        }
+        env.print();
         return CommandResult::ok("run", vec![]);
     }
 
@@ -199,11 +202,14 @@ pub fn run(
                 dry_run_paths: None,
                 tokens_saved: spec.token_estimate,
             };
-            let response = ResponseEnvelope::success(
+            let mut response = ResponseEnvelope::success(
                 "run",
                 serde_json::to_value(result).unwrap(),
                 duration_ms,
             );
+            if let Some(t) = spec.token_estimate {
+                response = response.with_tokens_used(t);
+            }
             if verbose {
                 let context = crate::json::response::Context {
                     project_root: std::env::current_dir()

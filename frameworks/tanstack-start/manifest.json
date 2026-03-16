@@ -19,7 +19,6 @@
     "decisions": 500
   },
   "generators": [
-    "init",
     "add-feature",
     "add-schema",
     "add-server-fn",
@@ -27,9 +26,6 @@
     "add-form",
     "add-table",
     "add-page",
-    "add-auth",
-    "add-auth-guard",
-    "add-migration",
     "add-seed"
   ],
   "starters": ["basic", "with-auth", "saas"],
