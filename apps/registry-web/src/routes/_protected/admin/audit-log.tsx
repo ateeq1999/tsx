@@ -97,24 +97,24 @@ function AdminAuditLogPage() {
                     <td className="px-4 py-3">
                       <Link
                         to="/packages/$name"
-                        params={{ name: entry.packageName }}
+                        params={{ name: entry.package_name }}
                         className="font-mono font-bold hover:underline text-xs"
                         style={{ color: "var(--lagoon-deep)" }}
                       >
-                        {entry.packageName}
+                        {entry.package_name}
                       </Link>
                     </td>
                     <td className="px-4 py-3 font-mono text-xs" style={{ color: "var(--sea-ink-soft)" }}>
                       {entry.version ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-xs" style={{ color: "var(--sea-ink-soft)" }}>
-                      {entry.authorName ?? "—"}
+                      {entry.author_name ?? "—"}
                     </td>
                     <td className="px-4 py-3 font-mono text-xs" style={{ color: "var(--sea-ink-soft)" }}>
-                      {entry.ipAddress ?? "—"}
+                      {entry.ip_address ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-xs tabular-nums" style={{ color: "var(--sea-ink-soft)" }}>
-                      {entry.createdAt ? new Date(entry.createdAt).toLocaleString() : "—"}
+                      {entry.created_at ? new Date(entry.created_at).toLocaleString() : "—"}
                     </td>
                   </tr>
                 )

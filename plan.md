@@ -386,15 +386,15 @@ Option A is adopted.
 | Move migrations to root `migrations/` dir | ✅ Done | `migrations/0001_initial_schema.sql`; inline SQL in db/mod.rs kept for self-contained binary |
 | Fix CI to use single `bun install` at root | ✅ Done | Workspace cache shared across e2e/lighthouse/storybook jobs |
 
-### Phase 2 — Backend consolidation (Option A)
+### Phase 2 — Backend consolidation (Option A) ✅ COMPLETE
 
-| Task | Effort | Risk |
-|------|--------|------|
-| Replace `apps/registry-web/src/server/` mutations with `fetch()` to Rust API | Large | Medium |
-| Delete `apps/registry-web/src/db/` (Drizzle schema) | Small | Low (after above) |
-| Remove drizzle-kit scripts from registry-web | Small | Low |
-| Add CORS config to Rust server for registry-web domain | Small | Low |
-| Point `apps/registry-web/src/lib/api.ts` at `TSX_REGISTRY_URL` | Small | Low |
+| Task | Status | Notes |
+|------|--------|-------|
+| Replace `server/admin/queries.ts` Drizzle queries with `fetch()` to Rust API | ✅ Done | `getAdminAuditLog` → `GET /v1/admin/audit-log`; `getAdminUsers` kept in Drizzle (better-auth `user` table) |
+| Delete `apps/registry-web/src/db/schema/packages.ts` | ✅ Done | Drizzle schema duplicating Rust tables removed |
+| Update `db/schema/index.ts` to remove packages export | ✅ Done | Only exports auth schema |
+| Update `audit-log.tsx` field names to snake_case | ✅ Done | Matches Rust API contract (`package_name`, `author_name`, `ip_address`, `created_at`) |
+| Remove `drizzle-seed` from registry-web devDependencies | ✅ Done | No longer seeding package tables from TS side |
 
 ### Phase 3 — Shared package expansion
 
