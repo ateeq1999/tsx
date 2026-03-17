@@ -1,9 +1,0 @@
-User-agent: *
-Allow: /
-Disallow: /dashboard
-Disallow: /account
-Disallow: /publish
-Disallow: /admin
-Disallow: /api/
-
-Sitemap: https://registry.tsx.dev/api/sitemap.xml
