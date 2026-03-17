@@ -4,10 +4,11 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Json, Response},
 };
+use flate2::read::GzDecoder;
 use serde::Deserialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use std::{net::SocketAddr, path::PathBuf, sync::Arc};
+use std::{io::Read, net::SocketAddr, path::PathBuf, sync::Arc};
 
 use crate::{
     db::{self, AuthUser, UpsertPkg, UpsertVersion},
@@ -450,6 +451,11 @@ pub async fn publish(
     {
         return err400("Tarball must be a valid gzip file (.tar.gz)");
     }
+    // Attempt to decompress and iterate all tar entries so corrupted uploads
+    // are rejected before being stored rather than at install time (L-9).
+    if let Err(e) = validate_tarball(&tarball_bytes) {
+        return err400(format!("Invalid tarball: {e}"));
+    }
 
     // --- Validate ---
     if name.is_empty() || version.is_empty() || manifest_str.is_empty() || tarball_bytes.is_empty() {
@@ -663,4 +669,20 @@ fn err403(msg: impl Into<String>) -> (StatusCode, Json<Value>) {
         StatusCode::FORBIDDEN,
         Json(serde_json::to_value(ApiError::new(msg)).expect("BUG: serialization of known types cannot fail")),
     )
+}
+
+/// Verify that `bytes` is a valid, fully-readable `.tar.gz` archive.
+/// Iterates every entry and reads its header; returns an error on any I/O or
+/// decompression failure so corrupted uploads are rejected at publish time.
+fn validate_tarball(bytes: &[u8]) -> std::io::Result<()> {
+    let gz = GzDecoder::new(bytes);
+    let mut archive = tar::Archive::new(gz);
+    for entry in archive.entries()? {
+        // Reading the header is enough; we do not need the file contents.
+        let mut e = entry?;
+        // Drain a small amount to trigger any decompression errors in the header.
+        let mut buf = [0u8; 512];
+        let _ = e.read(&mut buf);
+    }
+    Ok(())
 }

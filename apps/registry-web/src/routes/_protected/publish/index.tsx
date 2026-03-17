@@ -1,10 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { toast } from "sonner"
 import { ArrowLeft, ArrowRight, Check, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+
+const DRAFT_KEY = "tsx-publish-draft"
+
+interface PublishDraft {
+  step1: Step1Data
+  manifestJson: string
+}
 
 export const Route = createFileRoute("/_protected/publish/")({
   component: PublishPage,
@@ -48,8 +55,8 @@ function StepIndicator({ current }: { current: Step }) {
   )
 }
 
-function Step1({ onNext }: { onNext: (d: Step1Data) => void }) {
-  const [data, setData] = useState<Step1Data>({ name: "", version: "", description: "" })
+function Step1({ onNext, initialData }: { onNext: (d: Step1Data) => void; initialData?: Step1Data }) {
+  const [data, setData] = useState<Step1Data>(initialData ?? { name: "", version: "", description: "" })
   const [errors, setErrors] = useState<Partial<Step1Data>>({})
 
   function validate() {
@@ -121,8 +128,8 @@ function Step1({ onNext }: { onNext: (d: Step1Data) => void }) {
   )
 }
 
-function Step2({ onNext, onBack }: { onNext: (d: Step2Data) => void; onBack: () => void }) {
-  const [manifest, setManifest] = useState("")
+function Step2({ onNext, onBack, initialManifest }: { onNext: (d: Step2Data) => void; onBack: () => void; initialManifest?: string }) {
+  const [manifest, setManifest] = useState(initialManifest ?? "")
   const [tarball, setTarball] = useState<File | null>(null)
   const [manifestError, setManifestError] = useState("")
   const fileRef = useRef<HTMLInputElement>(null)
@@ -253,7 +260,7 @@ function Step3({
   )
 }
 
-function Step4({ step1, step2, onBack }: { step1: Step1Data; step2: Step2Data; onBack: () => void }) {
+function Step4({ step1, step2, onBack, onPublished }: { step1: Step1Data; step2: Step2Data; onBack: () => void; onPublished: () => void }) {
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
 
@@ -281,6 +288,7 @@ function Step4({ step1, step2, onBack }: { step1: Step1Data; step2: Step2Data; o
       }
 
       setDone(true)
+      onPublished()
       toast.success("Package published!")
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Publish failed")
@@ -348,8 +356,34 @@ function Step4({ step1, step2, onBack }: { step1: Step1Data; step2: Step2Data; o
 
 function PublishPage() {
   const [step, setStep] = useState<Step>(1)
-  const [step1Data, setStep1Data] = useState<Step1Data>({ name: "", version: "", description: "" })
-  const [step2Data, setStep2Data] = useState<Step2Data>({ manifestJson: "", tarball: null })
+
+  // Load draft from localStorage on mount
+  const [step1Data, setStep1Data] = useState<Step1Data>(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY)
+      if (raw) return (JSON.parse(raw) as PublishDraft).step1
+    } catch {}
+    return { name: "", version: "", description: "" }
+  })
+  const [step2Data, setStep2Data] = useState<Step2Data>(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY)
+      if (raw) return { manifestJson: (JSON.parse(raw) as PublishDraft).manifestJson, tarball: null }
+    } catch {}
+    return { manifestJson: "", tarball: null }
+  })
+
+  // Persist text fields to localStorage whenever they change
+  useEffect(() => {
+    try {
+      const draft: PublishDraft = { step1: step1Data, manifestJson: step2Data.manifestJson }
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
+    } catch {}
+  }, [step1Data, step2Data.manifestJson])
+
+  function clearDraft() {
+    try { localStorage.removeItem(DRAFT_KEY) } catch {}
+  }
 
   return (
     <div className="page-wrap py-12 rise-in">
@@ -370,11 +404,13 @@ function PublishPage() {
 
           {step === 1 && (
             <Step1
+              initialData={step1Data}
               onNext={(d) => { setStep1Data(d); setStep(2) }}
             />
           )}
           {step === 2 && (
             <Step2
+              initialManifest={step2Data.manifestJson}
               onNext={(d) => { setStep2Data(d); setStep(3) }}
               onBack={() => setStep(1)}
             />
@@ -392,6 +428,7 @@ function PublishPage() {
               step1={step1Data}
               step2={step2Data}
               onBack={() => setStep(3)}
+              onPublished={clearDraft}
             />
           )}
         </div>

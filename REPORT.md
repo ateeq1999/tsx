@@ -1,8 +1,35 @@
 # TSX Project — Comprehensive Audit Report
 
-**Date**: 2026-03-17
+**Date**: 2026-03-17 · **Updated**: 2026-03-17
 **Scope**: Full codebase review — bugs, missing features, inconsistencies, security issues
 **Project**: Universal Framework Protocol CLI + Registry Server + Web Apps
+
+## Implementation Status
+
+| ID | Severity | Issue | Status |
+|----|----------|-------|--------|
+| C-1 | CRITICAL | Race condition: tarball write vs DB commit | ✅ Fixed |
+| H-1 | HIGH | XSS via unsanitized README HTML | ✅ Fixed |
+| H-2 | HIGH | Multipart field errors silently swallowed | ✅ Fixed |
+| M-1 | MEDIUM | Slug collision on scoped package names | ✅ Fixed |
+| M-2 | MEDIUM | Admin endpoints open when API key absent | ✅ Fixed |
+| M-3 | MEDIUM | No file size or type validation | ✅ Fixed |
+| M-4 | MEDIUM | Author-less packages modifiable by anyone | ✅ Fixed |
+| M-5 | MEDIUM | In-memory rate limiter bypassable | ⏭ Deferred (post-launch) |
+| M-6 | MEDIUM | No structured logging in route handlers | ✅ Fixed |
+| M-7 | MEDIUM | DB version sort implicit coupling | ✅ Fixed |
+| L-1 | LOW | Semver regex not end-anchored | ✅ Fixed |
+| L-2 | LOW | setTimeout without cleanup in copy button | ✅ Fixed |
+| L-3 | LOW | No runtime validation on API response shapes | ✅ Fixed |
+| L-4 | LOW | Inconsistent error response shapes | ✅ Fixed |
+| L-5 | LOW | Hardcoded magic numbers in route handlers | ✅ Fixed |
+| L-6 | LOW | `serde_json::to_value(...).unwrap()` calls | ✅ Fixed |
+| L-7 | LOW | No draft recovery on publish form | ✅ Fixed |
+| L-8 | LOW | No OpenAPI / schema contract | ⏭ Deferred (Phase 4) |
+| L-9 | LOW | No tarball content validation after upload | ✅ Fixed |
+| L-10 | LOW | `get_versions` sort fallback is fragile | ✅ Fixed |
+
+---
 
 ---
 

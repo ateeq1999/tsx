@@ -6,7 +6,6 @@ WORKDIR /app
 # Cache dependency compilation separately from source changes.
 COPY Cargo.toml Cargo.lock ./
 COPY crates/ crates/
-COPY src/ src/
 
 RUN cargo build --release -p tsx-registry
 
