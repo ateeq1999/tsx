@@ -46,3 +46,40 @@ export const changePasswordFn = createServerFn({ method: "POST" })
       headers,
     })
   })
+
+export const forgotPasswordFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ email: z.string().email() }))
+  .handler(async ({ data }) => {
+    const headers = getRequestHeaders()
+    return await auth.api.forgetPassword({
+      body: { email: data.email, redirectTo: "/auth/reset-password" },
+      headers,
+    })
+  })
+
+export const resetPasswordFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ token: z.string().min(1), newPassword: z.string().min(8) }))
+  .handler(async ({ data }) => {
+    const headers = getRequestHeaders()
+    return await auth.api.resetPassword({
+      body: { token: data.token, newPassword: data.newPassword },
+      headers,
+    })
+  })
+
+export const listSessionsFn = createServerFn({ method: "GET" }).handler(async () => {
+  const headers = getRequestHeaders()
+  return await auth.api.listSessions({ headers })
+})
+
+export const revokeSessionFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ token: z.string() }))
+  .handler(async ({ data }) => {
+    const headers = getRequestHeaders()
+    return await auth.api.revokeSession({ body: { token: data.token }, headers })
+  })
+
+export const deleteAccountFn = createServerFn({ method: "POST" }).handler(async () => {
+  const headers = getRequestHeaders()
+  return await auth.api.deleteUser({ headers })
+})

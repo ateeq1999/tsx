@@ -1,12 +1,16 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router"
+import { createFileRoute, Link, useRouter, useNavigate } from "@tanstack/react-router"
+import { useState } from "react"
 import { useForm } from "@tanstack/react-form"
 import { toast } from "sonner"
-import { User, Lock, KeyRound } from "lucide-react"
+import { User, Lock, KeyRound, Trash2 } from "lucide-react"
 import { requireAuth } from "@/middleware/auth-guard"
-import { updateProfileFn, changePasswordFn } from "@/server/auth/mutations"
+import { updateProfileFn, changePasswordFn, deleteAccountFn } from "@/server/auth/mutations"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog"
 
 export const Route = createFileRoute("/_protected/account/")({
   beforeLoad: async () => requireAuth(),
@@ -17,6 +21,9 @@ export const Route = createFileRoute("/_protected/account/")({
 function AccountPage() {
   const { user } = Route.useRouteContext()
   const router = useRouter()
+  const navigate = useNavigate()
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const profileForm = useForm({
     defaultValues: { name: user.name ?? "" },
@@ -128,6 +135,32 @@ function AccountPage() {
           </form>
         </div>
 
+        {/* Sessions link */}
+        <div className="island-shell rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-sm" style={{ color: "var(--sea-ink)" }}>Active sessions</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--sea-ink-soft)" }}>View and revoke devices signed in to your account.</p>
+            </div>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/account/sessions">Manage</Link>
+            </Button>
+          </div>
+        </div>
+
+        {/* API key link */}
+        <div className="island-shell rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-sm" style={{ color: "var(--sea-ink)" }}>API keys</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--sea-ink-soft)" }}>Generate tokens for CLI publishing.</p>
+            </div>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/account/api-keys">Manage</Link>
+            </Button>
+          </div>
+        </div>
+
         {/* API Key hint */}
         <div className="island-shell rounded-xl p-6">
           <div className="mb-3 flex items-center gap-2">
@@ -146,7 +179,52 @@ function AccountPage() {
             Full API key management (generate / revoke tokens) is coming soon.
           </p>
         </div>
+        {/* Danger zone */}
+        <div className="rounded-xl border p-6" style={{ borderColor: "#fca5a5" }}>
+          <div className="mb-3 flex items-center gap-2">
+            <Trash2 className="size-4" style={{ color: "#ef4444" }} />
+            <h2 className="font-semibold" style={{ color: "#ef4444" }}>Danger zone</h2>
+          </div>
+          <p className="mb-4 text-sm" style={{ color: "var(--sea-ink-soft)" }}>
+            Permanently delete your account and all associated data. This cannot be undone.
+          </p>
+          <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+            Delete account
+          </Button>
+        </div>
       </div>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete account?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete <strong>{user.email}</strong> and all your data.
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={deleting}
+              onClick={async () => {
+                setDeleting(true)
+                try {
+                  await deleteAccountFn()
+                  toast.success("Account deleted")
+                  navigate({ to: "/" })
+                } catch {
+                  toast.error("Failed to delete account")
+                  setDeleting(false)
+                }
+              }}
+            >
+              {deleting ? "Deleting…" : "Yes, delete my account"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

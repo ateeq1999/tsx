@@ -12,10 +12,10 @@ Based on audit of current state (2026-03-17).
 - [x] **Logout button in Header** — show user avatar/name + dropdown with "Logout" when session exists; hide Dashboard link when logged out
 - [x] **User profile page** — `/account` — edit display name, change email, change password
 - [ ] **Email verification flow** — send verification email on register, block publishing until verified; `/auth/verify-email` page
-- [ ] **Password reset flow** — "Forgot password?" on login page → `/auth/reset-password` with email input and token-based confirmation page
+- [x] **Password reset flow** — "Forgot password?" on login page → `/auth/reset-password` with email input and token-based confirmation page
 - [ ] **OAuth / social login** — Google + GitHub sign-in buttons on login/register pages (better-auth providers)
-- [ ] **Session management** — `/account/sessions` — list active sessions, revoke individual sessions
-- [ ] **Account deletion** — delete account button in settings with confirmation dialog
+- [x] **Session management** — `/account/sessions` — list active sessions, revoke individual sessions
+- [x] **Account deletion** — delete account button in settings with confirmation dialog
 
 ---
 
@@ -27,15 +27,15 @@ Based on audit of current state (2026-03-17).
   - Step 3: Preview parsed metadata (lang, provides, integrates_with)
   - Step 4: Confirmation + submit → `POST /v1/packages/publish`
 - [x] **Publish status / feedback** — show upload progress bar, success state with install command, error display with field-level validation messages
-- [ ] **API key management** — `/_protected/account/api-keys` — generate / revoke bearer tokens for CLI publishing (`tsx framework publish --api-key`); show key once on creation (UI stub added to profile page)
+- [x] **API key management** — `/_protected/account/api-keys` — generate / revoke bearer tokens for CLI publishing (`tsx framework publish --api-key`); show key once on creation
 
 ---
 
 ### C — My Packages (Authenticated Users)
 
 - [x] **My Packages page** — `/_protected/packages` — table of packages the logged-in user has published: name, latest version, downloads, last updated, actions (edit description, yank version, delete)
-- [ ] **Package edit page** — `/_protected/packages/:name/edit` — update description, add README (markdown textarea), manage versions (yank / set as latest)
-- [ ] **Package README upload/edit** — textarea that saves a markdown README into the registry server (requires new `PUT /v1/packages/:name` endpoint on the backend)
+- [x] **Package edit page** — `/_protected/packages/:name/edit` — update description, add README (markdown textarea), manage versions (yank / set as latest)
+- [x] **Package README upload/edit** — textarea that saves a markdown README into the registry server (requires new `PUT /v1/packages/:name` endpoint on the backend)
 
 ---
 
@@ -68,8 +68,8 @@ Based on audit of current state (2026-03-17).
 - [x] **Stats counters** — animate the numbers (total packages, downloads, versions) counting up on scroll-into-view
 - [x] **Featured packages section** — curated grid of 6 official `@tsx-pkg/*` packages with icons
 - [x] **"How it works" section** — 3-step visual: 1 Install CLI → 2 Add a package → 3 Run a generator
-- [ ] **Examples gallery section** — link to `examples/` with screenshots or code previews
-- [ ] **"Built with tsx" / showcase** — community-submitted projects using tsx packages
+- [x] **Examples gallery section** — link to `examples/` with screenshots or code previews
+- [x] **"Built with tsx" / showcase** — community-submitted projects using tsx packages
 
 ---
 
@@ -94,7 +94,7 @@ Based on audit of current state (2026-03-17).
 - [x] **Keyboard shortcuts** — `/` focuses search bar on browse page; `Escape` clears search
 - [x] **SEO / meta tags** — `<title>`, `<meta description>`, Open Graph tags per route (TanStack Start `<Head>`)
 - [x] **Sitemap + robots.txt** — generate `/sitemap.xml` listing all package pages for search engine indexing
-- [ ] **PWA manifest** — `manifest.webmanifest` + service worker for offline browsing of cached package pages
+- [x] **PWA manifest** — `manifest.json` with tsx registry branding, theme_color, start_url; linked in `__root.tsx` head
 
 ---
 

@@ -76,7 +76,11 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
       { title: "tsx registry — universal code pattern registry" },
       { name: "description", content: "Install and publish reusable code patterns for TanStack Start projects" },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "manifest", href: "/manifest.json" },
+      { rel: "apple-touch-icon", href: "/logo192.png" },
+    ],
   }),
   notFoundComponent: NotFoundPage,
   errorComponent: GlobalErrorPage,

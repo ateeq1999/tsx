@@ -60,30 +60,30 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/browse/': typeof BrowseIndexRoute
-  '/packages/$name': typeof PackagesNameRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
+  '/packages/$name': typeof PackagesNameRoute
+  '/browse/': typeof BrowseIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/dashboard/': typeof ProtectedDashboardIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/browse': typeof BrowseIndexRoute
-  '/packages/$name': typeof PackagesNameRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
+  '/packages/$name': typeof PackagesNameRoute
+  '/browse': typeof BrowseIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/dashboard': typeof ProtectedDashboardIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/browse/': typeof BrowseIndexRoute
-  '/packages/$name': typeof PackagesNameRoute
   '/_protected': typeof ProtectedRouteWithChildren
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
+  '/packages/$name': typeof PackagesNameRoute
+  '/browse/': typeof BrowseIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/_protected/dashboard/': typeof ProtectedDashboardIndexRoute
 }
@@ -91,40 +91,40 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/browse/'
-    | '/packages/$name'
     | '/auth/login'
     | '/auth/register'
+    | '/packages/$name'
+    | '/browse/'
     | '/api/auth/$'
     | '/dashboard/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/browse'
-    | '/packages/$name'
     | '/auth/login'
     | '/auth/register'
+    | '/packages/$name'
+    | '/browse'
     | '/api/auth/$'
     | '/dashboard'
   id:
     | '__root__'
     | '/'
-    | '/browse/'
-    | '/packages/$name'
     | '/_protected'
     | '/auth/login'
     | '/auth/register'
+    | '/packages/$name'
+    | '/browse/'
     | '/api/auth/$'
     | '/_protected/dashboard/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  BrowseIndexRoute: typeof BrowseIndexRoute
-  PackagesNameRoute: typeof PackagesNameRoute
   ProtectedRoute: typeof ProtectedRouteWithChildren
   AuthLoginRoute: typeof AuthLoginRoute
   AuthRegisterRoute: typeof AuthRegisterRoute
+  PackagesNameRoute: typeof PackagesNameRoute
+  BrowseIndexRoute: typeof BrowseIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -203,11 +203,11 @@ const ProtectedRouteWithChildren = ProtectedRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  BrowseIndexRoute: BrowseIndexRoute,
-  PackagesNameRoute: PackagesNameRoute,
   ProtectedRoute: ProtectedRouteWithChildren,
   AuthLoginRoute: AuthLoginRoute,
   AuthRegisterRoute: AuthRegisterRoute,
+  PackagesNameRoute: PackagesNameRoute,
+  BrowseIndexRoute: BrowseIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

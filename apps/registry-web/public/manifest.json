@@ -1,6 +1,7 @@
 {
-  "short_name": "TanStack App",
-  "name": "Create TanStack App Sample",
+  "short_name": "tsx registry",
+  "name": "tsx registry — universal code pattern registry",
+  "description": "Install and publish reusable code patterns for TanStack Start projects.",
   "icons": [
     {
       "src": "favicon.ico",
@@ -18,8 +19,12 @@
       "sizes": "512x512"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "orientation": "portrait-primary",
+  "theme_color": "#0a7c6e",
+  "background_color": "#ffffff",
+  "categories": ["developer", "utilities"],
+  "lang": "en"
 }

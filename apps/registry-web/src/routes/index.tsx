@@ -280,6 +280,131 @@ function LandingPage() {
         </div>
       </section>
 
+      {/* Examples gallery */}
+      <section className="page-wrap pb-16">
+        <div className="mb-8 text-center">
+          <h2 className="mb-2 text-2xl font-bold" style={{ color: "var(--sea-ink)" }}>
+            Example projects
+          </h2>
+          <p className="text-sm" style={{ color: "var(--sea-ink-soft)" }}>
+            Full-stack examples built with tsx patterns you can browse, fork, and deploy.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            {
+              title: "SaaS starter",
+              desc: "Full SaaS app with auth, billing stubs, org model, role-based access, and a polished dashboard.",
+              tags: ["auth", "billing", "rbac"],
+              href: "https://github.com/ateeq1999/tsx-example-saas",
+            },
+            {
+              title: "Blog with MDX",
+              desc: "Static blog using TanStack Start SSR, MDX pages, Drizzle for views, and hljs code blocks.",
+              tags: ["blog", "mdx", "ssr"],
+              href: "https://github.com/ateeq1999/tsx-example-blog",
+            },
+            {
+              title: "CRUD board",
+              desc: "Kanban-style task board with optimistic mutations, drag-and-drop, and real-time updates.",
+              tags: ["crud", "query", "ui"],
+              href: "https://github.com/ateeq1999/tsx-example-crud",
+            },
+          ].map(({ title, desc, tags, href }) => (
+            <a
+              key={title}
+              href={href}
+              target="_blank"
+              rel="noreferrer"
+              className="feature-card rounded-xl p-5 hover:no-underline"
+            >
+              <h3 className="mb-2 font-bold" style={{ color: "var(--sea-ink)" }}>{title}</h3>
+              <p className="mb-3 text-xs leading-relaxed" style={{ color: "var(--sea-ink-soft)" }}>{desc}</p>
+              <div className="flex flex-wrap gap-1">
+                {tags.map((tag) => (
+                  <span key={tag} className="pkg-tag">{tag}</span>
+                ))}
+              </div>
+            </a>
+          ))}
+        </div>
+        <div className="mt-6 text-center">
+          <a
+            href="https://github.com/ateeq1999/tsx/tree/main/examples"
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm hover:underline"
+            style={{ color: "var(--lagoon-deep)" }}
+          >
+            View all examples on GitHub →
+          </a>
+        </div>
+      </section>
+
+      {/* Built with tsx */}
+      <section className="page-wrap pb-16">
+        <div className="mb-8 text-center">
+          <h2 className="mb-2 text-2xl font-bold" style={{ color: "var(--sea-ink)" }}>
+            Built with tsx
+          </h2>
+          <p className="text-sm" style={{ color: "var(--sea-ink-soft)" }}>
+            Projects and teams shipping with tsx patterns in production.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            {
+              name: "tsx registry",
+              url: "https://registry.tsx.dev",
+              desc: "This site — the registry itself is built with tsx patterns.",
+              label: "Self-hosted",
+            },
+            {
+              name: "OpenPanel",
+              url: "https://openpanel.dev",
+              desc: "Open-source analytics platform using tsx auth and CRUD patterns.",
+              label: "Open source",
+            },
+            {
+              name: "Shipfast",
+              url: "https://shipfa.st",
+              desc: "TanStack Start boilerplate referencing tsx for pattern reuse.",
+              label: "Boilerplate",
+            },
+          ].map(({ name, url, desc, label }) => (
+            <a
+              key={name}
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              className="island-shell rounded-xl p-5 hover:no-underline"
+            >
+              <div className="mb-2 flex items-center justify-between">
+                <span className="font-bold text-sm" style={{ color: "var(--sea-ink)" }}>{name}</span>
+                <span
+                  className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                  style={{ background: "var(--line)", color: "var(--sea-ink-soft)" }}
+                >
+                  {label}
+                </span>
+              </div>
+              <p className="text-xs leading-relaxed" style={{ color: "var(--sea-ink-soft)" }}>{desc}</p>
+            </a>
+          ))}
+        </div>
+        <div className="mt-6 text-center">
+          <a
+            href="https://github.com/ateeq1999/tsx/issues/new?template=showcase.md"
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm hover:underline"
+            style={{ color: "var(--lagoon-deep)" }}
+          >
+            Add your project →
+          </a>
+        </div>
+      </section>
+
       {/* Recent packages */}
       {recent && recent.length > 0 && (
         <section className="page-wrap pb-24">

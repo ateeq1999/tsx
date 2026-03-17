@@ -1,15 +1,24 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, Link } from "@tanstack/react-router"
 import { RegisterForm } from "@/components/auth/register-form"
 
 export const Route = createFileRoute("/auth/register")({
-  component: RegisterPage
+  head: () => ({ meta: [{ title: "Create account — tsx registry" }] }),
+  component: RegisterPage,
 })
 
 function RegisterPage() {
   return (
-    <div className="max-w-md mx-auto py-12">
-      <h1 className="text-2xl font-bold mb-6">Create Account</h1>
-      <RegisterForm />
+    <div className="mx-auto max-w-md py-16 rise-in">
+      <div className="island-shell rounded-2xl p-8">
+        <h1 className="mb-1 text-2xl font-bold" style={{ color: "var(--sea-ink)" }}>Create account</h1>
+        <p className="mb-6 text-sm" style={{ color: "var(--sea-ink-soft)" }}>
+          Already have one?{" "}
+          <Link to="/auth/login" className="hover:underline" style={{ color: "var(--lagoon-deep)" }}>
+            Sign in
+          </Link>
+        </p>
+        <RegisterForm />
+      </div>
     </div>
   )
 }
