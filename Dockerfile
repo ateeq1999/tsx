@@ -36,8 +36,6 @@ COPY --from=builder /app/target/release/tsx-registry /usr/local/bin/tsx-registry
 ENV PORT=8080
 ENV DATA_DIR=/data
 
-VOLUME ["/data"]
-
 EXPOSE 8080
 
 CMD ["tsx-registry"]
