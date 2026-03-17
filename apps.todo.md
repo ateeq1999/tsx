@@ -45,7 +45,7 @@ Based on audit of current state (2026-03-17).
 - [x] **Syntax highlighting in README** — use `highlight.js` or `shiki` for fenced code blocks in rendered markdown
 - [x] **Install command copy button** — clipboard copy on the `tsx registry install <pkg>` pill already shown; add visual feedback (checkmark icon)
 - [x] **Provides & integrates_with badges** — render `provides[]` as coloured pill badges on the package card and detail page; render `integrates_with` as linked badges to the relevant package pages
-- [ ] **Dependency graph / integration map** — small visual showing which packages integrate with each other (SVG or canvas)
+- [x] **Dependency graph / integration map** — SVG hub-spoke diagram on package detail "Graph" tab; nodes are clickable and navigate to the related package
 - [x] **Download trend chart** — bar chart for weekly downloads on package detail page (Downloads tab); uses proportional estimate, ready for real backend endpoint
 - [x] **Version diff / changelog** — timeline version history with delta downloads between versions in the Versions tab
 - [x] **Search by provides** — click a `provides` tag → browse all packages that provide the same capability
@@ -177,9 +177,9 @@ Based on audit of current state (2026-03-17).
 ### K — Shared / Infra
 
 - [ ] **Shared UI package** — extract Header/Footer/ThemeToggle into `packages/ui/` workspace package so registry-web and docs don't duplicate them
-- [ ] **E2E tests** — Playwright tests for registry-web critical paths: landing, search, package detail, login, publish flow
+- [x] **E2E tests** — Playwright tests for registry-web critical paths: landing, search, auth, navigation/404 (`e2e/*.spec.ts`); `bun test:e2e` + CI job
 - [ ] **Storybook or component playground** — document the UI component library in registry-web
-- [ ] **Lighthouse CI** — add Lighthouse performance/accessibility/SEO check to GitHub Actions `web` job
+- [x] **Lighthouse CI** — `.lighthouserc.json` + dedicated `lighthouse` CI job; asserts accessibility ≥ 0.85, warns on perf/SEO/best-practices
 - [x] **Environment variable validation** — `zod` parse of `import.meta.env` at startup so missing vars fail loudly at build time
 
 ---

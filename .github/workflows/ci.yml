@@ -94,3 +94,78 @@ jobs:
       - name: Build docs
         working-directory: apps/docs
         run: bun run build
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: web
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        working-directory: apps/registry-web
+        run: bun install
+
+      - name: Install Playwright browsers
+        working-directory: apps/registry-web
+        run: bunx playwright install --with-deps chromium
+
+      - name: Build app
+        working-directory: apps/registry-web
+        run: bun run build
+        env:
+          DATABASE_URL: "postgresql://postgres:@localhost:5432/tsx_db"
+          VITE_REGISTRY_URL: "http://localhost:8080"
+
+      - name: Run E2E tests
+        working-directory: apps/registry-web
+        run: bun run test:e2e
+        env:
+          BASE_URL: "http://localhost:3000"
+          CI: "true"
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/registry-web/playwright-report/
+          retention-days: 7
+
+  lighthouse:
+    name: Lighthouse
+    runs-on: ubuntu-latest
+    needs: web
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        working-directory: apps/registry-web
+        run: bun install
+
+      - name: Build app
+        working-directory: apps/registry-web
+        run: bun run build
+        env:
+          DATABASE_URL: "postgresql://postgres:@localhost:5432/tsx_db"
+          VITE_REGISTRY_URL: "http://localhost:8080"
+
+      - name: Run Lighthouse CI
+        working-directory: apps/registry-web
+        run: bunx @lhci/cli autorun
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}

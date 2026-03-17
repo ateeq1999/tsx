@@ -26,6 +26,7 @@ import {
 } from "@/features/packages/hooks/use-packages"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { DependencyGraph } from "@/components/DependencyGraph"
 
 export const Route = createFileRoute("/packages/$name")({
   loader: async ({ context: { queryClient }, params: { name } }) => {
@@ -140,6 +141,9 @@ function PackageDetailPage() {
               <TrendingUp className="mr-1 size-3.5" />
               Downloads
             </TabsTrigger>
+            {(pkg.integrates_with?.length ?? 0) > 0 && (
+              <TabsTrigger value="graph">Graph</TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="overview">
@@ -245,6 +249,19 @@ function PackageDetailPage() {
                   </BarChart>
                 </ResponsiveContainer>
               )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="graph">
+            <div className="island-shell rounded-xl p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="font-bold" style={{ color: "var(--sea-ink)" }}>Integration map</h2>
+                <span className="text-xs" style={{ color: "var(--sea-ink-soft)" }}>Click a node to navigate</span>
+              </div>
+              <DependencyGraph
+                packageName={pkg.name}
+                integratesWith={pkg.integrates_with ?? []}
+              />
             </div>
           </TabsContent>
         </Tabs>
