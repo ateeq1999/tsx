@@ -10,7 +10,7 @@ Based on audit of current state (2026-03-17).
 ### A — User Account & Auth
 
 - [x] **Logout button in Header** — show user avatar/name + dropdown with "Logout" when session exists; hide Dashboard link when logged out
-- [ ] **User profile page** — `/account` — edit display name, change email, change password
+- [x] **User profile page** — `/account` — edit display name, change email, change password
 - [ ] **Email verification flow** — send verification email on register, block publishing until verified; `/auth/verify-email` page
 - [ ] **Password reset flow** — "Forgot password?" on login page → `/auth/reset-password` with email input and token-based confirmation page
 - [ ] **OAuth / social login** — Google + GitHub sign-in buttons on login/register pages (better-auth providers)
@@ -27,13 +27,13 @@ Based on audit of current state (2026-03-17).
   - Step 3: Preview parsed metadata (lang, provides, integrates_with)
   - Step 4: Confirmation + submit → `POST /v1/packages/publish`
 - [x] **Publish status / feedback** — show upload progress bar, success state with install command, error display with field-level validation messages
-- [ ] **API key management** — `/_protected/account/api-keys` — generate / revoke bearer tokens for CLI publishing (`tsx framework publish --api-key`); show key once on creation
+- [ ] **API key management** — `/_protected/account/api-keys` — generate / revoke bearer tokens for CLI publishing (`tsx framework publish --api-key`); show key once on creation (UI stub added to profile page)
 
 ---
 
 ### C — My Packages (Authenticated Users)
 
-- [ ] **My Packages page** — `/_protected/packages` — table of packages the logged-in user has published: name, latest version, downloads, last updated, actions (edit description, yank version, delete)
+- [x] **My Packages page** — `/_protected/packages` — table of packages the logged-in user has published: name, latest version, downloads, last updated, actions (edit description, yank version, delete)
 - [ ] **Package edit page** — `/_protected/packages/:name/edit` — update description, add README (markdown textarea), manage versions (yank / set as latest)
 - [ ] **Package README upload/edit** — textarea that saves a markdown README into the registry server (requires new `PUT /v1/packages/:name` endpoint on the backend)
 
@@ -44,7 +44,7 @@ Based on audit of current state (2026-03-17).
 - [x] **README rendering** — fetch README from tarball on the package detail page and render as HTML with a markdown parser (e.g. `marked` or `micromark`); tabbed layout: Overview (README) / Versions / Install
 - [ ] **Syntax highlighting in README** — use `highlight.js` or `shiki` for fenced code blocks in rendered markdown
 - [x] **Install command copy button** — clipboard copy on the `tsx registry install <pkg>` pill already shown; add visual feedback (checkmark icon)
-- [ ] **Provides & integrates_with badges** — render `provides[]` as coloured pill badges on the package card and detail page; render `integrates_with` as linked badges to the relevant package pages
+- [x] **Provides & integrates_with badges** — render `provides[]` as coloured pill badges on the package card and detail page; render `integrates_with` as linked badges to the relevant package pages
 - [ ] **Dependency graph / integration map** — small visual showing which packages integrate with each other (SVG or canvas)
 - [ ] **Download trend chart** — sparkline or bar chart for daily/weekly downloads on the package detail page (requires new backend endpoint `GET /v1/packages/:name/stats/downloads?interval=7d`)
 - [ ] **Version diff / changelog** — show diff between manifest versions when multiple are published
@@ -64,10 +64,10 @@ Based on audit of current state (2026-03-17).
 
 ### F — Landing Page Enhancements
 
-- [ ] **Hero install command** — animated terminal showing `cargo install tsx` → `tsx registry install tanstack-start` with blinking cursor
-- [ ] **Stats counters** — animate the numbers (total packages, downloads, versions) counting up on scroll-into-view
+- [x] **Hero install command** — animated terminal showing `cargo install tsx` → `tsx registry install tanstack-start` with blinking cursor
+- [x] **Stats counters** — animate the numbers (total packages, downloads, versions) counting up on scroll-into-view
 - [ ] **Featured packages section** — curated grid of 6 official `@tsx-pkg/*` packages with icons
-- [ ] **"How it works" section** — 3-step visual: 1 Install CLI → 2 Add a package → 3 Run a generator
+- [x] **"How it works" section** — 3-step visual: 1 Install CLI → 2 Add a package → 3 Run a generator
 - [ ] **Examples gallery section** — link to `examples/` with screenshots or code previews
 - [ ] **"Built with tsx" / showcase** — community-submitted projects using tsx packages
 
@@ -89,7 +89,7 @@ Based on audit of current state (2026-03-17).
 - [x] **Mobile nav** — hamburger menu in Header with slide-out drawer (Sheet component already available) for small screens
 - [x] **Global error boundary** — catch unhandled errors and show a friendly error page with retry button
 - [x] **404 page** — custom `not-found.tsx` with suggested links
-- [ ] **Loading skeletons** — package card skeleton on browse, stat card skeleton on landing and dashboard
+- [x] **Loading skeletons** — package card skeleton on browse, stat card skeleton on landing and dashboard
 - [x] **Toast notifications** — use `sonner` (already installed) for publish success/fail, copy-to-clipboard, auth events
 - [x] **Keyboard shortcuts** — `/` focuses search bar on browse page; `Escape` clears search
 - [x] **SEO / meta tags** — `<title>`, `<meta description>`, Open Graph tags per route (TanStack Start `<Head>`)
@@ -160,17 +160,17 @@ Based on audit of current state (2026-03-17).
 - [x] **Syntax highlighting** — integrate `shiki` (or `highlight.js`) for all `<pre><code>` blocks; support `bash`, `json`, `typescript`, `rust`, `toml` languages
 - [x] **Copy button on code blocks** — clipboard icon that appears on hover over code snippets
 - [x] **Mobile sidebar** — hamburger button in Header opens a Sheet/drawer with the sidebar nav; close on link click
-- [ ] **Table of contents (ToC)** — auto-generated sticky right-side ToC for long pages (scan `h2`/`h3` headings); highlight active heading on scroll
+- [x] **Table of contents (ToC)** — auto-generated sticky right-side ToC for long pages (scan `h2`/`h3` headings); highlight active heading on scroll
 - [x] **Breadcrumb navigation** — `Docs > CLI > tsx install` breadcrumb trail above page heading
-- [ ] **"Edit on GitHub" link** — per-page link to the source file in the repo
+- [x] **"Edit on GitHub" link** — per-page link to the source file in the repo
 - [x] **Prev / Next page navigation** — footer navigation between adjacent sidebar pages
 - [ ] **Doc search** — integrate `pagefind` or `fuse.js` full-text search across all doc pages; `Cmd+K` opens command palette
 - [ ] **Versioned docs** — version selector in Header (once CLI has multiple major versions)
 - [ ] **MDX support** — migrate from raw JSX content to `.mdx` files for easier content editing (Vite MDX plugin); keep React components available in MDX
 - [ ] **Dark/light code theme** — switch shiki theme alongside the app theme toggle (e.g. github-light / github-dark)
-- [ ] **`/docs/examples`** — Examples gallery page — card grid linking to `examples/basic-crud`, `examples/with-auth`, `examples/with-shadcn`, `examples/full-saas` with description + tech stack tags
+- [x] **`/docs/examples`** — Examples gallery page — card grid linking to `examples/basic-crud`, `examples/with-auth`, `examples/with-shadcn`, `examples/full-saas` with description + tech stack tags
 - [ ] **`/docs/packages`** — First-party packages reference page — table of all `@tsx-pkg/*` packages with provides[], install command, link to registry-web detail page
-- [ ] **Troubleshooting page** — `tsx registry install` fails (network, version mismatch), `tsx run` unknown command, stack detection issues
+- [x] **Troubleshooting page** — `tsx registry install` fails (network, version mismatch), `tsx run` unknown command, stack detection issues
 
 ---
 

@@ -9,6 +9,10 @@ export interface Package {
   created_at: string
   updated_at: string
   download_count: number
+  lang?: string
+  runtime?: string
+  provides?: Array<string>
+  integrates_with?: Array<string>
 }
 
 export interface PackageVersion {

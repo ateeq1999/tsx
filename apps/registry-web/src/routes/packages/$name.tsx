@@ -183,6 +183,54 @@ function PackageDetailPage() {
             <h2 className="island-kicker mb-2">Requires tsx</h2>
             <p className="font-mono text-sm" style={{ color: "var(--sea-ink)" }}>&gt;= {pkg.tsx_min}</p>
           </div>
+
+          {pkg.provides && pkg.provides.length > 0 && (
+            <div className="island-shell rounded-xl p-4">
+              <h2 className="island-kicker mb-3">Provides</h2>
+              <div className="flex flex-wrap gap-1.5">
+                {pkg.provides.map((cap) => (
+                  <Link
+                    key={cap}
+                    to="/browse"
+                    search={{ q: cap, page: 1, lang: "", sort: "relevant" }}
+                    className="rounded-full px-2.5 py-0.5 text-xs font-medium hover:no-underline"
+                    style={{ background: "var(--lagoon)", color: "#fff" }}
+                  >
+                    {cap}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {pkg.integrates_with && pkg.integrates_with.length > 0 && (
+            <div className="island-shell rounded-xl p-4">
+              <h2 className="island-kicker mb-3">Integrates with</h2>
+              <div className="flex flex-wrap gap-1.5">
+                {pkg.integrates_with.map((dep) => (
+                  <Link
+                    key={dep}
+                    to="/packages/$name"
+                    params={{ name: dep }}
+                    className="rounded-full px-2.5 py-0.5 text-xs font-medium hover:no-underline"
+                    style={{ background: "var(--line)", color: "var(--sea-ink)" }}
+                  >
+                    {dep}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {pkg.lang && (
+            <div className="island-shell rounded-xl p-4">
+              <h2 className="island-kicker mb-2">Language</h2>
+              <p className="text-sm capitalize" style={{ color: "var(--sea-ink)" }}>{pkg.lang}</p>
+              {pkg.runtime && (
+                <p className="mt-1 text-xs capitalize" style={{ color: "var(--sea-ink-soft)" }}>Runtime: {pkg.runtime}</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

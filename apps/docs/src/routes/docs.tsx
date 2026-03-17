@@ -7,7 +7,7 @@ import bash from "highlight.js/lib/languages/bash"
 import json from "highlight.js/lib/languages/json"
 import rust from "highlight.js/lib/languages/rust"
 import toml from "highlight.js/lib/languages/ini"
-import { Menu, X, ChevronLeft, ChevronRight } from "lucide-react"
+import { Menu, X, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react"
 
 hljs.registerLanguage("typescript", typescript)
 hljs.registerLanguage("javascript", javascript)
@@ -24,40 +24,48 @@ const sidebar = [
   {
     group: "Introduction",
     links: [
-      { to: "/docs/getting-started", label: "Getting Started" },
-      { to: "/docs/installation", label: "Installation" },
+      { to: "/docs/getting-started", label: "Getting Started", file: "docs/getting-started.tsx" },
+      { to: "/docs/installation", label: "Installation", file: "docs/installation.tsx" },
     ],
   },
   {
     group: "CLI",
     links: [
-      { to: "/docs/cli", label: "Overview" },
-      { to: "/docs/cli/install", label: "tsx install" },
-      { to: "/docs/cli/search", label: "tsx search" },
-      { to: "/docs/cli/info", label: "tsx info" },
-      { to: "/docs/cli/framework", label: "tsx framework" },
-      { to: "/docs/cli/stack", label: "tsx stack" },
+      { to: "/docs/cli", label: "Overview", file: "docs/cli.tsx" },
+      { to: "/docs/cli/install", label: "tsx install", file: "docs/cli/install.tsx" },
+      { to: "/docs/cli/search", label: "tsx search", file: "docs/cli/search.tsx" },
+      { to: "/docs/cli/info", label: "tsx info", file: "docs/cli/info.tsx" },
+      { to: "/docs/cli/framework", label: "tsx framework", file: "docs/cli/framework.tsx" },
+      { to: "/docs/cli/stack", label: "tsx stack", file: "docs/cli/stack.tsx" },
     ],
   },
   {
     group: "Framework Packages",
     links: [
-      { to: "/docs/fpf", label: "FPF Format" },
-      { to: "/docs/fpf/manifest", label: "stack.json" },
-      { to: "/docs/fpf/publishing", label: "Publishing" },
+      { to: "/docs/fpf", label: "FPF Format", file: "docs/fpf.tsx" },
+      { to: "/docs/fpf/manifest", label: "stack.json", file: "docs/fpf/manifest.tsx" },
+      { to: "/docs/fpf/publishing", label: "Publishing", file: "docs/fpf/publishing.tsx" },
     ],
   },
   {
     group: "Registry",
     links: [
-      { to: "/docs/registry", label: "Overview" },
-      { to: "/docs/registry/self-hosting", label: "Self-hosting" },
-      { to: "/docs/registry/api", label: "API Reference" },
+      { to: "/docs/registry", label: "Overview", file: "docs/registry.tsx" },
+      { to: "/docs/registry/self-hosting", label: "Self-hosting", file: "docs/registry/self-hosting.tsx" },
+      { to: "/docs/registry/api", label: "API Reference", file: "docs/registry/api.tsx" },
+    ],
+  },
+  {
+    group: "Resources",
+    links: [
+      { to: "/docs/examples", label: "Examples", file: "docs/examples.tsx" },
+      { to: "/docs/troubleshooting", label: "Troubleshooting", file: "docs/troubleshooting.tsx" },
     ],
   },
 ]
 
 const allLinks = sidebar.flatMap((s) => s.links)
+const GITHUB_BASE = "https://github.com/ateeq1999/tsx/blob/main/apps/docs/src/routes"
 
 function usePrevNext(pathname: string) {
   const idx = allLinks.findIndex((l) => l.to === pathname)
@@ -70,10 +78,12 @@ function usePrevNext(pathname: string) {
 function useBreadcrumb(pathname: string) {
   for (const section of sidebar) {
     const link = section.links.find((l) => l.to === pathname)
-    if (link) return [section.group, link.label]
+    if (link) return { group: section.group, label: link.label, file: link.file }
   }
-  return []
+  return null
 }
+
+interface TocEntry { id: string; text: string; level: number }
 
 function SidebarNav({ onLinkClick }: { onLinkClick?: () => void }) {
   return (
@@ -105,23 +115,21 @@ function DocsLayout() {
   const location = useLocation()
   const articleRef = useRef<HTMLElement>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [toc, setToc] = useState<TocEntry[]>([])
+  const [activeId, setActiveId] = useState("")
   const { prev, next } = usePrevNext(location.pathname)
-  const breadcrumb = useBreadcrumb(location.pathname)
+  const crumb = useBreadcrumb(location.pathname)
 
-  // Syntax highlighting + copy buttons on every route change
   useEffect(() => {
     const el = articleRef.current
     if (!el) return
 
+    // Syntax highlight + copy buttons
     el.querySelectorAll("pre code").forEach((block) => {
       if (block.getAttribute("data-highlighted")) return
       hljs.highlightElement(block as HTMLElement)
-
       const pre = block.parentElement!
-      if (pre.style.position !== "relative") {
-        pre.style.position = "relative"
-      }
-
+      if (pre.style.position !== "relative") pre.style.position = "relative"
       const btn = document.createElement("button")
       btn.textContent = "copy"
       btn.className = "hljs-copy-btn"
@@ -133,13 +141,35 @@ function DocsLayout() {
       pre.appendChild(btn)
     })
 
-    // close mobile sidebar on route change
+    // Build ToC from headings
+    const headings = Array.from(el.querySelectorAll("h2, h3")) as HTMLElement[]
+    headings.forEach((h, i) => {
+      if (!h.id) h.id = `heading-${i}`
+    })
+    setToc(headings.map((h) => ({
+      id: h.id,
+      text: h.innerText,
+      level: parseInt(h.tagName[1]),
+    })))
+
+    // Active heading on scroll
+    const obs = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) setActiveId(e.target.id)
+        }
+      },
+      { rootMargin: "-80px 0px -60% 0px" }
+    )
+    headings.forEach((h) => obs.observe(h))
+
     setMobileOpen(false)
+    return () => obs.disconnect()
   }, [location.pathname])
 
   return (
     <div className="page-wrap py-10">
-      {/* Mobile sidebar toggle */}
+      {/* Mobile toolbar */}
       <div className="mb-6 flex items-center gap-3 lg:hidden">
         <button
           onClick={() => setMobileOpen(true)}
@@ -148,14 +178,14 @@ function DocsLayout() {
         >
           <Menu className="size-4" /> Menu
         </button>
-        {breadcrumb.length > 0 && (
-          <span className="text-sm" style={{ color: "var(--sea-ink-soft)" }}>
-            {breadcrumb.join(" › ")}
+        {crumb && (
+          <span className="text-sm truncate" style={{ color: "var(--sea-ink-soft)" }}>
+            {crumb.group} › {crumb.label}
           </span>
         )}
       </div>
 
-      {/* Mobile sidebar overlay */}
+      {/* Mobile overlay */}
       {mobileOpen && (
         <div
           className="fixed inset-0 z-40 lg:hidden"
@@ -186,18 +216,29 @@ function DocsLayout() {
 
         {/* Content */}
         <div className="min-w-0 flex-1">
-          {/* Breadcrumb (desktop) */}
-          {breadcrumb.length > 1 && (
-            <p className="mb-4 hidden text-xs lg:block" style={{ color: "var(--sea-ink-soft)" }}>
-              Docs › {breadcrumb.join(" › ")}
-            </p>
+          {/* Breadcrumb + Edit on GitHub */}
+          {crumb && (
+            <div className="mb-4 hidden items-center justify-between lg:flex">
+              <p className="text-xs" style={{ color: "var(--sea-ink-soft)" }}>
+                Docs › {crumb.group} › {crumb.label}
+              </p>
+              <a
+                href={`${GITHUB_BASE}/${crumb.file}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 text-xs hover:underline"
+                style={{ color: "var(--sea-ink-soft)" }}
+              >
+                Edit on GitHub <ExternalLink className="size-3" />
+              </a>
+            </div>
           )}
 
           <article ref={articleRef} className="doc-content">
             <Outlet />
           </article>
 
-          {/* Prev / Next nav */}
+          {/* Prev / Next */}
           {(prev || next) && (
             <div className="mt-12 flex items-center justify-between gap-4 border-t pt-6" style={{ borderColor: "var(--line)" }}>
               {prev ? (
@@ -229,6 +270,31 @@ function DocsLayout() {
             </div>
           )}
         </div>
+
+        {/* Sticky ToC */}
+        {toc.length > 1 && (
+          <aside className="hidden w-44 shrink-0 xl:block">
+            <div className="sticky top-20">
+              <p className="island-kicker mb-3">On this page</p>
+              <nav className="space-y-1">
+                {toc.map((entry) => (
+                  <a
+                    key={entry.id}
+                    href={`#${entry.id}`}
+                    className="block truncate text-xs leading-5 transition-colors hover:no-underline"
+                    style={{
+                      paddingLeft: entry.level === 3 ? "0.75rem" : "0",
+                      color: activeId === entry.id ? "var(--lagoon-deep)" : "var(--sea-ink-soft)",
+                      fontWeight: activeId === entry.id ? "600" : "400",
+                    }}
+                  >
+                    {entry.text}
+                  </a>
+                ))}
+              </nav>
+            </div>
+          </aside>
+        )}
       </div>
     </div>
   )

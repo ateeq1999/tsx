@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
+import { useEffect, useRef, useState } from "react"
 import { useRecentPackages, useRegistryStats } from "@/features/packages/hooks/use-packages"
 import { recentPackagesQueryOptions, statsQueryOptions } from "@/features/packages/hooks/use-packages"
-import { ArrowRight, Package, Download, Layers, Zap } from "lucide-react"
+import { ArrowRight, Package, Download, Layers, Zap, Terminal, Box, Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export const Route = createFileRoute("/")({
@@ -22,6 +23,99 @@ export const Route = createFileRoute("/")({
   }),
   component: LandingPage,
 })
+
+const TERMINAL_LINES = [
+  { prompt: "$", text: "cargo install tsx" },
+  { prompt: "›", text: "tsx registry install with-auth" },
+  { prompt: "›", text: "tsx registry install tanstack-start" },
+  { prompt: "›", text: "tsx stack apply" },
+]
+
+function AnimatedTerminal() {
+  const [lineIdx, setLineIdx] = useState(0)
+  const [charIdx, setCharIdx] = useState(0)
+  const [done, setDone] = useState(false)
+
+  useEffect(() => {
+    if (done) return
+    const line = TERMINAL_LINES[lineIdx]
+    if (charIdx < line.text.length) {
+      const t = setTimeout(() => setCharIdx((c) => c + 1), 38)
+      return () => clearTimeout(t)
+    }
+    if (lineIdx < TERMINAL_LINES.length - 1) {
+      const t = setTimeout(() => { setLineIdx((i) => i + 1); setCharIdx(0) }, 700)
+      return () => clearTimeout(t)
+    }
+    setDone(true)
+  }, [lineIdx, charIdx, done])
+
+  return (
+    <div
+      className="mx-auto mb-8 max-w-md rounded-xl p-4 text-left font-mono text-sm"
+      style={{ background: "var(--sea-ink)", color: "#d7ece8" }}
+    >
+      <div className="mb-3 flex gap-1.5">
+        {["#f4645f", "#f9bc2d", "#29c740"].map((c) => (
+          <span key={c} className="size-3 rounded-full" style={{ background: c }} />
+        ))}
+      </div>
+      {TERMINAL_LINES.slice(0, lineIdx + 1).map((line, i) => (
+        <div key={i} className="flex gap-2">
+          <span style={{ color: "var(--lagoon)" }}>{line.prompt}</span>
+          <span>
+            {i < lineIdx ? line.text : line.text.slice(0, charIdx)}
+            {i === lineIdx && !done && (
+              <span className="animate-pulse" style={{ color: "var(--lagoon)" }}>▋</span>
+            )}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function useCountUp(target: number, running: boolean) {
+  const [value, setValue] = useState(0)
+  useEffect(() => {
+    if (!running || target === 0) return
+    const dur = 1200
+    const steps = 40
+    const step = target / steps
+    let cur = 0
+    const timer = setInterval(() => {
+      cur = Math.min(cur + step, target)
+      setValue(Math.floor(cur))
+      if (cur >= target) clearInterval(timer)
+    }, dur / steps)
+    return () => clearInterval(timer)
+  }, [target, running])
+  return value
+}
+
+function StatCard({ label, target, suffix = "", icon: Icon }: { label: string; target: number; suffix?: string; icon: React.ElementType }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
+  const value = useCountUp(target, visible)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) setVisible(true) }, { threshold: 0.5 })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+
+  return (
+    <div ref={ref} className="island-shell rounded-xl p-5 text-center">
+      <Icon className="mx-auto mb-2 size-5" style={{ color: "var(--lagoon)" }} />
+      <p className="text-2xl font-bold" style={{ color: "var(--sea-ink)" }}>
+        {target === 0 ? "—" : `${value.toLocaleString()}${suffix}`}
+      </p>
+      <p className="text-xs" style={{ color: "var(--sea-ink-soft)" }}>{label}</p>
+    </div>
+  )
+}
 
 function LandingPage() {
   const { data: stats } = useRegistryStats()
@@ -48,52 +142,79 @@ function LandingPage() {
           One command to add auth, CRUD, UI components, and more.
         </p>
 
-        {/* Install command */}
-        <div
-          className="island-shell mx-auto mb-8 inline-flex max-w-sm items-center gap-3 rounded-lg px-5 py-3"
-        >
-          <span style={{ color: "var(--lagoon)" }} className="text-sm font-bold select-none">$</span>
-          <code className="flex-1 text-left text-sm" style={{ color: "var(--sea-ink)" }}>
-            tsx install with-auth
-          </code>
-          <button
-            onClick={() => navigator.clipboard.writeText("tsx install with-auth")}
-            className="text-xs opacity-60 hover:opacity-100"
-            style={{ color: "var(--lagoon-deep)" }}
-          >
-            copy
-          </button>
-        </div>
+        <AnimatedTerminal />
 
         <div className="flex justify-center gap-4">
           <Button asChild>
             <Link to="/browse">Browse packages <ArrowRight className="ml-1 size-4" /></Link>
           </Button>
           <Button variant="outline" asChild>
-            <a href="https://github.com/your-org/tsx" target="_blank" rel="noreferrer">View on GitHub</a>
+            <a href="https://github.com/ateeq1999/tsx" target="_blank" rel="noreferrer">View on GitHub</a>
           </Button>
         </div>
       </section>
 
       {/* Stats */}
-      {stats && (
-        <section className="page-wrap pb-16">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {[
-              { label: "Packages", value: stats.total_packages, icon: Package },
-              { label: "Downloads", value: stats.total_downloads.toLocaleString(), icon: Download },
-              { label: "Versions", value: stats.total_versions, icon: Layers },
-              { label: "This week", value: `+${stats.packages_this_week}`, icon: Zap },
-            ].map(({ label, value, icon: Icon }) => (
-              <div key={label} className="island-shell rounded-xl p-5 text-center">
-                <Icon className="mx-auto mb-2 size-5" style={{ color: "var(--lagoon)" }} />
-                <p className="text-2xl font-bold" style={{ color: "var(--sea-ink)" }}>{value}</p>
-                <p className="text-xs" style={{ color: "var(--sea-ink-soft)" }}>{label}</p>
+      <section className="page-wrap pb-16">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <StatCard label="Packages" target={stats?.total_packages ?? 0} icon={Package} />
+          <StatCard label="Downloads" target={stats?.total_downloads ?? 0} icon={Download} />
+          <StatCard label="Versions" target={stats?.total_versions ?? 0} icon={Layers} />
+          <StatCard label="This week" target={stats?.packages_this_week ?? 0} suffix="+" icon={Zap} />
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section className="page-wrap pb-16">
+        <h2 className="mb-10 text-center text-2xl font-bold" style={{ color: "var(--sea-ink)" }}>
+          How it works
+        </h2>
+        <div className="grid gap-6 sm:grid-cols-3">
+          {[
+            {
+              step: "01",
+              icon: Terminal,
+              title: "Install the CLI",
+              desc: "Run cargo install tsx once and you're ready. Works on macOS, Linux, and Windows.",
+              code: "cargo install tsx",
+            },
+            {
+              step: "02",
+              icon: Box,
+              title: "Add a pattern",
+              desc: "Search the registry and install any pattern into your project with one command.",
+              code: "tsx registry install with-auth",
+            },
+            {
+              step: "03",
+              icon: Play,
+              title: "Run the generator",
+              desc: "The pattern generates working, wired-up code directly into your project structure.",
+              code: "tsx run auth:setup",
+            },
+          ].map(({ step, icon: Icon, title, desc, code }) => (
+            <div key={step} className="feature-card rounded-xl p-6">
+              <div className="mb-4 flex items-center gap-3">
+                <span
+                  className="flex size-8 items-center justify-center rounded-lg text-xs font-bold"
+                  style={{ background: "var(--lagoon)", color: "#fff" }}
+                >
+                  {step}
+                </span>
+                <Icon className="size-5" style={{ color: "var(--lagoon)" }} />
               </div>
-            ))}
-          </div>
-        </section>
-      )}
+              <h3 className="mb-2 font-bold" style={{ color: "var(--sea-ink)" }}>{title}</h3>
+              <p className="mb-3 text-sm leading-relaxed" style={{ color: "var(--sea-ink-soft)" }}>{desc}</p>
+              <code
+                className="block rounded px-3 py-1.5 text-xs"
+                style={{ background: "var(--sea-ink)", color: "var(--lagoon)" }}
+              >
+                {code}
+              </code>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* Features */}
       <section className="page-wrap pb-16">
