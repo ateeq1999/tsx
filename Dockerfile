@@ -1,27 +1,35 @@
-# Build the tsx-registry server from the workspace root.
-# Railway deploys this via: docker build -f Dockerfile .
+# Multi-stage build for tsx-registry (Railway deployment)
+# Uses cargo-chef to cache dependency compilation separately from source changes.
 #
-# ── Stage 1: Build ────────────────────────────────────────────────────────────
-FROM rust:1.82-slim AS builder
-
+# ── Stage 1: Chef ─────────────────────────────────────────────────────────────
+FROM lukemathwalker/cargo-chef:latest-rust-1 AS chef
 WORKDIR /app
 
-# Install build dependencies
+# ── Stage 2: Planner ──────────────────────────────────────────────────────────
+FROM chef AS planner
+COPY Cargo.toml Cargo.lock ./
+COPY crates/ crates/
+RUN cargo chef prepare --recipe-path recipe.json
+
+# ── Stage 3: Builder ──────────────────────────────────────────────────────────
+FROM chef AS builder
+
+# Install build dependencies for native-tls (SQLx)
 RUN apt-get update \
     && apt-get install -y --no-install-recommends pkg-config libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy workspace manifests and lockfile first (layer-cache friendly)
+# 1. Cook dependencies only (cached unless Cargo.toml / Cargo.lock changes)
+COPY --from=planner /app/recipe.json recipe.json
+RUN cargo chef cook --release -p tsx-registry --recipe-path recipe.json
+
+# 2. Build the application (invalidated only when source changes)
 COPY Cargo.toml Cargo.lock ./
 COPY crates/ crates/
-
-# SQLx offline mode — uses the pre-generated query cache (.sqlx/)
-# so no live database connection is needed at build time.
 ENV SQLX_OFFLINE=true
-
 RUN cargo build --release -p tsx-registry
 
-# ── Stage 2: Runtime ──────────────────────────────────────────────────────────
+# ── Stage 4: Runtime ──────────────────────────────────────────────────────────
 FROM debian:bookworm-slim
 
 RUN apt-get update \
@@ -34,7 +42,7 @@ COPY --from=builder /app/target/release/tsx-registry /usr/local/bin/tsx-registry
 
 # Railway injects PORT at runtime; default to 8080 for local testing.
 ENV PORT=8080
-ENV DATA_DIR=/data
+ENV DATA_DIR=/app/data
 
 EXPOSE 8080
 

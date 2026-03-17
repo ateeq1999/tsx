@@ -1,20 +1,22 @@
 /target
-# Runtime data (tarballs, registry DB) — never committed
+
+# Runtime data — never committed
 data/
 .runtime/
-# Shuttle local dev secrets — never commit (contains real DB credentials)
+
+# Local dev secrets — never commit (contains real DB credentials)
 Secrets.dev.toml
-node_modules
-.DS_Store
-dist
-dist-ssr
-*.local
-count.txt
+
+# Vercel project linkage (local only)
+.vercel/
+
+# Local env files
 .env
-.nitro
-.tanstack
-.wrangler
-.output
-.vinxi
-__unconfig*
+.env.*
+*.local
+
+# Misc
+.DS_Store
+count.txt
 todos.json
+node_modules

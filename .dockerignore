@@ -1,0 +1,8 @@
+target/
+.git/
+.github/
+data/
+.env*
+Secrets*.toml
+*.md
+LICENSE

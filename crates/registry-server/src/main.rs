@@ -165,11 +165,12 @@ async fn main() {
         .layer(TraceLayer::new_for_http());
 
     // ── Listener ───────────────────────────────────────────────────────────
-    let addr = format!("0.0.0.0:{port}");
-    let listener = TcpListener::bind(&addr).await
+    // Bind to IPv6 all-interfaces ([::]) which also accepts IPv4 on Railway.
+    let addr = std::net::SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], port));
+    let listener = TcpListener::bind(addr).await
         .expect("Failed to bind TCP listener");
 
-    info!(addr, "Registry server listening");
+    info!(%addr, "Registry server listening");
     axum::serve(listener, app).await
         .expect("Server error");
 }
