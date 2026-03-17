@@ -72,12 +72,13 @@ async fn main() -> anyhow::Result<()> {
     // Load .env from current dir or parent
     let _ = dotenvy::dotenv();
 
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            std::env::var("RUST_LOG")
-                .unwrap_or_else(|_| "tsx_registry=info,tower_http=debug".into()),
-        )
-        .init();
+    let filter = std::env::var("RUST_LOG")
+        .unwrap_or_else(|_| "tsx_registry=info,tower_http=debug".into());
+    if std::env::var("LOG_FORMAT").as_deref() == Ok("json") {
+        tracing_subscriber::fmt().json().with_env_filter(filter).init();
+    } else {
+        tracing_subscriber::fmt().with_env_filter(filter).init();
+    }
 
     let database_url = std::env::var("DATABASE_URL")
         .expect("DATABASE_URL must be set (postgresql://user:pass@host/tsx_db)");

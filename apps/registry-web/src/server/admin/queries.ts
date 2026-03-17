@@ -3,7 +3,7 @@ import { desc } from "drizzle-orm"
 import { db } from "@/db"
 import { user } from "@/db/schema/auth"
 import { requireRole } from "@/middleware/role-guard"
-import type { AuditEntry } from "@tsx/api-types"
+import type { AuditEntry, RateLimitEntry } from "@tsx/api-types"
 
 const REGISTRY_URL = process.env.VITE_REGISTRY_URL ?? "http://localhost:8080"
 
@@ -33,4 +33,16 @@ export const getAdminAuditLog = createServerFn({ method: "GET" }).handler(async 
   })
   if (!res.ok) throw new Error(`Registry API error ${res.status}: ${await res.text()}`)
   return (await res.json()) as AuditEntry[]
+})
+
+// ── Rate limits (Rust registry-server) ───────────────────────────────────────
+
+export const getAdminRateLimits = createServerFn({ method: "GET" }).handler(async () => {
+  await requireRole("admin")
+  const apiKey = process.env.TSX_REGISTRY_API_KEY
+  const res = await fetch(`${REGISTRY_URL}/v1/admin/rate-limits`, {
+    headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+  })
+  if (!res.ok) throw new Error(`Registry API error ${res.status}: ${await res.text()}`)
+  return (await res.json()) as RateLimitEntry[]
 })

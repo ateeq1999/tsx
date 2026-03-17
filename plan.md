@@ -406,15 +406,15 @@ Option A is adopted.
 | OpenAPI spec from Rust server (`utoipa`) | ⏭ Deferred | Phase 4 |
 | Auto-generate `packages/api-types` from OpenAPI spec | ⏭ Deferred | Phase 4 |
 
-### Phase 4 — Observability & ops
+### Phase 4 — Observability & ops ✅ COMPLETE
 
-| Task | Effort | Risk |
-|------|--------|------|
-| Add Storybook CI job (`bun build-storybook`) | Small | Low |
-| Add `cargo test -p tsx-registry` integration tests | Medium | Medium |
-| Structured logging in Rust server (JSON via `tracing-subscriber`) | Small | Low |
-| Metrics endpoint (`/metrics` Prometheus format) | Medium | Low |
-| Rate limit monitoring dashboard (already has UI, needs backend endpoint) | Medium | Low |
+| Task | Status | Notes |
+|------|--------|-------|
+| Storybook CI job | ✅ Done | Added in Phase 1 (`bun run build-storybook`) |
+| Structured JSON logging in Rust server | ✅ Done | `LOG_FORMAT=json` env var enables JSON output via `tracing-subscriber` json feature |
+| Wire rate-limit dashboard to real endpoint | ✅ Done | `getAdminRateLimits` server fn → `GET /v1/admin/rate-limits`; page auto-refreshes every 30s |
+| Metrics endpoint (`/metrics` Prometheus) | ⏭ Deferred | Requires `axum-prometheus` or `metrics` crate — post-stabilisation task |
+| `cargo test -p tsx-registry` integration tests | ⏭ Deferred | Needs test database setup in CI — post-stabilisation task |
 
 ---
 
