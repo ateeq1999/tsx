@@ -1,0 +1,58 @@
+# Registry
+
+tsx ships with a built-in registry server you can self-host. It exposes a REST API
+that the CLI uses for search, install, info, and publish operations.
+
+## Self-hosting
+
+The registry server is a single Rust binary included in the tsx workspace:
+
+```bash
+cd crates/registry-server
+cargo run --release
+```
+
+It listens on `0.0.0.0:8080` by default.
+
+### Environment variables
+
+- `DATABASE_URL` — PostgreSQL connection string.
+- `DATA_DIR` — Directory for package tarballs (default: `./data`).
+- `PORT` — Port to listen on (default: `8080`).
+- `TSX_REGISTRY_API_KEY` — Required API key for publish operations.
+
+## Pointing the CLI at your registry
+
+Set the `TSX_REGISTRY_URL` environment variable:
+
+```bash
+export TSX_REGISTRY_URL=https://registry.your-org.com
+tsx install my-pattern
+```
+
+## API Reference
+
+### `GET /v1/search?q=&size=20`
+
+Search for packages. Returns a paginated list with total count.
+
+### `GET /v1/packages/:name`
+
+Get metadata for a specific package.
+
+### `GET /v1/packages/:name/versions`
+
+List all versions of a package.
+
+### `GET /v1/packages/:name/:version/tarball`
+
+Download a package version as a `.tar.gz` archive.
+
+### `POST /v1/packages/publish`
+
+Publish a new package version. Requires `Authorization: Bearer <api-key>`.
+Rate limited to 10 requests per minute per IP.
+
+### `GET /v1/stats`
+
+Registry-wide statistics: total packages, downloads, versions, weekly activity.

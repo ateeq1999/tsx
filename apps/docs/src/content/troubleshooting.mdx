@@ -1,0 +1,159 @@
+# Troubleshooting
+
+Common problems and how to fix them. If you don't find your issue here, open a
+[GitHub issue](https://github.com/ateeq1999/tsx/issues).
+
+---
+
+## Installation issues
+
+### cargo install tsx fails with "no matching package"
+
+The crate may not be published yet. Install from source instead:
+
+```bash
+cargo install --git https://github.com/ateeq1999/tsx tsx
+```
+
+Or download a pre-built binary from the [Releases page](https://github.com/ateeq1999/tsx/releases).
+
+### tsx: command not found after installing
+
+Cargo installs binaries to `~/.cargo/bin`. Make sure this directory is on your PATH:
+
+```bash
+# Add to ~/.bashrc, ~/.zshrc, or ~/.profile
+export PATH="$HOME/.cargo/bin:$PATH"
+
+# Reload your shell
+source ~/.bashrc
+```
+
+On Windows (PowerShell), Cargo usually updates PATH automatically. Restart your terminal.
+
+### Permission denied on macOS/Linux
+
+If `cargo install` fails with a permissions error, do **not** use `sudo`. Instead, ensure `~/.cargo` is owned by your user:
+
+```bash
+chown -R $(whoami) ~/.cargo
+```
+
+---
+
+## Registry install issues
+
+### tsx registry install hangs or times out
+
+Check that the registry is reachable:
+
+```bash
+curl https://registry.tsx.dev/health
+```
+
+If you're using a self-hosted registry, verify the `TSX_REGISTRY_URL` environment variable is correct and the server is running.
+
+### Package not found
+
+Search first to confirm the exact package name:
+
+```bash
+tsx registry search <query>
+```
+
+Package names are case-sensitive and often scoped (e.g. `@tsx-pkg/with-auth`).
+
+### Version mismatch error
+
+The package requires a newer version of tsx than you have installed. Update tsx:
+
+```bash
+cargo install tsx --force
+```
+
+Or install a specific older package version:
+
+```bash
+tsx registry install <name>@<version>
+```
+
+### Download completes but files are not written
+
+Check the target directory. By default tsx writes to `.tsx/packages/<name>/` in the current directory.
+Use `--dir` to override:
+
+```bash
+tsx registry install <name> --dir ./my-patterns
+```
+
+Also confirm you have write permission to the target directory.
+
+---
+
+## Framework package issues
+
+### tsx framework validate fails
+
+The validator checks your `manifest.json` against the FPF schema. Common mistakes:
+
+- `version` must follow semver (e.g. `1.0.0`, not `v1.0.0`)
+- `provides` items must be strings
+- `generators[].output_paths` must be relative paths
+- All referenced template files must exist in the `generators/` directory
+
+Run with `--verbose` for detailed validation output:
+
+```bash
+tsx framework validate --verbose
+```
+
+### tsx framework publish returns 401
+
+Your API key is missing or invalid. Pass it explicitly:
+
+```bash
+tsx framework publish --api-key <your-key>
+```
+
+Get your key from the [Account → API keys](/account/api-keys) page (requires login).
+
+### Generator produces wrong paths
+
+Verify `output_paths` in your manifest use the correct path alias tokens. Run a preview first to see the resolved paths without writing files:
+
+```bash
+tsx framework preview <generator-id>
+```
+
+---
+
+## Stack issues
+
+### tsx stack detect shows wrong framework
+
+Detection reads `package.json` and local config files. If you have multiple frameworks present (monorepo), run from the specific app directory:
+
+```bash
+cd apps/web && tsx stack detect
+```
+
+### tsx stack apply fails with "slot not found"
+
+The package tries to inject into a slot that doesn't exist in your project. Possible causes:
+
+- The target file was moved or renamed — check `stack.json` paths
+- The package is designed for a different framework version
+- The slot comment marker was deleted from the target file
+
+Re-add the slot marker manually:
+
+```typescript
+// @tsx-slot providers
+```
+
+---
+
+## Still stuck?
+
+Run any command with `--debug` for verbose logs, then
+[open a GitHub issue](https://github.com/ateeq1999/tsx/issues/new) with the output.

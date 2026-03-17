@@ -165,8 +165,8 @@ Based on audit of current state (2026-03-17).
 - [x] **"Edit on GitHub" link** — per-page link to the source file in the repo
 - [x] **Prev / Next page navigation** — footer navigation between adjacent sidebar pages
 - [x] **Doc search** — integrate `pagefind` or `fuse.js` full-text search across all doc pages; `Cmd+K` opens command palette
-- [ ] **Versioned docs** — version selector in Header (once CLI has multiple major versions)
-- [ ] **MDX support** — migrate from raw JSX content to `.mdx` files for easier content editing (Vite MDX plugin); keep React components available in MDX
+- [ ] **Versioned docs** — version selector in Header (once CLI has multiple major versions) *(deferred — requires CLI v2 with a separate docs branch)*
+- [x] **MDX support** — migrate from raw JSX content to `.mdx` files for easier content editing (Vite MDX plugin); keep React components available in MDX
 - [x] **Dark/light code theme** — switch shiki theme alongside the app theme toggle (e.g. github-light / github-dark)
 - [x] **`/docs/examples`** — Examples gallery page — card grid linking to `examples/basic-crud`, `examples/with-auth`, `examples/with-shadcn`, `examples/full-saas` with description + tech stack tags
 - [x] **`/docs/packages`** — First-party packages reference page — table of all `@tsx-pkg/*` packages with provides[], install command, link to registry-web detail page
@@ -176,9 +176,9 @@ Based on audit of current state (2026-03-17).
 
 ### K — Shared / Infra
 
-- [ ] **Shared UI package** — extract Header/Footer/ThemeToggle into `packages/ui/` workspace package so registry-web and docs don't duplicate them
+- [x] **Shared UI package** — extract ThemeToggle into `packages/ui/` workspace package so registry-web and docs don't duplicate it; root `package.json` with Bun workspaces
 - [x] **E2E tests** — Playwright tests for registry-web critical paths: landing, search, auth, navigation/404 (`e2e/*.spec.ts`); `bun test:e2e` + CI job
-- [ ] **Storybook or component playground** — document the UI component library in registry-web
+- [x] **Storybook or component playground** — document the UI component library in registry-web
 - [x] **Lighthouse CI** — `.lighthouserc.json` + dedicated `lighthouse` CI job; asserts accessibility ≥ 0.85, warns on perf/SEO/best-practices
 - [x] **Environment variable validation** — `zod` parse of `import.meta.env` at startup so missing vars fail loudly at build time
 

@@ -1,0 +1,43 @@
+# Getting Started
+
+tsx is a CLI for installing and publishing reusable code patterns for TanStack Start projects.
+Think of it like shadcn/ui, but for full-stack patterns — routing, auth, CRUD, and more.
+
+## Installation
+
+Install tsx globally via Cargo:
+
+```bash
+cargo install tsx-forge
+```
+
+Or download a prebuilt binary from the GitHub releases page.
+
+## Your first install
+
+Navigate to a TanStack Start project, then run:
+
+```bash
+tsx install with-auth
+```
+
+This will scaffold Better Auth integration — auth server, client, middleware, and a
+protected dashboard route — directly into your project.
+
+## Search for patterns
+
+```bash
+tsx search crud
+```
+
+## Get info about a package
+
+```bash
+tsx info with-auth
+```
+
+## Next steps
+
+- Read the [CLI reference](/docs/cli) to learn all available commands
+- Learn about [FPF (Framework Package Format)](/docs/fpf) to publish your own patterns
+- Browse the [public registry](https://registry.tsx.dev) to discover community packages

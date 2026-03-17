@@ -1,0 +1,14 @@
+{
+  "name": "tsx-monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "bun --cwd apps/registry-web dev",
+    "dev:docs": "bun --cwd apps/docs dev",
+    "build:web": "bun --cwd apps/registry-web build",
+    "build:docs": "bun --cwd apps/docs build"
+  }
+}

@@ -1,0 +1,88 @@
+# Self-hosting the registry
+
+The tsx registry server is a single Rust binary backed by PostgreSQL for metadata and
+the local filesystem for package tarballs.
+You can run it on any Linux server, a Fly.io machine, or inside Docker.
+
+## Option A — Binary
+
+Download the `registry-server` binary from the GitHub Releases page and run it:
+
+```bash
+./registry-server
+```
+
+The server listens on `0.0.0.0:8080` by default and requires a PostgreSQL database
+pointed to by `DATABASE_URL`.
+
+## Option B — Docker
+
+A multi-stage Dockerfile is included in `crates/registry-server/`:
+
+```bash
+cd crates/registry-server
+docker build -t tsx-registry .
+docker run -p 8080:8080 \
+  -e DATABASE_URL="postgresql://postgres:password@host/tsx_db" \
+  -v "$(pwd)/data:/data" \
+  tsx-registry
+```
+
+## Option C — Fly.io
+
+A `fly.toml` is included at the repo root. Deploy with:
+
+```bash
+fly launch   # first time
+fly deploy   # subsequent deploys
+```
+
+The `fly.toml` mounts a persistent volume at `/data` for tarballs. Make sure you create
+the volume before the first deploy:
+
+```bash
+fly volumes create registry_data --size 10
+```
+
+Set the PostgreSQL connection string as a Fly secret:
+
+```bash
+fly secrets set DATABASE_URL="postgresql://..."
+```
+
+## Environment variables
+
+- `PORT` — Port to listen on (default: `8080`).
+- `DATABASE_URL` — PostgreSQL connection string (required).
+- `DATA_DIR` — Directory for tarball storage (default: `./data`).
+  On Fly.io, set this to `/data`.
+- `TSX_REGISTRY_API_KEY` — Required secret for `POST /v1/packages/publish`.
+  Set this to a long random string. Generate one with:
+
+```bash
+openssl rand -hex 32
+```
+
+## Pointing the CLI at your registry
+
+```bash
+# Per-project (add to .env or shell profile)
+export TSX_REGISTRY_URL=https://registry.my-org.com
+
+# Per-command override
+tsx install my-pattern --registry https://registry.my-org.com
+```
+
+## Backup strategy
+
+Back up the `data/` directory (tarballs) and your PostgreSQL database regularly.
+On Fly.io, use `fly ssh console` + `pg_dump` or configure automatic Postgres backups
+in your Fly Postgres cluster.
+
+## Health check
+
+```bash
+curl https://registry.my-org.com/health
+```
+
+Returns `200 OK` with body `{"status":"ok"}` when the server is healthy.

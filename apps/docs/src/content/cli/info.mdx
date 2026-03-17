@@ -1,0 +1,57 @@
+# tsx info
+
+Show detailed metadata for a package: name, description, latest version, all published
+versions, author, license, download count, and the `provides` /
+`integrates_with` capability map from its manifest.
+
+## Usage
+
+```bash
+tsx info <package> [flags]
+```
+
+## Examples
+
+```bash
+# Show info for the latest version
+tsx info with-auth
+
+# Show info for a specific version
+tsx info with-auth@1.2.0
+
+# Print raw JSON
+tsx info with-auth --json
+```
+
+## Flags
+
+- `--json` — Print the full package metadata as JSON instead of a formatted display.
+- `--registry <url>` — Fetch from a specific registry instead of the default.
+
+## Output
+
+```
+with-auth  v1.3.0
+Better Auth integration for TanStack Start projects.
+
+Author:    Ateeq
+License:   MIT
+Downloads: 4 201
+Updated:   2026-03-10
+
+provides:
+  - auth
+  - session
+
+integrates_with:
+  tanstack-crud: injects session guard into CRUD routes
+```
+
+## Reading provides and integrates\_with
+
+The `provides` field lists capability tokens that this package adds to your project.
+The `integrates_with` map describes how this package slots into other installed packages —
+for example, injecting an auth guard into CRUD route templates.
+
+When you run `tsx install`, tsx uses this map to automatically wire packages together
+without manual configuration.

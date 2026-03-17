@@ -1,0 +1,68 @@
+# Installation
+
+tsx is distributed as a single native binary. Pick the method that suits your workflow.
+
+## From crates.io (recommended)
+
+If you have Rust installed, install directly from the official registry:
+
+```bash
+cargo install tsx-forge
+```
+
+Cargo will compile and install the binary into `~/.cargo/bin/tsx`.
+Make sure that directory is on your `PATH`.
+
+## From source
+
+To install the latest development build from the GitHub repository:
+
+```bash
+cargo install --git https://github.com/ateeq1999/tsx tsx-forge
+```
+
+## Pre-built binaries
+
+Compiled binaries for common platforms are published on the
+[GitHub Releases page](https://github.com/ateeq1999/tsx/releases).
+Download the archive for your platform, extract it, and move the binary to a directory on your `PATH`.
+
+### Linux / macOS
+
+```bash
+# Example for Linux x86_64
+curl -L https://github.com/ateeq1999/tsx/releases/latest/download/tsx-linux-x86_64.tar.gz | tar xz
+sudo mv tsx /usr/local/bin/
+```
+
+### Windows
+
+Download `tsx-windows-x86_64.zip` from the releases page, unzip it, and add the folder to your
+system `PATH` via *System Properties → Environment Variables*.
+
+## Shell completions
+
+Generate tab completions for your shell:
+
+```bash
+tsx completions bash   >> ~/.bashrc
+tsx completions zsh    >> ~/.zshrc
+tsx completions fish   > ~/.config/fish/completions/tsx.fish
+tsx completions powershell >> $PROFILE
+```
+
+## Verify the install
+
+```bash
+tsx --version
+```
+
+You should see the installed version number printed to stdout.
+
+## Updating
+
+Re-run the same install command to get the latest version. For cargo installs:
+
+```bash
+cargo install tsx-forge --force
+```

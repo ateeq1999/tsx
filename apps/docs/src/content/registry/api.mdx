@@ -1,0 +1,173 @@
+# API Reference
+
+The registry server exposes a REST API used by the tsx CLI and the web dashboard.
+All endpoints return JSON unless noted otherwise.
+
+## Base URL
+
+```
+https://registry.tsx.dev
+```
+
+For self-hosted registries, replace with your own domain. The CLI reads
+`TSX_REGISTRY_URL` for the base URL.
+
+## Authentication
+
+Only the publish endpoint requires authentication. Pass your API key as a Bearer token:
+
+```
+Authorization: Bearer sk_live_YOUR_KEY_HERE
+```
+
+---
+
+## `GET /health`
+
+Server health check. Returns 200 when the server and database are reachable.
+
+```bash
+curl https://registry.tsx.dev/health
+
+200 OK
+{ "status": "ok" }
+```
+
+---
+
+## `GET /v1/stats`
+
+Registry-wide statistics.
+
+```bash
+curl https://registry.tsx.dev/v1/stats
+
+{
+  "total_packages": 42,
+  "total_downloads": 18204,
+  "total_versions": 97,
+  "packages_this_week": 5
+}
+```
+
+---
+
+## `GET /v1/search`
+
+Full-text search across package names and descriptions.
+
+### Query parameters
+
+- `q` — Search query (required).
+- `lang` — Filter by language: `typescript`, `python`, etc.
+- `page` — Page number (default: `1`).
+- `size` — Results per page (default: `20`, max: `100`).
+
+```bash
+curl "https://registry.tsx.dev/v1/search?q=auth&size=5"
+
+{
+  "packages": [
+    {
+      "name": "with-auth",
+      "version": "1.3.0",
+      "description": "Better Auth integration for TanStack Start.",
+      "author": "ateeq1999",
+      "license": "MIT",
+      "tags": ["auth", "session"],
+      "tsx_min": "0.4.0",
+      "download_count": 4201,
+      "created_at": "2025-11-01T00:00:00Z",
+      "updated_at": "2026-01-15T00:00:00Z"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "per_page": 5
+}
+```
+
+---
+
+## `GET /v1/packages`
+
+List packages. Supports sorting.
+
+### Query parameters
+
+- `sort` — `recent` (default) or `downloads`.
+- `limit` — Number of results (default: `20`).
+
+```bash
+curl "https://registry.tsx.dev/v1/packages?sort=recent&limit=10"
+```
+
+---
+
+## `GET /v1/packages/:name`
+
+Get metadata for a specific package (latest version).
+
+```bash
+curl https://registry.tsx.dev/v1/packages/with-auth
+```
+
+Returns the same `Package` object as the search results. Returns 404 if not found.
+
+---
+
+## `GET /v1/packages/:name/versions`
+
+List all published versions of a package.
+
+```bash
+curl https://registry.tsx.dev/v1/packages/with-auth/versions
+
+[
+  { "version": "1.3.0", "published_at": "2026-01-15T00:00:00Z", "download_count": 2100 },
+  { "version": "1.2.0", "published_at": "2025-12-01T00:00:00Z", "download_count": 1800 },
+  { "version": "1.0.0", "published_at": "2025-11-01T00:00:00Z", "download_count": 301 }
+]
+```
+
+---
+
+## `GET /v1/packages/:name/:version/tarball`
+
+Download a specific version as a `.tar.gz` archive.
+
+```bash
+curl -L https://registry.tsx.dev/v1/packages/with-auth/1.3.0/tarball -o with-auth-1.3.0.tar.gz
+```
+
+Returns the raw binary tarball with `Content-Type: application/gzip`.
+
+---
+
+## `POST /v1/packages/publish`
+
+Publish a new package or version. Requires authentication.
+
+### Request
+
+Multipart form with the following fields:
+
+- `manifest` — The `manifest.json` file (JSON).
+- `tarball` — The package archive (`.tar.gz`).
+
+```bash
+curl -X POST https://registry.tsx.dev/v1/packages/publish \
+  -H "Authorization: Bearer sk_live_..." \
+  -F "manifest=@manifest.json" \
+  -F "tarball=@my-pattern-1.0.0.tar.gz"
+
+201 Created
+{ "name": "my-pattern", "version": "1.0.0" }
+```
+
+### Error codes
+
+- `400` — Invalid manifest, bad semver, or missing fields.
+- `401` — Missing or invalid API key.
+- `409` — Version already published.
+- `429` — Rate limit exceeded (10 requests per minute per IP).

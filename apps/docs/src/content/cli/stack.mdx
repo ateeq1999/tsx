@@ -1,0 +1,92 @@
+# tsx stack
+
+Manage the project's `.tsx/stack.json` — a lock-file-style record of every
+installed package and its pinned version. Stack commands let you reproduce, inspect, and
+modify the installed package set.
+
+## tsx stack init
+
+Create a new `.tsx/stack.json` in the current project:
+
+```bash
+tsx stack init
+```
+
+If `stack.json` already exists this is a no-op. Typically you don't need
+to call this manually — `tsx install` creates it automatically on first use.
+
+## tsx stack show
+
+Print the current stack (installed packages and their versions):
+
+```bash
+tsx stack show
+```
+
+```
+Installed packages:
+  with-auth        1.3.0
+  tanstack-crud    2.1.0
+```
+
+## tsx stack add
+
+Record a package in `stack.json` without running the install (advanced use):
+
+```bash
+tsx stack add <package>@<version>
+```
+
+## tsx stack remove
+
+Remove a package from the stack and delete its files from `.tsx/packages/`:
+
+```bash
+tsx stack remove <package>
+```
+
+## tsx stack apply
+
+Install all packages listed in `stack.json` at their pinned versions.
+Useful after cloning a project or switching branches:
+
+```bash
+tsx stack apply
+
+# Auto-install missing packages and skip already-installed ones
+tsx stack apply --install
+```
+
+### apply flags
+
+- `--install` — Download and install any packages listed in `stack.json`
+  that are not yet present in `.tsx/packages/`.
+- `--force` — Re-install all packages, overwriting existing files.
+
+## tsx stack detect
+
+Scan the project for installed packages and regenerate `stack.json`
+from what's actually on disk (useful if `stack.json` is out of sync):
+
+```bash
+tsx stack detect
+```
+
+## stack.json format
+
+```json
+{
+  "version": 1,
+  "packages": {
+    "with-auth": "1.3.0",
+    "tanstack-crud": "2.1.0"
+  },
+  "paths": {
+    "@auth": ".tsx/packages/with-auth/src"
+  }
+}
+```
+
+The `paths` map is merged into your project's TypeScript path aliases when you
+run `tsx stack apply`, keeping imports like `import {...} from "@auth/client"` working
+out of the box.

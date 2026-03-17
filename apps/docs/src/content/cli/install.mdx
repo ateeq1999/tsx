@@ -1,0 +1,59 @@
+# tsx install
+
+Install a framework package from the registry into the current project.
+tsx copies the package's generators, templates, and manifest into
+`.tsx/packages/<name>/` and wires up any slot injections defined in
+the manifest's `integrates_with` map.
+
+## Usage
+
+```bash
+tsx install <package> [flags]
+```
+
+## Examples
+
+```bash
+# Install the latest version of a package
+tsx install with-auth
+
+# Install a specific version
+tsx install with-auth@1.2.0
+
+# Install from a self-hosted registry
+tsx install with-auth --registry https://registry.my-org.com
+
+# Preview what would be installed without writing files
+tsx install with-auth --dry-run
+```
+
+## Flags
+
+- `--registry <url>` — Override the default registry URL.
+  Equivalent to setting `TSX_REGISTRY_URL` for this invocation.
+- `--dir <path>` — Install into a specific directory instead of
+  `.tsx/packages/` in the current working directory.
+- `--force` — Overwrite existing package files if the package is already installed.
+- `--dry-run` — Print what files would be created or modified without writing anything to disk.
+- `--offline` — Use a previously cached tarball and skip the network request.
+
+## What gets installed
+
+After a successful install, tsx writes the following under `.tsx/packages/<name>/`:
+
+- `manifest.json` — The package manifest pinned to the installed version.
+- `generators/` — Forge generator scripts.
+- `templates/` — Handlebars or plain-text templates used by generators.
+
+tsx also updates `.tsx/stack.json` to record the installed package and its version,
+enabling reproducible installs via `tsx stack apply`.
+
+## Version pinning
+
+When you install a package, the exact version is written to `.tsx/stack.json`.
+Running `tsx stack apply` later will install exactly those versions, even if
+newer versions have been published.
+
+## Environment variables
+
+- `TSX_REGISTRY_URL` — Default registry base URL (overridden by `--registry`).

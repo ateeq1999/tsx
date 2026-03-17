@@ -1,0 +1,59 @@
+# tsx search
+
+Search for packages in the registry. Results are sorted by relevance and include
+the package name, latest version, description, and download count.
+
+## Usage
+
+```bash
+tsx search [query] [flags]
+```
+
+## Examples
+
+```bash
+# Full-text search
+tsx search auth
+
+# Filter by language
+tsx search crud --lang typescript
+
+# Return raw JSON (useful for scripting)
+tsx search form --json
+
+# Increase result count
+tsx search -- --size 50
+```
+
+## Flags
+
+- `--lang <lang>` — Filter results to packages that target a specific language.
+  Accepted values: `typescript`, `python`, `rust`, `go`.
+- `--size <n>` — Number of results to return per page (default: `20`, max: `100`).
+- `--page <n>` — Page number for paginated results (default: `1`).
+- `--json` — Print the full JSON response instead of a formatted table.
+  Useful for piping into `jq` or other tools.
+- `--registry <url>` — Search a specific registry instead of the default.
+
+## Output format
+
+By default, tsx prints a table with the following columns:
+
+```
+NAME                VERSION   DOWNLOADS   DESCRIPTION
+with-auth           1.3.0     4 201       Better Auth integration for TanStack Start
+tanstack-crud       2.1.0     2 880       Full CRUD with TanStack Query + optimistic updates
+```
+
+## JSON output
+
+With `--json`, the full `SearchResult` object is printed:
+
+```json
+{
+  "packages": [...],
+  "total": 12,
+  "page": 1,
+  "per_page": 20
+}
+```

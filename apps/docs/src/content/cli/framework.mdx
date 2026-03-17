@@ -1,0 +1,84 @@
+# tsx framework
+
+Commands for authoring, validating, and publishing Framework Package Format (FPF) packages.
+Use these when you want to create a reusable pattern that others can install via `tsx install`.
+
+## tsx framework init
+
+Scaffold a new FPF package in the current directory:
+
+```bash
+tsx framework init
+```
+
+This creates the following structure:
+
+```
+.
+├── manifest.json       # Package metadata and generator definitions
+├── generators/         # Generator scripts (Rhai or shell)
+│   └── default.rhai
+└── templates/          # File templates used by generators
+    └── example.ts.hbs
+```
+
+## tsx framework validate
+
+Validate the `manifest.json` in the current directory against the FPF schema:
+
+```bash
+tsx framework validate
+```
+
+Exits with code `0` on success, `1` on validation errors.
+Reports missing required fields, invalid semver, unknown capability tokens, and malformed
+`output_paths` patterns.
+
+## tsx framework preview
+
+Run a generator locally and print the output files to stdout without writing them:
+
+```bash
+tsx framework preview --generator default
+tsx framework preview --generator crud --input '{"model":"Post"}'
+```
+
+## tsx framework add
+
+Add a new generator scaffold to an existing package:
+
+```bash
+tsx framework add <generator-name>
+```
+
+## tsx framework publish
+
+Package and publish to the registry:
+
+```bash
+# Publish to the default registry
+tsx framework publish --api-key sk_live_...
+
+# Publish to a self-hosted registry
+tsx framework publish --registry https://registry.my-org.com --api-key sk_...
+
+# Validate and package without uploading
+tsx framework publish --dry-run
+```
+
+### Publish flags
+
+- `--registry <url>` — Target registry (default: `TSX_REGISTRY_URL` or public registry).
+- `--api-key <key>` — API key for authentication. Generate one in the registry dashboard.
+- `--dry-run` — Validate and create the tarball without uploading.
+
+## Full authoring workflow
+
+1. Run `tsx framework init` to scaffold the package.
+2. Edit `manifest.json` — set `id`, `name`, `provides`, and define your generators.
+3. Write your generator scripts and templates.
+4. Run `tsx framework validate` to check for errors.
+5. Run `tsx framework preview` to inspect the output.
+6. Run `tsx framework publish --api-key <key>` to publish.
+
+See the [FPF Format](/docs/fpf) docs for the full manifest specification.

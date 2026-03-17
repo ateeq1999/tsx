@@ -1,0 +1,61 @@
+# CLI Reference
+
+Complete reference for all tsx commands, flags, and environment variables.
+
+## Environment variables
+
+- `TSX_REGISTRY_URL` — Override the default registry URL. Set this to point to a self-hosted registry.
+
+---
+
+## `tsx install <package>`
+
+Install a pattern from the registry into your project.
+
+- `--dry-run` — Preview what files would be created without writing anything.
+- `--force` — Overwrite existing files.
+- `--target <dir>` — Install into a specific directory (default: current dir).
+
+---
+
+## `tsx search [query]`
+
+Search for packages in the registry.
+
+- `--size <n>` — Number of results to return (default: 20).
+
+---
+
+## `tsx info <package>`
+
+Show metadata for a package: version, description, tags, author.
+
+---
+
+## `tsx framework init`
+
+Scaffold a new FPF package in the current directory.
+
+---
+
+## `tsx framework validate`
+
+Validate the `stack.json` manifest in the current directory.
+
+---
+
+## `tsx framework publish [--registry <url>]`
+
+Publish the current FPF package to the registry.
+
+- `--registry <url>` — Target a self-hosted registry instead of the default.
+- `--api-key <key>` — API key for authenticated publish.
+- `--dry-run` — Validate and package without uploading.
+
+---
+
+## `tsx stack apply`
+
+Apply a stack profile (`.tsx/stack.json`) to the current project.
+
+- `--profile <name>` — Named profile to apply (default: `default`).
