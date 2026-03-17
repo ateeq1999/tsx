@@ -54,11 +54,11 @@ Based on audit of current state (2026-03-17).
 
 ### E — Browse / Search Enhancements
 
-- [ ] **Pagination on browse** — replace current all-at-once load with page-based or infinite scroll; URL-synced `?q=` and `?page=` params
-- [ ] **Filter panel** — sidebar filters on `/browse`: by `lang` (TypeScript / Python / Rust / Go), by `runtime` (Node / Bun / Deno), by `provides` tag
-- [ ] **Sort options** — toggle between Most Downloaded, Newest, Recently Updated, Name A–Z
-- [ ] **Package cards** — add `lang` icon badges, verified/official badge for `@tsx-pkg/*` packages
-- [ ] **Empty state** — friendly illustration + "No packages found" message when search returns 0 results
+- [x] **Pagination on browse** — replace current all-at-once load with page-based or infinite scroll; URL-synced `?q=` and `?page=` params
+- [x] **Filter panel** — sidebar filters on `/browse`: by `lang` (TypeScript / Python / Rust / Go), by `runtime` (Node / Bun / Deno), by `provides` tag
+- [x] **Sort options** — toggle between Most Downloaded, Newest, Recently Updated, Name A–Z
+- [x] **Package cards** — add `lang` icon badges, verified/official badge for `@tsx-pkg/*` packages
+- [x] **Empty state** — friendly illustration + "No packages found" message when search returns 0 results
 
 ---
 
@@ -90,9 +90,9 @@ Based on audit of current state (2026-03-17).
 - [x] **Global error boundary** — catch unhandled errors and show a friendly error page with retry button
 - [x] **404 page** — custom `not-found.tsx` with suggested links
 - [ ] **Loading skeletons** — package card skeleton on browse, stat card skeleton on landing and dashboard
-- [ ] **Toast notifications** — use `sonner` (already installed) for publish success/fail, copy-to-clipboard, auth events
-- [ ] **Keyboard shortcuts** — `/` focuses search bar on browse page; `Escape` clears search
-- [ ] **SEO / meta tags** — `<title>`, `<meta description>`, Open Graph tags per route (TanStack Start `<Head>`)
+- [x] **Toast notifications** — use `sonner` (already installed) for publish success/fail, copy-to-clipboard, auth events
+- [x] **Keyboard shortcuts** — `/` focuses search bar on browse page; `Escape` clears search
+- [x] **SEO / meta tags** — `<title>`, `<meta description>`, Open Graph tags per route (TanStack Start `<Head>`)
 - [ ] **Sitemap + robots.txt** — generate `/sitemap.xml` listing all package pages for search engine indexing
 - [ ] **PWA manifest** — `manifest.webmanifest` + service worker for offline browsing of cached package pages
 
@@ -157,13 +157,13 @@ Based on audit of current state (2026-03-17).
 
 ### J — Docs DX & UX Improvements
 
-- [ ] **Syntax highlighting** — integrate `shiki` (or `highlight.js`) for all `<pre><code>` blocks; support `bash`, `json`, `typescript`, `rust`, `toml` languages
-- [ ] **Copy button on code blocks** — clipboard icon that appears on hover over code snippets
-- [ ] **Mobile sidebar** — hamburger button in Header opens a Sheet/drawer with the sidebar nav; close on link click
+- [x] **Syntax highlighting** — integrate `shiki` (or `highlight.js`) for all `<pre><code>` blocks; support `bash`, `json`, `typescript`, `rust`, `toml` languages
+- [x] **Copy button on code blocks** — clipboard icon that appears on hover over code snippets
+- [x] **Mobile sidebar** — hamburger button in Header opens a Sheet/drawer with the sidebar nav; close on link click
 - [ ] **Table of contents (ToC)** — auto-generated sticky right-side ToC for long pages (scan `h2`/`h3` headings); highlight active heading on scroll
-- [ ] **Breadcrumb navigation** — `Docs > CLI > tsx install` breadcrumb trail above page heading
+- [x] **Breadcrumb navigation** — `Docs > CLI > tsx install` breadcrumb trail above page heading
 - [ ] **"Edit on GitHub" link** — per-page link to the source file in the repo
-- [ ] **Prev / Next page navigation** — footer navigation between adjacent sidebar pages
+- [x] **Prev / Next page navigation** — footer navigation between adjacent sidebar pages
 - [ ] **Doc search** — integrate `pagefind` or `fuse.js` full-text search across all doc pages; `Cmd+K` opens command palette
 - [ ] **Versioned docs** — version selector in Header (once CLI has multiple major versions)
 - [ ] **MDX support** — migrate from raw JSX content to `.mdx` files for easier content editing (Vite MDX plugin); keep React components available in MDX

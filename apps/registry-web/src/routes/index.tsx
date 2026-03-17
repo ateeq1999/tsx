@@ -10,6 +10,16 @@ export const Route = createFileRoute("/")({
       queryClient.prefetchQuery(statsQueryOptions),
       queryClient.prefetchQuery(recentPackagesQueryOptions),
     ]),
+  head: () => ({
+    meta: [
+      { title: "tsx registry — universal code pattern registry" },
+      { name: "description", content: "Install and publish reusable code patterns for TanStack Start projects. One command to add auth, CRUD, UI components, and more." },
+      { property: "og:title", content: "tsx registry — universal code pattern registry" },
+      { property: "og:description", content: "Install and publish reusable code patterns for TanStack Start projects." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: LandingPage,
 })
 

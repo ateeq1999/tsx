@@ -1,6 +1,7 @@
 import { Link, useNavigate, useRouter } from "@tanstack/react-router"
 import { Menu, Package2 } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 import { ThemeToggle } from "./ThemeToggle"
 import { useSession } from "@/hooks/use-session"
 import { logoutFn } from "@/server/auth/mutations"
@@ -30,6 +31,7 @@ export function Header() {
     await logoutFn()
     await queryClient.invalidateQueries({ queryKey: ["session"] })
     router.invalidate()
+    toast.success("Signed out")
     navigate({ to: "/" })
   }
 

@@ -22,6 +22,14 @@ export const Route = createFileRoute("/packages/$name")({
     queryClient.prefetchQuery(packageVersionsQueryOptions(name))
     queryClient.prefetchQuery(packageReadmeQueryOptions(name))
   },
+  head: ({ params: { name } }) => ({
+    meta: [
+      { title: `${name} — tsx registry` },
+      { name: "description", content: `Install ${name} with tsx. Browse package details, versions, and documentation.` },
+      { property: "og:title", content: `${name} — tsx registry` },
+      { property: "og:description", content: `Install ${name} with one command: tsx install ${name}` },
+    ],
+  }),
   notFoundComponent: () => (
     <div className="page-wrap py-24 text-center" style={{ color: "var(--sea-ink-soft)" }}>
       Package not found.

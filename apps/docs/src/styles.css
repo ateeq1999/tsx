@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@fontsource-variable/jetbrains-mono";
+@import "highlight.js/styles/github.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -140,4 +141,36 @@ body {
 .doc-content pre { border: 1px solid var(--line); background: var(--code-bg); border-radius: 8px; padding: 1rem; overflow-x: auto; margin-bottom: 1.25rem; }
 .doc-content pre code { border: 0; background: transparent; padding: 0; }
 .doc-content ul { list-style: disc; padding-left: 1.5rem; color: var(--sea-ink-soft); line-height: 1.7; margin-bottom: 1rem; }
+.doc-content ol { list-style: decimal; padding-left: 1.5rem; color: var(--sea-ink-soft); line-height: 1.7; margin-bottom: 1rem; }
 .doc-content li { margin-bottom: 0.25rem; }
+.doc-content a { color: var(--lagoon-deep); text-decoration: underline; }
+.doc-content hr { border: none; border-top: 1px solid var(--line); margin: 2rem 0; }
+
+/* Highlight.js dark mode override */
+.dark .hljs { background: rgba(0,0,0,0.28) !important; color: #adbac7 !important; }
+.dark .hljs-comment, .dark .hljs-meta { color: #768390; }
+.dark .hljs-keyword, .dark .hljs-selector-tag { color: #f47067; }
+.dark .hljs-string, .dark .hljs-attr { color: #96d0ff; }
+.dark .hljs-title, .dark .hljs-name { color: #dcbdfb; }
+.dark .hljs-number, .dark .hljs-literal { color: #6cb6ff; }
+.dark .hljs-built_in, .dark .hljs-type { color: #f69d50; }
+.dark .hljs-variable { color: #e0e0e0; }
+
+/* Copy button on code blocks */
+.doc-content pre { position: relative; }
+.hljs-copy-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--sea-ink-soft);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 150ms;
+}
+.doc-content pre:hover .hljs-copy-btn { opacity: 1; }

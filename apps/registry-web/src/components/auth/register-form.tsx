@@ -1,5 +1,6 @@
 import { revalidateLogic, useForm } from "@tanstack/react-form"
 import { useNavigate } from "@tanstack/react-router"
+import { toast } from "sonner"
 
 import { registerSchema } from "@/schemas/auth"
 import { registerFn } from "@/server/auth/mutations"
@@ -8,7 +9,6 @@ import { Button } from "@/components/ui/button"
 import { FormField } from "@/components/form/form-field"
 
 export function RegisterForm() {
-
     const navigate = useNavigate()
 
     const form = useForm({
@@ -25,13 +25,15 @@ export function RegisterForm() {
         },
 
         onSubmit: async ({ value }) => {
-          const res = await registerFn({ data: value })
-          
-          if (res.token != null) {
-            navigate({ to: "/dashboard" })
-            
-          }
-
+            try {
+                const res = await registerFn({ data: value })
+                if (res.token != null) {
+                    toast.success("Account created! Welcome aboard.")
+                    navigate({ to: "/dashboard" })
+                }
+            } catch {
+                toast.error("Registration failed. Email may already be in use.")
+            }
         },
     })
 
@@ -42,8 +44,8 @@ export function RegisterForm() {
                 form.handleSubmit()
             }}
             className="space-y-6"
-      >
-        <FormField form={form} name="name" label="Full name" />
+        >
+            <FormField form={form} name="name" label="Full name" />
             <FormField
                 form={form}
                 name="email"
@@ -65,7 +67,7 @@ export function RegisterForm() {
                 disabled={form.state.isSubmitting}
                 className="w-full"
             >
-                {form.state.isSubmitting ? "Signing in..." : "Sign In"}
+                {form.state.isSubmitting ? "Creating account..." : "Create Account"}
             </Button>
         </form>
     )
