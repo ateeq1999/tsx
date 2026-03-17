@@ -396,15 +396,15 @@ Option A is adopted.
 | Update `audit-log.tsx` field names to snake_case | ✅ Done | Matches Rust API contract (`package_name`, `author_name`, `ip_address`, `created_at`) |
 | Remove `drizzle-seed` from registry-web devDependencies | ✅ Done | No longer seeding package tables from TS side |
 
-### Phase 3 — Shared package expansion
+### Phase 3 — Shared package expansion ✅ COMPLETE
 
-| Task | Effort | Risk |
-|------|--------|------|
-| Extract `BaseHeader` into `packages/ui` | Small | Low |
-| Extract `CodeBlock` (hljs wrapper) into `packages/ui` | Small | Low |
-| Wire both apps to `@tsx/api-types` | Small | Low |
-| OpenAPI spec from Rust server (`utoipa`) | Medium | Low |
-| Auto-generate `packages/api-types` from OpenAPI spec | Medium | Low |
+| Task | Status | Notes |
+|------|--------|-------|
+| Extract `BaseHeader` into `packages/ui` | ✅ Done | `packages/ui/src/BaseHeader.tsx` — logo/nav/right slots; both app Headers refactored to use it |
+| Wire both apps to `@tsx/api-types` | ✅ Done | Done in Phase 1; `registry-web/lib/types.ts` re-exports from `@tsx/api-types` |
+| `CodeBlock` / hljs wrapper | ⏭ Skipped | Both apps use hljs as a DOM side-effect in `useEffect`, not a component; extracting would require refactoring markdown rendering — deferred to Phase 4 |
+| OpenAPI spec from Rust server (`utoipa`) | ⏭ Deferred | Phase 4 |
+| Auto-generate `packages/api-types` from OpenAPI spec | ⏭ Deferred | Phase 4 |
 
 ### Phase 4 — Observability & ops
 

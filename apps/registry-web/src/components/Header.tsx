@@ -2,6 +2,7 @@ import { Link, useNavigate, useRouter } from "@tanstack/react-router"
 import { Menu, Package2 } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { BaseHeader } from "@tsx/ui/base-header"
 import { ThemeToggle } from "./ThemeToggle"
 import { useSession } from "@/hooks/use-session"
 import { logoutFn } from "@/server/auth/mutations"
@@ -40,17 +41,14 @@ export function Header() {
     : "?"
 
   return (
-    <header
-      style={{ background: "var(--header-bg)", borderBottom: "1px solid var(--line)" }}
-      className="sticky top-0 z-50 backdrop-blur-md"
-    >
-      <div className="page-wrap flex h-14 items-center justify-between gap-4">
+    <BaseHeader
+      logo={
         <Link to="/" className="flex items-center gap-2 font-bold" style={{ color: "var(--sea-ink)" }}>
           <Package2 className="size-5" style={{ color: "var(--lagoon)" }} />
           <span>tsx registry</span>
         </Link>
-
-        {/* Desktop nav */}
+      }
+      nav={
         <nav className="hidden items-center gap-6 text-sm lg:flex">
           {NAV_LINKS.map(({ to, label }) => (
             <Link key={to} to={to} className="nav-link" activeProps={{ className: "nav-link is-active" }}>
@@ -71,11 +69,11 @@ export function Header() {
             GitHub
           </a>
         </nav>
-
-        <div className="flex items-center gap-2">
+      }
+      right={
+        <>
           <ThemeToggle />
 
-          {/* User menu (desktop) */}
           {session ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -110,7 +108,6 @@ export function Header() {
             </Button>
           )}
 
-          {/* Mobile hamburger */}
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="lg:hidden">
@@ -166,8 +163,8 @@ export function Header() {
               </nav>
             </SheetContent>
           </Sheet>
-        </div>
-      </div>
-    </header>
+        </>
+      }
+    />
   )
 }
