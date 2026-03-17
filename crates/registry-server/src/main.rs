@@ -2,42 +2,50 @@
 //!
 //! # API
 //!
-//! | Method | Path                                    | Description              |
-//! |--------|-----------------------------------------|--------------------------|
-//! | GET    | /health                                 | Health check             |
-//! | GET    | /v1/stats                               | Aggregate stats          |
-//! | GET    | /v1/search?q=&lang=&size=               | Search packages          |
-//! | GET    | /v1/packages?sort=recent&limit=N        | Recent packages          |
-//! | GET    | /v1/packages/:name                      | Package metadata         |
-//! | GET    | /v1/packages/:name/versions             | Version list             |
-//! | GET    | /v1/packages/:name/:version/tarball     | Download tarball         |
-//! | POST   | /v1/packages/publish                    | Publish a package        |
+//! | Method | Path                                          | Description                    |
+//! |--------|-----------------------------------------------|--------------------------------|
+//! | GET    | /health                                       | Health check                   |
+//! | GET    | /v1/stats                                     | Aggregate stats                |
+//! | GET    | /v1/search?q=&lang=&sort=&page=&size=         | Search packages (paginated)    |
+//! | GET    | /v1/packages?sort=recent&limit=N              | Recent packages                |
+//! | GET    | /v1/packages/:name                            | Package metadata               |
+//! | GET    | /v1/packages/:name/versions                   | Version list                   |
+//! | GET    | /v1/packages/:name/readme                     | README markdown                |
+//! | GET    | /v1/packages/:name/stats/downloads            | Per-day download stats         |
+//! | GET    | /v1/packages/:name/:version/tarball           | Download tarball               |
+//! | POST   | /v1/packages/publish                          | Publish a package              |
+//! | PUT    | /v1/packages/:name                            | Update description/metadata    |
+//! | PUT    | /v1/packages/:name/readme                     | Update README                  |
+//! | DELETE | /v1/packages/:name/versions/:version          | Yank a version                 |
+//! | DELETE | /v1/packages/:name                            | Delete a package               |
+//! | GET    | /v1/admin/audit-log                           | Publish audit log              |
+//! | GET    | /v1/admin/rate-limits                         | Rate limit status per IP       |
 //!
 //! # Configuration (environment variables)
 //!
-//! | Variable               | Default              | Description                          |
-//! |------------------------|----------------------|--------------------------------------|
-//! | `PORT`                 | `8080`               | TCP port to listen on                |
-//! | `DATA_DIR`             | `./data`             | Directory for SQLite DB + tarballs   |
-//! | `TSX_REGISTRY_API_KEY` | *(none — open)*      | Bearer token required for publish    |
-//!
-//! # Running
-//!
-//! ```bash
-//! cargo run -p tsx-registry
-//! # or with config:
-//! PORT=9090 DATA_DIR=/var/tsx-registry TSX_REGISTRY_API_KEY=secret cargo run -p tsx-registry
-//! ```
+//! | Variable               | Default                                      | Description                           |
+//! |------------------------|----------------------------------------------|---------------------------------------|
+//! | `DATABASE_URL`         | *(required)*                                 | PostgreSQL connection string          |
+//! | `PORT`                 | `8080`                                       | TCP port to listen on                 |
+//! | `DATA_DIR`             | `./data`                                     | Directory for tarball storage         |
+//! | `TSX_REGISTRY_API_KEY` | *(none — open)*                              | Bearer token for publish (optional)   |
 
 mod db;
 mod models;
 mod routes;
 
 use axum::{
-    routing::{get, post},
+    routing::{delete, get, post, put},
     Router,
 };
-use std::{net::SocketAddr, path::PathBuf, sync::Arc};
+use sqlx::postgres::PgPoolOptions;
+use std::{
+    collections::HashMap,
+    net::SocketAddr,
+    path::PathBuf,
+    sync::Arc,
+    time::Instant,
+};
 use tower_http::{
     compression::CompressionLayer,
     cors::{Any, CorsLayer},
@@ -45,27 +53,31 @@ use tower_http::{
 };
 use tracing::info;
 
-/// Shared application state passed to all route handlers via `State<Arc<AppState>>`.
+/// Shared application state passed to all route handlers.
 pub struct AppState {
-    /// Mutex-wrapped because `rusqlite::Connection` is not `Sync`.
-    pub db: std::sync::Mutex<Db>,
+    /// PostgreSQL connection pool
+    pub pool: sqlx::PgPool,
     pub data_dir: PathBuf,
-    /// Optional API key for the publish endpoint. `None` → endpoint is open (dev mode).
+    /// Optional static API key for the publish endpoint. `None` → open (dev mode).
     pub api_key: Option<String>,
-    /// Per-IP rate limiter for the publish endpoint: (request_count, window_start).
-    pub rate_limiter: std::sync::Mutex<std::collections::HashMap<std::net::IpAddr, (u32, std::time::Instant)>>,
+    /// Per-IP rate limiter: ip → (request_count, window_start)
+    pub rate_limiter: std::sync::Mutex<HashMap<std::net::IpAddr, (u32, Instant)>>,
 }
-
-use db::Db;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Load .env from current dir or parent
+    let _ = dotenvy::dotenv();
+
     tracing_subscriber::fmt()
         .with_env_filter(
             std::env::var("RUST_LOG")
                 .unwrap_or_else(|_| "tsx_registry=info,tower_http=debug".into()),
         )
         .init();
+
+    let database_url = std::env::var("DATABASE_URL")
+        .expect("DATABASE_URL must be set (postgresql://user:pass@host/tsx_db)");
 
     let port: u16 = std::env::var("PORT")
         .ok()
@@ -78,21 +90,27 @@ async fn main() -> anyhow::Result<()> {
     tokio::fs::create_dir_all(&data_dir).await?;
     tokio::fs::create_dir_all(data_dir.join("tarballs")).await?;
 
-    let db_path = data_dir.join("registry.db");
-    let db = Db::open(&db_path)?;
+    let pool = PgPoolOptions::new()
+        .max_connections(10)
+        .connect(&database_url)
+        .await?;
+
+    info!("Connected to PostgreSQL at {}", &database_url);
+
+    // Run schema migrations
+    db::run_migrations(&pool).await?;
+    info!("Database migrations applied");
 
     let api_key = std::env::var("TSX_REGISTRY_API_KEY").ok();
     if api_key.is_none() {
-        tracing::warn!(
-            "TSX_REGISTRY_API_KEY is not set — publish endpoint is open to anyone"
-        );
+        tracing::warn!("TSX_REGISTRY_API_KEY is not set — publish endpoint is open to anyone");
     }
 
     let state = Arc::new(AppState {
-        db: std::sync::Mutex::new(db),
+        pool,
         data_dir,
         api_key,
-        rate_limiter: std::sync::Mutex::new(std::collections::HashMap::new()),
+        rate_limiter: std::sync::Mutex::new(HashMap::new()),
     });
 
     let cors = CorsLayer::new()
@@ -109,22 +127,19 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/search", get(routes::search::search))
         // ── Packages ────────────────────────────────────────────────────────
         .route("/v1/packages", get(routes::packages::list_packages))
-        .route(
-            "/v1/packages/publish",
-            post(routes::packages::publish),
-        )
-        .route(
-            "/v1/packages/:name",
-            get(routes::packages::get_package),
-        )
-        .route(
-            "/v1/packages/:name/versions",
-            get(routes::packages::get_package_versions),
-        )
-        .route(
-            "/v1/packages/:name/:version/tarball",
-            get(routes::packages::download_tarball),
-        )
+        .route("/v1/packages/publish", post(routes::packages::publish))
+        .route("/v1/packages/:name", get(routes::packages::get_package))
+        .route("/v1/packages/:name", put(routes::packages::update_package))
+        .route("/v1/packages/:name", delete(routes::packages::delete_package))
+        .route("/v1/packages/:name/versions", get(routes::packages::get_package_versions))
+        .route("/v1/packages/:name/readme", get(routes::packages::get_readme))
+        .route("/v1/packages/:name/readme", put(routes::packages::update_readme))
+        .route("/v1/packages/:name/stats/downloads", get(routes::packages::get_download_stats))
+        .route("/v1/packages/:name/:version/tarball", get(routes::packages::download_tarball))
+        .route("/v1/packages/:name/versions/:version", delete(routes::packages::yank_version))
+        // ── Admin ────────────────────────────────────────────────────────────
+        .route("/v1/admin/audit-log", get(routes::admin::get_audit_log))
+        .route("/v1/admin/rate-limits", get(routes::admin::get_rate_limits))
         .with_state(state)
         .layer(cors)
         .layer(CompressionLayer::new())
@@ -132,14 +147,6 @@ async fn main() -> anyhow::Result<()> {
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     info!("registry.tsx.dev listening on http://{}", addr);
-    info!("  GET  /health");
-    info!("  GET  /v1/stats");
-    info!("  GET  /v1/search?q=<query>&lang=<lang>");
-    info!("  GET  /v1/packages?sort=recent&limit=N");
-    info!("  GET  /v1/packages/:name");
-    info!("  GET  /v1/packages/:name/versions");
-    info!("  GET  /v1/packages/:name/:version/tarball");
-    info!("  POST /v1/packages/publish  (multipart: name, version, manifest, tarball)");
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(

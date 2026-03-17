@@ -34,3 +34,8 @@ export interface RegistryStats {
   total_versions: number
   packages_this_week: number
 }
+
+export interface DailyDownloads {
+  date: string
+  downloads: number
+}

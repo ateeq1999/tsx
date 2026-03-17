@@ -56,3 +56,11 @@ export const packageReadmeQueryOptions = (name: string) =>
     enabled: !!name,
     staleTime: 5 * 60_000,
   })
+
+export const packageDownloadStatsQueryOptions = (name: string) =>
+  queryOptions({
+    queryKey: ["packages", name, "download-stats"],
+    queryFn: () => registryApi.getDownloadStats(name),
+    enabled: !!name,
+    staleTime: 5 * 60_000,
+  })

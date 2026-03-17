@@ -1,4 +1,4 @@
-import type { Package, PackageVersion, RegistryStats, SearchResult } from "./types"
+import type { Package, PackageVersion, RegistryStats, SearchResult, DailyDownloads } from "./types"
 
 const BASE_URL = import.meta.env.VITE_REGISTRY_URL ?? "http://localhost:8080"
 
@@ -29,4 +29,7 @@ export const registryApi = {
     if (!res.ok) return null
     return res.text()
   },
+
+  getDownloadStats: (name: string) =>
+    fetchJson<Array<DailyDownloads>>(`/v1/packages/${encodeURIComponent(name)}/stats/downloads`),
 }

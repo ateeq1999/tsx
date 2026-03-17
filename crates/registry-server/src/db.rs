@@ -1,450 +1,579 @@
 use anyhow::{Context, Result};
-use rusqlite::{Connection, params};
-use std::path::Path;
+use sqlx::PgPool;
+use chrono::Utc;
 
-use crate::models::RegistryStats;
+use crate::models::{Package, PackageVersion, RegistryStats, AuditEntry, DailyDownloads};
 
-/// Thread-safe wrapper: `rusqlite::Connection` is `!Sync`, but WAL mode
-/// plus `busy_timeout` allows concurrent readers.  We keep the Mutex but
-/// configure SQLite so writers don't starve readers.
-pub struct Db {
-    conn: Connection,
-}
+// ── Row types for internal use ────────────────────────────────────────────────
 
-impl Db {
-    pub fn open(path: &Path) -> Result<Self> {
-        let conn = Connection::open(path)
-            .context("Failed to open SQLite database")?;
-        let db = Db { conn };
-        db.migrate()?;
-        Ok(db)
-    }
-
-    /// In-memory database for tests / dry-run
-    pub fn memory() -> Result<Self> {
-        let conn = Connection::open_in_memory()?;
-        let db = Db { conn };
-        db.migrate()?;
-        Ok(db)
-    }
-
-    fn migrate(&self) -> Result<()> {
-        self.conn.execute_batch("
-            PRAGMA journal_mode=WAL;
-            PRAGMA busy_timeout=5000;
-            PRAGMA foreign_keys=ON;
-
-            CREATE TABLE IF NOT EXISTS packages (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                name        TEXT NOT NULL UNIQUE,        -- @tsx-pkg/drizzle-pg
-                slug        TEXT NOT NULL UNIQUE,        -- drizzle-pg
-                description TEXT NOT NULL DEFAULT '',
-                lang        TEXT NOT NULL DEFAULT '[]',  -- JSON array
-                runtime     TEXT NOT NULL DEFAULT '[]',
-                provides    TEXT NOT NULL DEFAULT '[]',
-                integrates  TEXT NOT NULL DEFAULT '[]',
-                downloads   INTEGER NOT NULL DEFAULT 0,
-                published_at TEXT NOT NULL,
-                updated_at  TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS versions (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                package_id  INTEGER NOT NULL REFERENCES packages(id) ON DELETE CASCADE,
-                version     TEXT NOT NULL,
-                manifest    TEXT NOT NULL DEFAULT '{}',
-                checksum    TEXT NOT NULL DEFAULT '',
-                size_bytes  INTEGER NOT NULL DEFAULT 0,
-                tarball_path TEXT NOT NULL DEFAULT '',
-                published_at TEXT NOT NULL,
-                UNIQUE(package_id, version)
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_versions_package ON versions(package_id);
-        ")?;
-        Ok(())
-    }
-
-    pub fn upsert_package(&self, pkg: &UpsertPkg) -> Result<i64> {
-        let now = iso_now();
-        self.conn.execute(
-            "INSERT INTO packages (name, slug, description, lang, runtime, provides, integrates, published_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)
-             ON CONFLICT(name) DO UPDATE SET
-               description = excluded.description,
-               lang        = excluded.lang,
-               runtime     = excluded.runtime,
-               provides    = excluded.provides,
-               integrates  = excluded.integrates,
-               updated_at  = excluded.updated_at",
-            params![
-                pkg.name,
-                pkg.slug,
-                pkg.description,
-                serde_json::to_string(&pkg.lang)?,
-                serde_json::to_string(&pkg.runtime)?,
-                serde_json::to_string(&pkg.provides)?,
-                serde_json::to_string(&pkg.integrates)?,
-                now,
-            ],
-        )?;
-        let id = self.conn.last_insert_rowid();
-        if id == 0 {
-            // it was an update — re-fetch id
-            let id: i64 = self.conn.query_row(
-                "SELECT id FROM packages WHERE name = ?1",
-                params![pkg.name],
-                |r| r.get(0),
-            )?;
-            return Ok(id);
-        }
-        Ok(id)
-    }
-
-    pub fn upsert_version(&self, pkg_id: i64, ver: &UpsertVersion) -> Result<()> {
-        let now = iso_now();
-        self.conn.execute(
-            "INSERT INTO versions (package_id, version, manifest, checksum, size_bytes, tarball_path, published_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
-             ON CONFLICT(package_id, version) DO UPDATE SET
-               manifest     = excluded.manifest,
-               checksum     = excluded.checksum,
-               size_bytes   = excluded.size_bytes,
-               tarball_path = excluded.tarball_path",
-            params![
-                pkg_id,
-                ver.version,
-                ver.manifest,
-                ver.checksum,
-                ver.size_bytes,
-                ver.tarball_path,
-                now,
-            ],
-        )?;
-        // Update package's updated_at
-        self.conn.execute(
-            "UPDATE packages SET updated_at = ?1 WHERE id = ?2",
-            params![now, pkg_id],
-        )?;
-        Ok(())
-    }
-
-    pub fn increment_downloads(&self, slug: &str) -> Result<()> {
-        self.conn.execute(
-            "UPDATE packages SET downloads = downloads + 1 WHERE slug = ?1",
-            params![slug],
-        )?;
-        Ok(())
-    }
-
-    pub fn get_package(&self, name: &str) -> Result<Option<PackageRow>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, name, slug, description, lang, runtime, provides, integrates, downloads, published_at, updated_at
-             FROM packages WHERE name = ?1 OR slug = ?1"
-        )?;
-        let mut rows = stmt.query(params![name])?;
-        if let Some(row) = rows.next()? {
-            Ok(Some(PackageRow {
-                id:           row.get(0)?,
-                name:         row.get(1)?,
-                slug:         row.get(2)?,
-                description:  row.get(3)?,
-                lang:         row.get(4)?,
-                runtime:      row.get(5)?,
-                provides:     row.get(6)?,
-                integrates:   row.get(7)?,
-                downloads:    row.get(8)?,
-                published_at: row.get(9)?,
-                updated_at:   row.get(10)?,
-            }))
-        } else {
-            Ok(None)
-        }
-    }
-
-    pub fn get_versions(&self, pkg_id: i64) -> Result<Vec<VersionRow>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT version, manifest, checksum, size_bytes, tarball_path, published_at
-             FROM versions WHERE package_id = ?1"
-        )?;
-        let mut rows: Vec<VersionRow> = stmt.query_map(params![pkg_id], |r| {
-            Ok(VersionRow {
-                version:      r.get(0)?,
-                manifest:     r.get(1)?,
-                checksum:     r.get(2)?,
-                size_bytes:   r.get(3)?,
-                tarball_path: r.get(4)?,
-                published_at: r.get(5)?,
-            })
-        })?.collect::<rusqlite::Result<Vec<_>>>()?;
-
-        // Sort by semver descending; fall back to lexicographic on parse error.
-        rows.sort_by(|a, b| {
-            match (
-                semver::Version::parse(&a.version),
-                semver::Version::parse(&b.version),
-            ) {
-                (Ok(va), Ok(vb)) => vb.cmp(&va),
-                _ => b.version.cmp(&a.version),
-            }
-        });
-        Ok(rows)
-    }
-
-    pub fn get_tarball_path(&self, pkg_id: i64, version: &str) -> Result<Option<String>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT tarball_path FROM versions WHERE package_id = ?1 AND version = ?2"
-        )?;
-        let mut rows = stmt.query(params![pkg_id, version])?;
-        if let Some(row) = rows.next()? {
-            Ok(Some(row.get(0)?))
-        } else {
-            Ok(None)
-        }
-    }
-
-    /// Returns aggregate registry statistics.
-    pub fn get_stats(&self) -> Result<RegistryStats> {
-        let total_packages: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM packages",
-            [],
-            |r| r.get(0),
-        )?;
-        let total_versions: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM versions",
-            [],
-            |r| r.get(0),
-        )?;
-        let total_downloads: i64 = self.conn.query_row(
-            "SELECT COALESCE(SUM(downloads), 0) FROM packages",
-            [],
-            |r| r.get(0),
-        )?;
-        let seven_days_ago = unix_secs_to_iso(
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_secs())
-                .unwrap_or(0)
-                .saturating_sub(7 * 24 * 3600),
-        );
-        let packages_this_week: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM packages WHERE published_at >= ?1",
-            params![seven_days_ago],
-            |r| r.get(0),
-        )?;
-        Ok(RegistryStats {
-            total_packages: total_packages as u64,
-            total_versions: total_versions as u64,
-            total_downloads: total_downloads as u64,
-            packages_this_week: packages_this_week as u64,
-        })
-    }
-
-    /// Returns the N most recently updated packages with their latest version strings.
-    pub fn get_recent(&self, limit: u32) -> Result<Vec<(PackageRow, String)>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, name, slug, description, lang, runtime, provides, integrates, downloads, published_at, updated_at
-             FROM packages
-             ORDER BY updated_at DESC
-             LIMIT ?1",
-        )?;
-        let packages: Vec<PackageRow> = stmt
-            .query_map(params![limit], |r| {
-                Ok(PackageRow {
-                    id:           r.get(0)?,
-                    name:         r.get(1)?,
-                    slug:         r.get(2)?,
-                    description:  r.get(3)?,
-                    lang:         r.get(4)?,
-                    runtime:      r.get(5)?,
-                    provides:     r.get(6)?,
-                    integrates:   r.get(7)?,
-                    downloads:    r.get(8)?,
-                    published_at: r.get(9)?,
-                    updated_at:   r.get(10)?,
-                })
-            })?
-            .collect::<rusqlite::Result<Vec<_>>>()?;
-        packages
-            .into_iter()
-            .map(|pkg| {
-                let latest = self
-                    .get_versions(pkg.id)?
-                    .into_iter()
-                    .next()
-                    .map(|v| v.version)
-                    .unwrap_or_else(|| "unknown".to_string());
-                Ok((pkg, latest))
-            })
-            .collect()
-    }
-
-    pub fn search(&self, query: &str, lang: Option<&str>) -> Result<Vec<PackageRow>> {
-        let like = format!("%{}%", query.to_lowercase());
-
-        let sql = "SELECT id, name, slug, description, lang, runtime, provides, integrates, downloads, published_at, updated_at
-                   FROM packages
-                   WHERE (LOWER(name) LIKE ?1 OR LOWER(description) LIKE ?1 OR LOWER(provides) LIKE ?1)
-                   ORDER BY downloads DESC
-                   LIMIT 50";
-
-        let mut stmt = self.conn.prepare(sql)?;
-        let mut results: Vec<PackageRow> = stmt.query_map(params![like], |r| {
-            Ok(PackageRow {
-                id:           r.get(0)?,
-                name:         r.get(1)?,
-                slug:         r.get(2)?,
-                description:  r.get(3)?,
-                lang:         r.get(4)?,
-                runtime:      r.get(5)?,
-                provides:     r.get(6)?,
-                integrates:   r.get(7)?,
-                downloads:    r.get(8)?,
-                published_at: r.get(9)?,
-                updated_at:   r.get(10)?,
-            })
-        })?.collect::<rusqlite::Result<Vec<_>>>()?;
-
-        // Lang filter: parse the JSON array and compare as exact strings,
-        // so "rust" never false-matches "trust".
-        if let Some(wanted) = lang {
-            let wanted_lc = wanted.to_lowercase();
-            results.retain(|p| {
-                serde_json::from_str::<Vec<String>>(&p.lang)
-                    .unwrap_or_default()
-                    .iter()
-                    .any(|l| l.to_lowercase() == wanted_lc)
-            });
-        }
-
-        Ok(results)
-    }
-
-    /// Like `search` but also attaches the latest semver version string for each package.
-    pub fn search_with_latest(
-        &self,
-        query: &str,
-        lang: Option<&str>,
-    ) -> Result<Vec<(PackageRow, String)>> {
-        let packages = self.search(query, lang)?;
-        packages
-            .into_iter()
-            .map(|pkg| {
-                let latest = self
-                    .get_versions(pkg.id)?
-                    .into_iter()
-                    .next()
-                    .map(|v| v.version)
-                    .unwrap_or_else(|| "unknown".to_string());
-                Ok((pkg, latest))
-            })
-            .collect()
-    }
-}
-
-// ── Row types ────────────────────────────────────────────────────────────────
-
-#[derive(Debug)]
+#[derive(sqlx::FromRow, Debug)]
 pub struct PackageRow {
-    pub id:           i64,
-    pub name:         String,
-    pub slug:         String,
-    pub description:  String,
-    /// JSON-encoded Vec<String>
-    pub lang:         String,
-    pub runtime:      String,
-    pub provides:     String,
-    pub integrates:   String,
-    pub downloads:    u64,
-    pub published_at: String,
-    pub updated_at:   String,
+    pub id: i64,
+    pub name: String,
+    pub slug: String,
+    pub description: String,
+    pub author_id: Option<String>,
+    pub author_name: String,
+    pub license: String,
+    pub tsx_min: String,
+    pub tags: Vec<String>,
+    pub lang: Vec<String>,
+    pub runtime: Vec<String>,
+    pub provides: Vec<String>,
+    pub integrates: Vec<String>,
+    pub readme: Option<String>,
+    pub downloads: i64,
+    pub published_at: chrono::DateTime<Utc>,
+    pub updated_at: chrono::DateTime<Utc>,
+}
+
+#[derive(sqlx::FromRow, Debug)]
+pub struct VersionRow {
+    pub id: i64,
+    pub version: String,
+    pub manifest: sqlx::types::JsonValue,
+    pub checksum: String,
+    pub size_bytes: i64,
+    pub tarball_path: String,
+    pub download_count: i64,
+    pub yanked: bool,
+    pub published_at: chrono::DateTime<Utc>,
 }
 
 impl PackageRow {
-    pub fn lang_vec(&self) -> Vec<String> {
-        serde_json::from_str(&self.lang).unwrap_or_default()
+    /// Convert to the API Package shape, supplying the latest version string.
+    pub fn into_package(self, latest_version: String) -> Package {
+        Package {
+            name: self.name,
+            version: latest_version,
+            description: self.description,
+            author: self.author_name,
+            license: self.license,
+            tsx_min: self.tsx_min,
+            tags: self.tags,
+            created_at: self.published_at.to_rfc3339(),
+            updated_at: self.updated_at.to_rfc3339(),
+            download_count: self.downloads,
+            lang: self.lang.into_iter().next(),
+            runtime: self.runtime.into_iter().next(),
+            provides: Some(self.provides),
+            integrates_with: Some(self.integrates),
+        }
     }
-    pub fn runtime_vec(&self) -> Vec<String> {
-        serde_json::from_str(&self.runtime).unwrap_or_default()
-    }
-    pub fn provides_vec(&self) -> Vec<String> {
-        serde_json::from_str(&self.provides).unwrap_or_default()
-    }
-    pub fn integrates_vec(&self) -> Vec<String> {
-        serde_json::from_str(&self.integrates).unwrap_or_default()
-    }
-}
-
-#[derive(Debug)]
-pub struct VersionRow {
-    pub version:      String,
-    pub manifest:     String,
-    pub checksum:     String,
-    pub size_bytes:   u64,
-    pub tarball_path: String,
-    pub published_at: String,
 }
 
 // ── Input types ───────────────────────────────────────────────────────────────
 
 pub struct UpsertPkg {
-    pub name:        String,
-    pub slug:        String,
+    pub name: String,
+    pub slug: String,
     pub description: String,
-    pub lang:        Vec<String>,
-    pub runtime:     Vec<String>,
-    pub provides:    Vec<String>,
-    pub integrates:  Vec<String>,
+    pub author_id: Option<String>,
+    pub author_name: String,
+    pub license: String,
+    pub tsx_min: String,
+    pub tags: Vec<String>,
+    pub lang: Vec<String>,
+    pub runtime: Vec<String>,
+    pub provides: Vec<String>,
+    pub integrates: Vec<String>,
 }
 
 pub struct UpsertVersion {
-    pub version:      String,
-    pub manifest:     String,
-    pub checksum:     String,
-    pub size_bytes:   u64,
+    pub version: String,
+    pub manifest: serde_json::Value,
+    pub checksum: String,
+    pub size_bytes: i64,
     pub tarball_path: String,
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+pub struct AuthUser {
+    pub user_id: String,
+    pub name: String,
+    pub email: String,
+}
 
-fn iso_now() -> String {
-    unix_secs_to_iso(
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0),
+// ── Migration ─────────────────────────────────────────────────────────────────
+
+pub async fn run_migrations(pool: &PgPool) -> Result<()> {
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS packages (
+            id           BIGSERIAL PRIMARY KEY,
+            name         TEXT NOT NULL UNIQUE,
+            slug         TEXT NOT NULL UNIQUE,
+            description  TEXT NOT NULL DEFAULT '',
+            author_id    TEXT,
+            author_name  TEXT NOT NULL DEFAULT '',
+            license      TEXT NOT NULL DEFAULT 'MIT',
+            tsx_min      TEXT NOT NULL DEFAULT '0.1.0',
+            tags         TEXT[] NOT NULL DEFAULT '{}',
+            lang         TEXT[] NOT NULL DEFAULT '{}',
+            runtime      TEXT[] NOT NULL DEFAULT '{}',
+            provides     TEXT[] NOT NULL DEFAULT '{}',
+            integrates   TEXT[] NOT NULL DEFAULT '{}',
+            readme       TEXT,
+            downloads    BIGINT NOT NULL DEFAULT 0,
+            published_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_packages_downloads ON packages(downloads DESC);
+        CREATE INDEX IF NOT EXISTS idx_packages_updated ON packages(updated_at DESC);
+
+        CREATE TABLE IF NOT EXISTS versions (
+            id             BIGSERIAL PRIMARY KEY,
+            package_id     BIGINT NOT NULL REFERENCES packages(id) ON DELETE CASCADE,
+            version        TEXT NOT NULL,
+            manifest       JSONB NOT NULL DEFAULT '{}',
+            checksum       TEXT NOT NULL DEFAULT '',
+            size_bytes     BIGINT NOT NULL DEFAULT 0,
+            tarball_path   TEXT NOT NULL DEFAULT '',
+            download_count BIGINT NOT NULL DEFAULT 0,
+            yanked         BOOLEAN NOT NULL DEFAULT FALSE,
+            published_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE(package_id, version)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_versions_package ON versions(package_id);
+
+        CREATE TABLE IF NOT EXISTS download_logs (
+            id            BIGSERIAL PRIMARY KEY,
+            package_id    BIGINT NOT NULL REFERENCES packages(id) ON DELETE CASCADE,
+            version_id    BIGINT REFERENCES versions(id) ON DELETE SET NULL,
+            ip_address    TEXT,
+            user_agent    TEXT,
+            downloaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_download_logs_package ON download_logs(package_id);
+        CREATE INDEX IF NOT EXISTS idx_download_logs_time   ON download_logs(downloaded_at DESC);
+
+        CREATE TABLE IF NOT EXISTS audit_log (
+            id           BIGSERIAL PRIMARY KEY,
+            action       TEXT NOT NULL,
+            package_name TEXT NOT NULL,
+            version      TEXT,
+            user_id      TEXT,
+            author_name  TEXT,
+            ip_address   TEXT,
+            detail       JSONB,
+            created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_audit_log_time ON audit_log(created_at DESC);
+        "#,
     )
+    .execute(pool)
+    .await
+    .context("Failed to run registry migrations")?;
+    Ok(())
 }
 
-/// Convert Unix timestamp to ISO-8601 UTC string with correct
-/// leap-year and month-length handling.
-fn unix_secs_to_iso(total_secs: u64) -> String {
-    let sec  = (total_secs % 60) as u32;
-    let min  = ((total_secs / 60) % 60) as u32;
-    let hour = ((total_secs / 3600) % 24) as u32;
-    let mut days = total_secs / 86400;
-    let mut year = 1970u32;
-    loop {
-        let in_year = if is_leap(year) { 366u64 } else { 365u64 };
-        if days < in_year { break; }
-        days -= in_year;
-        year += 1;
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+/// Validate a better-auth session token and return the user identity.
+/// Returns None if the token is invalid or expired.
+pub async fn validate_session_token(pool: &PgPool, token: &str) -> Result<Option<AuthUser>> {
+    let row = sqlx::query!(
+        r#"
+        SELECT s.user_id, u.name, u.email
+        FROM session s
+        JOIN "user" u ON u.id = s.user_id
+        WHERE s.token = $1 AND s.expires_at > NOW()
+        "#,
+        token
+    )
+    .fetch_optional(pool)
+    .await
+    .context("Failed to validate session token")?;
+
+    Ok(row.map(|r| AuthUser {
+        user_id: r.user_id,
+        name: r.name,
+        email: r.email,
+    }))
+}
+
+// ── Package queries ───────────────────────────────────────────────────────────
+
+pub async fn upsert_package(pool: &PgPool, pkg: &UpsertPkg) -> Result<i64> {
+    let row = sqlx::query!(
+        r#"
+        INSERT INTO packages (name, slug, description, author_id, author_name, license, tsx_min,
+                              tags, lang, runtime, provides, integrates, published_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+        ON CONFLICT(name) DO UPDATE SET
+            description  = EXCLUDED.description,
+            author_id    = COALESCE(EXCLUDED.author_id, packages.author_id),
+            author_name  = CASE WHEN EXCLUDED.author_name = '' THEN packages.author_name ELSE EXCLUDED.author_name END,
+            license      = EXCLUDED.license,
+            tsx_min      = EXCLUDED.tsx_min,
+            tags         = EXCLUDED.tags,
+            lang         = EXCLUDED.lang,
+            runtime      = EXCLUDED.runtime,
+            provides     = EXCLUDED.provides,
+            integrates   = EXCLUDED.integrates,
+            updated_at   = NOW()
+        RETURNING id
+        "#,
+        pkg.name,
+        pkg.slug,
+        pkg.description,
+        pkg.author_id.as_deref(),
+        pkg.author_name,
+        pkg.license,
+        pkg.tsx_min,
+        &pkg.tags,
+        &pkg.lang,
+        &pkg.runtime,
+        &pkg.provides,
+        &pkg.integrates,
+    )
+    .fetch_one(pool)
+    .await
+    .context("Failed to upsert package")?;
+
+    Ok(row.id)
+}
+
+pub async fn upsert_version(pool: &PgPool, pkg_id: i64, ver: &UpsertVersion) -> Result<i64> {
+    let manifest_json = serde_json::to_value(&ver.manifest)?;
+    let row = sqlx::query!(
+        r#"
+        INSERT INTO versions (package_id, version, manifest, checksum, size_bytes, tarball_path, published_at)
+        VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        ON CONFLICT(package_id, version) DO UPDATE SET
+            manifest     = EXCLUDED.manifest,
+            checksum     = EXCLUDED.checksum,
+            size_bytes   = EXCLUDED.size_bytes,
+            tarball_path = EXCLUDED.tarball_path
+        RETURNING id
+        "#,
+        pkg_id,
+        ver.version,
+        manifest_json,
+        ver.checksum,
+        ver.size_bytes,
+        ver.tarball_path,
+    )
+    .fetch_one(pool)
+    .await
+    .context("Failed to upsert version")?;
+
+    // Update package updated_at
+    sqlx::query!("UPDATE packages SET updated_at = NOW() WHERE id = $1", pkg_id)
+        .execute(pool)
+        .await?;
+
+    Ok(row.id)
+}
+
+pub async fn get_package(pool: &PgPool, name: &str) -> Result<Option<PackageRow>> {
+    let row = sqlx::query_as!(
+        PackageRow,
+        r#"SELECT id, name, slug, description, author_id, author_name, license, tsx_min,
+                  tags, lang, runtime, provides, integrates, readme, downloads,
+                  published_at, updated_at
+           FROM packages
+           WHERE name = $1 OR slug = $1"#,
+        name
+    )
+    .fetch_optional(pool)
+    .await
+    .context("Failed to get package")?;
+    Ok(row)
+}
+
+pub async fn get_package_by_id(pool: &PgPool, id: i64) -> Result<Option<PackageRow>> {
+    let row = sqlx::query_as!(
+        PackageRow,
+        r#"SELECT id, name, slug, description, author_id, author_name, license, tsx_min,
+                  tags, lang, runtime, provides, integrates, readme, downloads,
+                  published_at, updated_at
+           FROM packages WHERE id = $1"#,
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+    Ok(row)
+}
+
+pub async fn get_versions(pool: &PgPool, pkg_id: i64) -> Result<Vec<VersionRow>> {
+    let mut rows = sqlx::query_as!(
+        VersionRow,
+        r#"SELECT id, version, manifest as "manifest: sqlx::types::JsonValue",
+                  checksum, size_bytes, tarball_path, download_count, yanked, published_at
+           FROM versions
+           WHERE package_id = $1
+           ORDER BY published_at DESC"#,
+        pkg_id
+    )
+    .fetch_all(pool)
+    .await
+    .context("Failed to get versions")?;
+
+    // Sort by semver descending; fall back to publish date
+    rows.sort_by(|a, b| {
+        match (semver::Version::parse(&a.version), semver::Version::parse(&b.version)) {
+            (Ok(va), Ok(vb)) => vb.cmp(&va),
+            _ => b.published_at.cmp(&a.published_at),
+        }
+    });
+    Ok(rows)
+}
+
+pub async fn get_tarball_path(pool: &PgPool, pkg_id: i64, version: &str) -> Result<Option<(i64, String)>> {
+    let row = sqlx::query!(
+        "SELECT id, tarball_path FROM versions WHERE package_id = $1 AND version = $2 AND yanked = FALSE",
+        pkg_id, version
+    )
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|r| (r.id, r.tarball_path)))
+}
+
+pub async fn increment_downloads(pool: &PgPool, pkg_id: i64, version_id: i64, ip: Option<&str>, ua: Option<&str>) -> Result<()> {
+    sqlx::query!("UPDATE packages SET downloads = downloads + 1 WHERE id = $1", pkg_id)
+        .execute(pool)
+        .await?;
+    sqlx::query!(
+        "UPDATE versions SET download_count = download_count + 1 WHERE id = $1",
+        version_id
+    )
+    .execute(pool)
+    .await?;
+    sqlx::query!(
+        "INSERT INTO download_logs (package_id, version_id, ip_address, user_agent) VALUES ($1, $2, $3, $4)",
+        pkg_id, version_id, ip, ua
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+pub async fn get_stats(pool: &PgPool) -> Result<RegistryStats> {
+    let total_packages: i64 = sqlx::query_scalar!("SELECT COUNT(*) FROM packages")
+        .fetch_one(pool).await?.unwrap_or(0);
+    let total_versions: i64 = sqlx::query_scalar!("SELECT COUNT(*) FROM versions")
+        .fetch_one(pool).await?.unwrap_or(0);
+    let total_downloads: i64 = sqlx::query_scalar!("SELECT COALESCE(SUM(downloads), 0) FROM packages")
+        .fetch_one(pool).await?.unwrap_or(0);
+    let packages_this_week: i64 = sqlx::query_scalar!(
+        "SELECT COUNT(*) FROM packages WHERE published_at >= NOW() - INTERVAL '7 days'"
+    )
+    .fetch_one(pool).await?.unwrap_or(0);
+
+    Ok(RegistryStats { total_packages, total_versions, total_downloads, packages_this_week })
+}
+
+pub async fn get_recent(pool: &PgPool, limit: i64) -> Result<Vec<(PackageRow, String)>> {
+    let pkgs = sqlx::query_as!(
+        PackageRow,
+        r#"SELECT id, name, slug, description, author_id, author_name, license, tsx_min,
+                  tags, lang, runtime, provides, integrates, readme, downloads,
+                  published_at, updated_at
+           FROM packages
+           ORDER BY updated_at DESC
+           LIMIT $1"#,
+        limit
+    )
+    .fetch_all(pool)
+    .await?;
+
+    let mut result = Vec::with_capacity(pkgs.len());
+    for pkg in pkgs {
+        let latest = get_versions(pool, pkg.id)
+            .await?
+            .into_iter()
+            .next()
+            .map(|v| v.version)
+            .unwrap_or_else(|| "unknown".to_string());
+        result.push((pkg, latest));
     }
-    let month_lens: [u64; 12] = if is_leap(year) {
-        [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    } else {
-        [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    Ok(result)
+}
+
+pub async fn search(
+    pool: &PgPool,
+    query: &str,
+    lang: Option<&str>,
+    sort: &str,
+    page: i64,
+    per_page: i64,
+) -> Result<(Vec<(PackageRow, String)>, i64)> {
+    let like = format!("%{}%", query.to_lowercase());
+    let offset = (page - 1) * per_page;
+
+    let order_clause = match sort {
+        "newest"  => "published_at DESC",
+        "updated" => "updated_at DESC",
+        "name"    => "name ASC",
+        _         => "downloads DESC", // default: most downloaded / relevant
     };
-    let mut month = 1u32;
-    for &ml in &month_lens {
-        if days < ml { break; }
-        days -= ml;
-        month += 1;
+
+    // Build the query dynamically based on filters
+    let count_sql = if lang.is_some() {
+        "SELECT COUNT(*) FROM packages WHERE (LOWER(name) LIKE $1 OR LOWER(description) LIKE $1 OR $1 = '%%') AND lang && $2::TEXT[]"
+    } else {
+        "SELECT COUNT(*) FROM packages WHERE (LOWER(name) LIKE $1 OR LOWER(description) LIKE $1 OR $1 = '%%')"
+    };
+
+    let total: i64 = if let Some(l) = lang {
+        sqlx::query_scalar(count_sql)
+            .bind(&like)
+            .bind(vec![l.to_lowercase()])
+            .fetch_one(pool)
+            .await?
+    } else {
+        sqlx::query_scalar(count_sql)
+            .bind(&like)
+            .fetch_one(pool)
+            .await?
+    }.unwrap_or(0);
+
+    let data_sql = format!(
+        r#"SELECT id, name, slug, description, author_id, author_name, license, tsx_min,
+                  tags, lang, runtime, provides, integrates, readme, downloads,
+                  published_at, updated_at
+           FROM packages
+           WHERE (LOWER(name) LIKE $1 OR LOWER(description) LIKE $1 OR $1 = '%%')
+           {}
+           ORDER BY {}
+           LIMIT $3 OFFSET $4"#,
+        if lang.is_some() { "AND lang && $2::TEXT[]" } else { "AND ($2::TEXT[] IS NULL OR TRUE)" },
+        order_clause
+    );
+
+    let lang_arr: Vec<String> = lang.map(|l| vec![l.to_lowercase()]).unwrap_or_default();
+
+    let pkgs: Vec<PackageRow> = sqlx::query_as(&data_sql)
+        .bind(&like)
+        .bind(&lang_arr)
+        .bind(per_page)
+        .bind(offset)
+        .fetch_all(pool)
+        .await?;
+
+    let mut result = Vec::with_capacity(pkgs.len());
+    for pkg in pkgs {
+        let latest = get_versions(pool, pkg.id)
+            .await?
+            .into_iter()
+            .next()
+            .map(|v| v.version)
+            .unwrap_or_else(|| "unknown".to_string());
+        result.push((pkg, latest));
     }
-    let day = days as u32 + 1;
-    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", year, month, day, hour, min, sec)
+    Ok((result, total))
 }
 
-fn is_leap(y: u32) -> bool {
-    (y % 4 == 0 && y % 100 != 0) || (y % 400 == 0)
+// ── Package mutations ─────────────────────────────────────────────────────────
+
+pub async fn update_readme(pool: &PgPool, pkg_id: i64, readme: &str) -> Result<()> {
+    sqlx::query!(
+        "UPDATE packages SET readme = $1, updated_at = NOW() WHERE id = $2",
+        readme, pkg_id
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+pub async fn update_description(pool: &PgPool, pkg_id: i64, description: &str) -> Result<()> {
+    sqlx::query!(
+        "UPDATE packages SET description = $1, updated_at = NOW() WHERE id = $2",
+        description, pkg_id
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+pub async fn yank_version(pool: &PgPool, pkg_id: i64, version: &str) -> Result<bool> {
+    let result = sqlx::query!(
+        "UPDATE versions SET yanked = TRUE WHERE package_id = $1 AND version = $2",
+        pkg_id, version
+    )
+    .execute(pool)
+    .await?;
+    Ok(result.rows_affected() > 0)
+}
+
+pub async fn delete_package(pool: &PgPool, pkg_id: i64) -> Result<()> {
+    sqlx::query!("DELETE FROM packages WHERE id = $1", pkg_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+// ── Download stats ────────────────────────────────────────────────────────────
+
+pub async fn get_download_stats(pool: &PgPool, pkg_id: i64, days: i64) -> Result<Vec<DailyDownloads>> {
+    let rows = sqlx::query!(
+        r#"
+        SELECT
+            DATE(downloaded_at)::TEXT AS "date!",
+            COUNT(*)::BIGINT AS "downloads!"
+        FROM download_logs
+        WHERE package_id = $1
+          AND downloaded_at >= NOW() - ($2::BIGINT || ' days')::INTERVAL
+        GROUP BY DATE(downloaded_at)
+        ORDER BY DATE(downloaded_at) ASC
+        "#,
+        pkg_id, days
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows.into_iter().map(|r| DailyDownloads {
+        date: r.date,
+        downloads: r.downloads,
+    }).collect())
+}
+
+// ── Audit log ─────────────────────────────────────────────────────────────────
+
+pub async fn insert_audit(
+    pool: &PgPool,
+    action: &str,
+    package_name: &str,
+    version: Option<&str>,
+    user_id: Option<&str>,
+    author_name: Option<&str>,
+    ip: Option<&str>,
+    detail: Option<serde_json::Value>,
+) -> Result<()> {
+    sqlx::query!(
+        r#"INSERT INTO audit_log (action, package_name, version, user_id, author_name, ip_address, detail)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
+        action, package_name, version, user_id, author_name, ip,
+        detail as Option<serde_json::Value>
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+pub async fn get_audit_log(pool: &PgPool, limit: i64) -> Result<Vec<AuditEntry>> {
+    let rows = sqlx::query!(
+        r#"SELECT id, action, package_name, version, author_name, ip_address,
+                  created_at::TEXT AS "created_at!"
+           FROM audit_log
+           ORDER BY created_at DESC
+           LIMIT $1"#,
+        limit
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows.into_iter().map(|r| AuditEntry {
+        id: r.id,
+        action: r.action,
+        package_name: r.package_name,
+        version: r.version,
+        author_name: r.author_name,
+        ip_address: r.ip_address,
+        created_at: r.created_at,
+    }).collect())
 }

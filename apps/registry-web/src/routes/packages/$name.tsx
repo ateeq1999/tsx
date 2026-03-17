@@ -21,6 +21,7 @@ import {
   packageQueryOptions,
   packageVersionsQueryOptions,
   packageReadmeQueryOptions,
+  packageDownloadStatsQueryOptions,
   usePackage,
 } from "@/features/packages/hooks/use-packages"
 import { Badge } from "@/components/ui/badge"
@@ -35,6 +36,7 @@ export const Route = createFileRoute("/packages/$name")({
     }
     queryClient.prefetchQuery(packageVersionsQueryOptions(name))
     queryClient.prefetchQuery(packageReadmeQueryOptions(name))
+    queryClient.prefetchQuery(packageDownloadStatsQueryOptions(name))
   },
   head: ({ params: { name } }) => ({
     meta: [
@@ -71,25 +73,19 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
-// Generate synthetic weekly download trend from total download count
-function buildTrendData(total: number) {
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-  const weights = [0.12, 0.18, 0.16, 0.20, 0.17, 0.08, 0.09]
-  return days.map((day, i) => ({
-    day,
-    downloads: Math.round((total / 7) * weights[i] * 7),
-  }))
-}
-
 function PackageDetailPage() {
   const { name } = Route.useParams()
   const { data: pkg } = usePackage(name)
   const { data: versions } = useQuery(packageVersionsQueryOptions(name))
   const { data: readme } = useQuery(packageReadmeQueryOptions(name))
+  const { data: dlStats } = useQuery(packageDownloadStatsQueryOptions(name))
   const readmeRef = useRef<HTMLDivElement>(null)
 
   const readmeHtml = readme ? marked.parse(readme) as string : null
-  const trendData = pkg ? buildTrendData(pkg.download_count) : []
+  const trendData = dlStats?.map((d) => ({
+    day: new Date(d.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    downloads: d.downloads,
+  })) ?? []
 
   useEffect(() => {
     const el = readmeRef.current
@@ -228,26 +224,27 @@ function PackageDetailPage() {
             <div className="island-shell rounded-xl p-6">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="font-bold" style={{ color: "var(--sea-ink)" }}>Download trend</h2>
-                <span className="text-xs" style={{ color: "var(--sea-ink-soft)" }}>Last 7 days (estimated)</span>
+                <span className="text-xs" style={{ color: "var(--sea-ink-soft)" }}>Last 30 days</span>
               </div>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={trendData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
-                  <XAxis dataKey="day" tick={{ fontSize: 11, fill: "var(--sea-ink-soft)" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "var(--sea-ink-soft)" }} axisLine={false} tickLine={false} />
-                  <Tooltip
-                    contentStyle={{ background: "var(--surface-strong)", border: "1px solid var(--line)", borderRadius: "8px", fontSize: 12 }}
-                    labelStyle={{ color: "var(--sea-ink)", fontWeight: 600 }}
-                    itemStyle={{ color: "var(--lagoon-deep)" }}
-                  />
-                  <Bar dataKey="downloads" fill="var(--lagoon)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-              <p className="mt-4 text-xs" style={{ color: "var(--sea-ink-soft)" }}>
-                Per-day download data requires a backend endpoint
-                (<code>GET /v1/packages/{"{name}"}/stats/downloads</code>).
-                Chart uses a proportional estimate from total downloads.
-              </p>
+              {trendData.length === 0 ? (
+                <div className="flex h-[200px] items-center justify-center text-sm" style={{ color: "var(--sea-ink-soft)" }}>
+                  No download data yet.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={trendData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
+                    <XAxis dataKey="day" tick={{ fontSize: 11, fill: "var(--sea-ink-soft)" }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: "var(--sea-ink-soft)" }} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      contentStyle={{ background: "var(--surface-strong)", border: "1px solid var(--line)", borderRadius: "8px", fontSize: 12 }}
+                      labelStyle={{ color: "var(--sea-ink)", fontWeight: 600 }}
+                      itemStyle={{ color: "var(--lagoon-deep)" }}
+                    />
+                    <Bar dataKey="downloads" fill="var(--lagoon)" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </TabsContent>
         </Tabs>
