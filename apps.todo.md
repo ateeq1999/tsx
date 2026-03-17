@@ -9,7 +9,7 @@ Based on audit of current state (2026-03-17).
 
 ### A — User Account & Auth
 
-- [ ] **Logout button in Header** — show user avatar/name + dropdown with "Logout" when session exists; hide Dashboard link when logged out
+- [x] **Logout button in Header** — show user avatar/name + dropdown with "Logout" when session exists; hide Dashboard link when logged out
 - [ ] **User profile page** — `/account` — edit display name, change email, change password
 - [ ] **Email verification flow** — send verification email on register, block publishing until verified; `/auth/verify-email` page
 - [ ] **Password reset flow** — "Forgot password?" on login page → `/auth/reset-password` with email input and token-based confirmation page
@@ -21,12 +21,12 @@ Based on audit of current state (2026-03-17).
 
 ### B — Package Publishing (UI)
 
-- [ ] **Publish page** — `/_protected/publish` — multi-step form:
+- [x] **Publish page** — `/_protected/publish` — multi-step form:
   - Step 1: Package name (`@tsx-pkg/<slug>`), version, description
   - Step 2: Upload `manifest.json` (textarea with JSON syntax validation) + tarball (.tar.gz file picker)
   - Step 3: Preview parsed metadata (lang, provides, integrates_with)
   - Step 4: Confirmation + submit → `POST /v1/packages/publish`
-- [ ] **Publish status / feedback** — show upload progress bar, success state with install command, error display with field-level validation messages
+- [x] **Publish status / feedback** — show upload progress bar, success state with install command, error display with field-level validation messages
 - [ ] **API key management** — `/_protected/account/api-keys` — generate / revoke bearer tokens for CLI publishing (`tsx framework publish --api-key`); show key once on creation
 
 ---
@@ -41,9 +41,9 @@ Based on audit of current state (2026-03-17).
 
 ### D — Package Detail Enhancements
 
-- [ ] **README rendering** — fetch README from tarball on the package detail page and render as HTML with a markdown parser (e.g. `marked` or `micromark`); tabbed layout: Overview (README) / Versions / Install
+- [x] **README rendering** — fetch README from tarball on the package detail page and render as HTML with a markdown parser (e.g. `marked` or `micromark`); tabbed layout: Overview (README) / Versions / Install
 - [ ] **Syntax highlighting in README** — use `highlight.js` or `shiki` for fenced code blocks in rendered markdown
-- [ ] **Install command copy button** — clipboard copy on the `tsx registry install <pkg>` pill already shown; add visual feedback (checkmark icon)
+- [x] **Install command copy button** — clipboard copy on the `tsx registry install <pkg>` pill already shown; add visual feedback (checkmark icon)
 - [ ] **Provides & integrates_with badges** — render `provides[]` as coloured pill badges on the package card and detail page; render `integrates_with` as linked badges to the relevant package pages
 - [ ] **Dependency graph / integration map** — small visual showing which packages integrate with each other (SVG or canvas)
 - [ ] **Download trend chart** — sparkline or bar chart for daily/weekly downloads on the package detail page (requires new backend endpoint `GET /v1/packages/:name/stats/downloads?interval=7d`)
@@ -86,9 +86,9 @@ Based on audit of current state (2026-03-17).
 
 ### H — UX / DX Improvements
 
-- [ ] **Mobile nav** — hamburger menu in Header with slide-out drawer (Sheet component already available) for small screens
-- [ ] **Global error boundary** — catch unhandled errors and show a friendly error page with retry button
-- [ ] **404 page** — custom `not-found.tsx` with suggested links
+- [x] **Mobile nav** — hamburger menu in Header with slide-out drawer (Sheet component already available) for small screens
+- [x] **Global error boundary** — catch unhandled errors and show a friendly error page with retry button
+- [x] **404 page** — custom `not-found.tsx` with suggested links
 - [ ] **Loading skeletons** — package card skeleton on browse, stat card skeleton on landing and dashboard
 - [ ] **Toast notifications** — use `sonner` (already installed) for publish success/fail, copy-to-clipboard, auth events
 - [ ] **Keyboard shortcuts** — `/` focuses search bar on browse page; `Escape` clears search
@@ -106,7 +106,7 @@ Based on audit of current state (2026-03-17).
 
 **Introduction**
 
-- [ ] **`/docs/installation`** — detailed install guide:
+- [x] **`/docs/installation`** — detailed install guide:
   - `cargo install tsx` (from crates.io)
   - `cargo install --git <repo> tsx` (from source)
   - Pre-built binaries from GitHub Releases
@@ -116,16 +116,16 @@ Based on audit of current state (2026-03-17).
 
 **CLI — Individual Command Pages**
 
-- [ ] **`/docs/cli/install`** — `tsx registry install <package>` — flags (`--registry`, `--dir`, `--force`), what gets written to `.tsx/packages/`, version pinning, offline mode
-- [ ] **`/docs/cli/search`** — `tsx registry search <query>` — `--lang`, `--json` flags, interpreting results, npm fallback
-- [ ] **`/docs/cli/info`** — `tsx registry info <package>` — full metadata output, `--json` flag, reading provides/integrates_with
-- [ ] **`/docs/cli/framework`** — `tsx framework init/validate/preview/add/publish` — full authoring workflow; links to FPF spec
-- [ ] **`/docs/cli/stack`** — `tsx stack init/show/add/remove/detect` — stack.json explained; `--install` auto-install flag; path aliases
+- [x] **`/docs/cli/install`** — `tsx registry install <package>` — flags (`--registry`, `--dir`, `--force`), what gets written to `.tsx/packages/`, version pinning, offline mode
+- [x] **`/docs/cli/search`** — `tsx registry search <query>` — `--lang`, `--json` flags, interpreting results, npm fallback
+- [x] **`/docs/cli/info`** — `tsx registry info <package>` — full metadata output, `--json` flag, reading provides/integrates_with
+- [x] **`/docs/cli/framework`** — `tsx framework init/validate/preview/add/publish` — full authoring workflow; links to FPF spec
+- [x] **`/docs/cli/stack`** — `tsx stack init/show/add/remove/detect` — stack.json explained; `--install` auto-install flag; path aliases
 
 **Framework Package Format (FPF)**
 
-- [ ] **`/docs/fpf`** — FPF overview — what is a framework package, directory layout (`.tsx/packages/<slug>/`), relationship between manifest + generators + templates
-- [ ] **`/docs/fpf/manifest`** — `stack.json` + `manifest.json` full field reference:
+- [x] **`/docs/fpf`** — FPF overview — what is a framework package, directory layout (`.tsx/packages/<slug>/`), relationship between manifest + generators + templates
+- [x] **`/docs/fpf/manifest`** — `stack.json` + `manifest.json` full field reference:
   - Top-level: `id`, `name`, `description`, `version`, `tsx_min`, `lang`, `runtime`
   - `provides[]` — capability tokens
   - `integrates_with{}` — slot injection map
@@ -133,17 +133,17 @@ Based on audit of current state (2026-03-17).
   - `style{}` — `quotes`, `indent`, `semicolons`
   - `paths{}` — path alias map
   - Full annotated JSON example
-- [ ] **`/docs/fpf/publishing`** — end-to-end guide: write manifest → write forge templates → `tsx framework validate` → `tsx framework preview` → `tsx framework publish --registry <url> --api-key <key>`
+- [x] **`/docs/fpf/publishing`** — end-to-end guide: write manifest → write forge templates → `tsx framework validate` → `tsx framework preview` → `tsx framework publish --registry <url> --api-key <key>`
 
 **Registry**
 
-- [ ] **`/docs/registry/self-hosting`** — running the registry server:
+- [x] **`/docs/registry/self-hosting`** — running the registry server:
   - Binary vs Docker (`crates/registry-server/Dockerfile`)
   - Fly.io deployment with `fly.toml`
   - Env vars (`PORT`, `DATA_DIR`, `TSX_REGISTRY_API_KEY`)
   - Pointing the CLI: `TSX_REGISTRY_URL=https://...`
   - Backup strategy for SQLite WAL + tarballs volume
-- [ ] **`/docs/registry/api`** — full REST API reference with request/response examples for every endpoint:
+- [x] **`/docs/registry/api`** — full REST API reference with request/response examples for every endpoint:
   - `GET /health`
   - `GET /v1/stats`
   - `GET /v1/search?q=&lang=&size=`

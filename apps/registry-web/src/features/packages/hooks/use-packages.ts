@@ -48,3 +48,11 @@ export function useRegistryStats() {
 export function useRecentPackages() {
   return useQuery(recentPackagesQueryOptions)
 }
+
+export const packageReadmeQueryOptions = (name: string) =>
+  queryOptions({
+    queryKey: ["packages", name, "readme"],
+    queryFn: () => registryApi.getReadme(name),
+    enabled: !!name,
+    staleTime: 5 * 60_000,
+  })

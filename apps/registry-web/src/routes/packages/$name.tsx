@@ -1,8 +1,16 @@
 import { createFileRoute, notFound } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
-import { Clock, Download, Tag, User } from "lucide-react"
-import { packageQueryOptions, packageVersionsQueryOptions, usePackage } from "@/features/packages/hooks/use-packages"
+import { marked } from "marked"
+import { Check, Clock, Copy, Download, Tag, User } from "lucide-react"
+import { useState } from "react"
+import {
+  packageQueryOptions,
+  packageVersionsQueryOptions,
+  packageReadmeQueryOptions,
+  usePackage,
+} from "@/features/packages/hooks/use-packages"
 import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export const Route = createFileRoute("/packages/$name")({
   loader: async ({ context: { queryClient }, params: { name } }) => {
@@ -12,6 +20,7 @@ export const Route = createFileRoute("/packages/$name")({
       throw notFound()
     }
     queryClient.prefetchQuery(packageVersionsQueryOptions(name))
+    queryClient.prefetchQuery(packageReadmeQueryOptions(name))
   },
   notFoundComponent: () => (
     <div className="page-wrap py-24 text-center" style={{ color: "var(--sea-ink-soft)" }}>
@@ -21,15 +30,38 @@ export const Route = createFileRoute("/packages/$name")({
   component: PackageDetailPage,
 })
 
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  function copy() {
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <button
+      onClick={copy}
+      className="flex items-center gap-1 text-xs opacity-60 hover:opacity-100 transition-opacity"
+      style={{ color: "var(--lagoon-deep)" }}
+    >
+      {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+      {copied ? "copied" : "copy"}
+    </button>
+  )
+}
+
 function PackageDetailPage() {
   const { name } = Route.useParams()
   const { data: pkg } = usePackage(name)
   const { data: versions } = useQuery(packageVersionsQueryOptions(name))
+  const { data: readme } = useQuery(packageReadmeQueryOptions(name))
 
   if (!pkg) return null
 
+  const readmeHtml = readme ? marked.parse(readme) as string : null
+
   return (
     <div className="page-wrap py-12 rise-in">
+      {/* Header */}
       <div className="mb-8">
         <div className="mb-2 flex items-center gap-3">
           <h1 className="font-mono text-3xl font-bold" style={{ color: "var(--sea-ink)" }}>
@@ -55,46 +87,65 @@ function PackageDetailPage() {
           <code className="flex-1 text-sm" style={{ color: "var(--sea-ink)" }}>
             tsx install {pkg.name}
           </code>
-          <button
-            onClick={() => navigator.clipboard.writeText(`tsx install ${pkg.name}`)}
-            className="text-xs opacity-60 hover:opacity-100"
-            style={{ color: "var(--lagoon-deep)" }}
-          >
-            copy
-          </button>
+          <CopyButton text={`tsx install ${pkg.name}`} />
         </div>
       </div>
 
+      {/* Tabs */}
       <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
-        {/* Versions */}
-        <div className="island-shell rounded-xl p-6">
-          <h2 className="mb-4 font-bold" style={{ color: "var(--sea-ink)" }}>Versions</h2>
-          {versions ? (
-            <div className="space-y-2">
-              {versions.map((v) => (
-                <div
-                  key={v.version}
-                  className="flex items-center justify-between text-sm"
-                  style={{ borderBottom: "1px solid var(--line)", paddingBottom: "8px" }}
-                >
-                  <span className="font-mono font-bold" style={{ color: "var(--sea-ink)" }}>
-                    v{v.version}
-                  </span>
-                  <div className="flex items-center gap-4" style={{ color: "var(--sea-ink-soft)" }}>
-                    <span>{v.download_count.toLocaleString()} downloads</span>
-                    <span>{new Date(v.published_at).toLocaleDateString()}</span>
-                  </div>
+        <Tabs defaultValue={readmeHtml ? "overview" : "versions"}>
+          <TabsList className="mb-4">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="versions">Versions</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview">
+            {readmeHtml ? (
+              <div
+                className="island-shell rounded-xl p-6 doc-content"
+                dangerouslySetInnerHTML={{ __html: readmeHtml }}
+              />
+            ) : (
+              <div
+                className="island-shell rounded-xl p-8 text-center text-sm"
+                style={{ color: "var(--sea-ink-soft)" }}
+              >
+                No README available for this package.
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="versions">
+            <div className="island-shell rounded-xl p-6">
+              <h2 className="mb-4 font-bold" style={{ color: "var(--sea-ink)" }}>Versions</h2>
+              {versions ? (
+                <div className="space-y-2">
+                  {versions.map((v) => (
+                    <div
+                      key={v.version}
+                      className="flex items-center justify-between text-sm"
+                      style={{ borderBottom: "1px solid var(--line)", paddingBottom: "8px" }}
+                    >
+                      <span className="font-mono font-bold" style={{ color: "var(--sea-ink)" }}>
+                        v{v.version}
+                      </span>
+                      <div className="flex items-center gap-4" style={{ color: "var(--sea-ink-soft)" }}>
+                        <span>{v.download_count.toLocaleString()} downloads</span>
+                        <span>{new Date(v.published_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              ) : (
+                <div className="space-y-2">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="h-8 animate-pulse rounded" style={{ background: "var(--line)" }} />
+                  ))}
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="space-y-2">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-8 animate-pulse rounded" style={{ background: "var(--line)" }} />
-              ))}
-            </div>
-          )}
-        </div>
+          </TabsContent>
+        </Tabs>
 
         {/* Meta sidebar */}
         <div className="space-y-4">

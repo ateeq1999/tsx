@@ -23,4 +23,10 @@ export const registryApi = {
 
   getRecent: (limit = 12) =>
     fetchJson<Array<Package>>(`/v1/packages?sort=recent&limit=${limit}`),
+
+  getReadme: async (name: string): Promise<string | null> => {
+    const res = await fetch(`${BASE_URL}/v1/packages/${encodeURIComponent(name)}/readme`)
+    if (!res.ok) return null
+    return res.text()
+  },
 }
