@@ -1,5 +1,7 @@
 /target
+# Runtime data (tarballs, registry DB) — never committed
 data/
+.runtime/
 node_modules
 .DS_Store
 dist

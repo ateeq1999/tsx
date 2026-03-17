@@ -28,10 +28,10 @@ pub async fn get_audit_log(
         return e;
     }
     match crate::db::get_audit_log(&state.pool, params.limit).await {
-        Ok(entries) => (StatusCode::OK, Json(serde_json::to_value(entries).unwrap())),
+        Ok(entries) => (StatusCode::OK, Json(serde_json::to_value(entries).expect("BUG: serialization of known types cannot fail"))),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::to_value(ApiError::new(e.to_string())).unwrap()),
+            Json(serde_json::to_value(ApiError::new(e.to_string())).expect("BUG: serialization of known types cannot fail")),
         ),
     }
 }
@@ -49,8 +49,8 @@ pub async fn get_rate_limits(
     }
 
     let now = std::time::Instant::now();
-    let window = std::time::Duration::from_secs(60);
-    let limit = 10u32;
+    let window = std::time::Duration::from_secs(crate::routes::packages::RATE_LIMIT_WINDOW_SECS);
+    let limit = crate::routes::packages::RATE_LIMIT_MAX_REQUESTS;
 
     let entries: Vec<crate::models::RateLimitEntry> = {
         let limiter = state.rate_limiter.lock().unwrap();
@@ -74,7 +74,7 @@ pub async fn get_rate_limits(
             .collect()
     };
 
-    (StatusCode::OK, Json(serde_json::to_value(entries).unwrap()))
+    (StatusCode::OK, Json(serde_json::to_value(entries).expect("BUG: serialization of known types cannot fail")))
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -83,17 +83,21 @@ fn require_admin_key(
     state: &Arc<AppState>,
     headers: &HeaderMap,
 ) -> Result<(), (StatusCode, Json<Value>)> {
-    if let Some(expected) = &state.api_key {
-        let provided = headers
-            .get("Authorization")
-            .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.strip_prefix("Bearer "));
-        if provided.map(|k| k != expected.as_str()).unwrap_or(true) {
-            return Err((
-                StatusCode::UNAUTHORIZED,
-                Json(serde_json::to_value(ApiError::new("Admin API key required")).unwrap()),
-            ));
-        }
+    let expected = state.api_key.as_ref().ok_or_else(|| (
+        StatusCode::UNAUTHORIZED,
+        Json(serde_json::to_value(ApiError::new("Admin access is not configured on this server")).expect("BUG: serialization of known types cannot fail")),
+    ))?;
+
+    let provided = headers
+        .get("Authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "));
+
+    if provided.map(|k| k != expected.as_str()).unwrap_or(true) {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::to_value(ApiError::new("Admin API key required")).expect("BUG: serialization of known types cannot fail")),
+        ));
     }
     Ok(())
 }

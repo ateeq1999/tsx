@@ -231,14 +231,32 @@ pub async fn get_versions(pool: &PgPool, pkg_id: i64) -> Result<Vec<VersionRow>>
     .await
     .context("Failed to get versions")?;
 
-    // Sort by semver descending; fall back to publish date
-    rows.sort_by(|a, b| {
-        match (semver::Version::parse(&a.version), semver::Version::parse(&b.version)) {
-            (Ok(va), Ok(vb)) => vb.cmp(&va),
-            _ => b.published_at.cmp(&a.published_at),
-        }
+    // Partition into valid-semver and invalid-semver groups.
+    // Sort valid ones by semver DESC; sort invalid ones by publish date DESC.
+    // Valid versions always appear before invalid ones so a bad version string
+    // never floats to the "latest" position.
+    let (mut valid, mut invalid): (Vec<_>, Vec<_>) = rows
+        .into_iter()
+        .partition(|r| semver::Version::parse(&r.version).is_ok());
+
+    valid.sort_by(|a, b| {
+        let va = semver::Version::parse(&a.version).unwrap();
+        let vb = semver::Version::parse(&b.version).unwrap();
+        vb.cmp(&va)
     });
-    Ok(rows)
+    invalid.sort_by(|a, b| b.published_at.cmp(&a.published_at));
+
+    valid.extend(invalid);
+    Ok(valid)
+}
+
+/// Returns the highest semver version string for a package, or `None` if it has no versions.
+pub async fn get_latest_version(pool: &PgPool, pkg_id: i64) -> Result<Option<String>> {
+    let mut rows = get_versions(pool, pkg_id).await?;
+    // get_versions sorts by semver DESC; first element is the latest.
+    // Filter to only non-yanked versions for the "latest" label.
+    rows.retain(|v| !v.yanked);
+    Ok(rows.into_iter().next().map(|v| v.version))
 }
 
 pub async fn get_tarball_path(pool: &PgPool, pkg_id: i64, version: &str) -> Result<Option<(i64, String)>> {
@@ -267,11 +285,8 @@ pub async fn get_recent(pool: &PgPool, limit: i64) -> Result<Vec<(PackageRow, St
 
     let mut result = Vec::with_capacity(pkgs.len());
     for pkg in pkgs {
-        let latest = get_versions(pool, pkg.id)
+        let latest = get_latest_version(pool, pkg.id)
             .await?
-            .into_iter()
-            .next()
-            .map(|v| v.version)
             .unwrap_or_else(|| "unknown".to_string());
         result.push((pkg, latest));
     }
@@ -341,11 +356,8 @@ pub async fn search(
 
     let mut result = Vec::with_capacity(pkgs.len());
     for pkg in pkgs {
-        let latest = get_versions(pool, pkg.id)
+        let latest = get_latest_version(pool, pkg.id)
             .await?
-            .into_iter()
-            .next()
-            .map(|v| v.version)
             .unwrap_or_else(|| "unknown".to_string());
         result.push((pkg, latest));
     }

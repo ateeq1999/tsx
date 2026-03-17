@@ -53,7 +53,7 @@ pub async fn search(
     {
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::to_value(ApiError::new(e.to_string())).unwrap()),
+            Json(serde_json::to_value(ApiError::new(e.to_string())).expect("BUG: serialization of known types cannot fail")),
         ),
         Ok((rows, total)) => {
             let packages: Vec<crate::models::Package> = rows
@@ -67,7 +67,7 @@ pub async fn search(
                 per_page,
                 packages,
             };
-            (StatusCode::OK, Json(serde_json::to_value(result).unwrap()))
+            (StatusCode::OK, Json(serde_json::to_value(result).expect("BUG: serialization of known types cannot fail")))
         }
     }
 }

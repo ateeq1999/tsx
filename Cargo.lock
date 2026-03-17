@@ -3097,6 +3097,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tsx-forge",
+ "tsx-shared",
  "tungstenite",
  "walkdir",
 ]
@@ -3138,7 +3139,16 @@ dependencies = [
  "tower-http 0.5.2",
  "tracing",
  "tracing-subscriber",
+ "tsx-shared",
  "uuid",
+]
+
+[[package]]
+name = "tsx-shared"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

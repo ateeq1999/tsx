@@ -14,6 +14,22 @@ use crate::{
     models::ApiError,
     AppState,
 };
+use tracing::{info, warn};
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+/// Maximum packages returned by the recent-list endpoint.
+const MAX_LIST_LIMIT: i64 = 50;
+/// Default packages returned by the recent-list endpoint.
+const DEFAULT_LIST_LIMIT: i64 = 12;
+/// Maximum days of download-stat history.
+const MAX_DOWNLOAD_DAYS: i64 = 90;
+/// Rate-limit window in seconds.
+pub const RATE_LIMIT_WINDOW_SECS: u64 = 60;
+/// Maximum publish requests per window per IP.
+pub const RATE_LIMIT_MAX_REQUESTS: u32 = 10;
+/// Maximum tarball upload size (100 MB).
+const MAX_TARBALL_BYTES: usize = 100 * 1024 * 1024;
 
 // ── Query / body types ────────────────────────────────────────────────────────
 
@@ -42,18 +58,18 @@ pub async fn list_packages(
     State(state): State<Arc<AppState>>,
     Query(params): Query<ListPackagesQuery>,
 ) -> (StatusCode, Json<Value>) {
-    let limit = params.limit.unwrap_or(12).min(50).max(1);
+    let limit = params.limit.unwrap_or(DEFAULT_LIST_LIMIT).min(MAX_LIST_LIMIT).max(1);
     match db::get_recent(&state.pool, limit).await {
         Ok(rows) => {
             let packages: Vec<crate::models::Package> = rows
                 .into_iter()
                 .map(|(pkg, latest)| pkg.into_package(latest))
                 .collect();
-            (StatusCode::OK, Json(serde_json::to_value(packages).unwrap()))
+            (StatusCode::OK, Json(serde_json::to_value(packages).expect("BUG: serialization of known types cannot fail")))
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::to_value(ApiError::new(e.to_string())).unwrap()),
+            Json(serde_json::to_value(ApiError::new(e.to_string())).expect("BUG: serialization of known types cannot fail")),
         ),
     }
 }
@@ -69,9 +85,11 @@ pub async fn get_package(
         Err(e) => err500(e.to_string()),
         Ok(None) => err404(format!("Package '{}' not found", decoded)),
         Ok(Some(pkg)) => {
-            let versions = db::get_versions(&state.pool, pkg.id).await.unwrap_or_default();
-            let latest = versions.first().map(|v| v.version.clone()).unwrap_or_default();
-            (StatusCode::OK, Json(serde_json::to_value(pkg.into_package(latest)).unwrap()))
+            let latest = db::get_latest_version(&state.pool, pkg.id)
+                .await
+                .unwrap_or_default()
+                .unwrap_or_default();
+            (StatusCode::OK, Json(serde_json::to_value(pkg.into_package(latest)).expect("BUG: serialization of known types cannot fail")))
         }
     }
 }
@@ -98,7 +116,7 @@ pub async fn get_package_versions(
                             download_count: v.download_count,
                         })
                         .collect();
-                    (StatusCode::OK, Json(serde_json::to_value(versions).unwrap()))
+                    (StatusCode::OK, Json(serde_json::to_value(versions).expect("BUG: serialization of known types cannot fail")))
                 }
             }
         }
@@ -147,10 +165,13 @@ pub async fn update_readme(
         Ok(None) => err404(format!("Package '{}' not found", decoded)),
         Ok(Some(pkg)) => {
             // Only the package author may update the readme
-            if let Some(ref uid) = pkg.author_id {
-                if auth.as_ref().map(|u| &u.user_id) != Some(uid) {
-                    return err403("Only the package author may update the README");
+            match pkg.author_id {
+                Some(ref uid) => {
+                    if auth.as_ref().map(|u| &u.user_id) != Some(uid) {
+                        return err403("Only the package author may update the README");
+                    }
                 }
+                None => return err403("Package has no owner — contact an admin to update it"),
             }
             match db::update_readme(&state.pool, pkg.id, &body).await {
                 Ok(_) => {
@@ -184,10 +205,13 @@ pub async fn update_package(
         Err(e) => err500(e.to_string()),
         Ok(None) => err404(format!("Package '{}' not found", decoded)),
         Ok(Some(pkg)) => {
-            if let Some(ref uid) = pkg.author_id {
-                if auth.as_ref().map(|u| &u.user_id) != Some(uid) {
-                    return err403("Only the package author may update this package");
+            match pkg.author_id {
+                Some(ref uid) => {
+                    if auth.as_ref().map(|u| &u.user_id) != Some(uid) {
+                        return err403("Only the package author may update this package");
+                    }
                 }
+                None => return err403("Package has no owner — contact an admin to update it"),
             }
             if let Some(description) = body.description {
                 if let Err(e) = db::update_description(&state.pool, pkg.id, &description).await {
@@ -220,10 +244,13 @@ pub async fn yank_version(
         Err(e) => err500(e.to_string()),
         Ok(None) => err404(format!("Package '{}' not found", decoded)),
         Ok(Some(pkg)) => {
-            if let Some(ref uid) = pkg.author_id {
-                if auth.as_ref().map(|u| &u.user_id) != Some(uid) {
-                    return err403("Only the package author may yank versions");
+            match pkg.author_id {
+                Some(ref uid) => {
+                    if auth.as_ref().map(|u| &u.user_id) != Some(uid) {
+                        return err403("Only the package author may yank versions");
+                    }
                 }
+                None => return err403("Package has no owner — contact an admin to yank versions"),
             }
             match db::yank_version(&state.pool, pkg.id, &version).await {
                 Ok(true) => {
@@ -257,10 +284,13 @@ pub async fn delete_package(
         Err(e) => err500(e.to_string()),
         Ok(None) => err404(format!("Package '{}' not found", decoded)),
         Ok(Some(pkg)) => {
-            if let Some(ref uid) = pkg.author_id {
-                if auth.as_ref().map(|u| &u.user_id) != Some(uid) {
-                    return err403("Only the package author may delete this package");
+            match pkg.author_id {
+                Some(ref uid) => {
+                    if auth.as_ref().map(|u| &u.user_id) != Some(uid) {
+                        return err403("Only the package author may delete this package");
+                    }
                 }
+                None => return err403("Package has no owner — contact an admin to delete it"),
             }
             match db::delete_package(&state.pool, pkg.id).await {
                 Ok(_) => {
@@ -284,14 +314,14 @@ pub async fn get_download_stats(
     Query(params): Query<DownloadStatsQuery>,
 ) -> (StatusCode, Json<Value>) {
     let decoded = url_decode(&name);
-    let days = params.days.min(90).max(1);
+    let days = params.days.min(MAX_DOWNLOAD_DAYS).max(1);
 
     match db::get_package(&state.pool, &decoded).await {
         Err(e) => err500(e.to_string()),
         Ok(None) => err404(format!("Package '{}' not found", decoded)),
         Ok(Some(pkg)) => {
             match db::get_download_stats(&state.pool, pkg.id, days).await {
-                Ok(stats) => (StatusCode::OK, Json(serde_json::to_value(stats).unwrap())),
+                Ok(stats) => (StatusCode::OK, Json(serde_json::to_value(stats).expect("BUG: serialization of known types cannot fail"))),
                 Err(e) => err500(e.to_string()),
             }
         }
@@ -332,6 +362,8 @@ pub async fn download_tarball(
         let _ = db::increment_downloads(&state.pool, pkg_id, version_id, Some(&ip), ua.as_deref()).await;
     }
 
+    info!(package = %decoded_name, version = %version, ip = %ip, "Tarball downloaded");
+
     let mut resp_headers = HeaderMap::new();
     resp_headers.insert("Content-Type", "application/gzip".parse().unwrap());
     resp_headers.insert(
@@ -353,20 +385,24 @@ pub async fn publish(
     headers: HeaderMap,
     mut multipart: Multipart,
 ) -> (StatusCode, Json<Value>) {
-    // --- Rate limiting: 10 req/min per IP ---
+    // --- Rate limiting ---
     {
         let ip = addr.ip();
         let mut limiter = state.rate_limiter.lock().unwrap();
         let now = std::time::Instant::now();
         let entry = limiter.entry(ip).or_insert((0, now));
-        if now.duration_since(entry.1) >= std::time::Duration::from_secs(60) {
+        if now.duration_since(entry.1) >= std::time::Duration::from_secs(RATE_LIMIT_WINDOW_SECS) {
             *entry = (0, now);
         }
         entry.0 += 1;
-        if entry.0 > 10 {
+        if entry.0 > RATE_LIMIT_MAX_REQUESTS {
+            warn!(ip = %ip, count = entry.0, "Publish rate limit exceeded");
             return (
                 StatusCode::TOO_MANY_REQUESTS,
-                Json(serde_json::to_value(ApiError::new("Rate limit exceeded: max 10 publishes per minute per IP")).unwrap()),
+                Json(serde_json::to_value(ApiError::new(format!(
+                    "Rate limit exceeded: max {} publishes per {} seconds per IP",
+                    RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW_SECS
+                ))).unwrap()),
             );
         }
     }
@@ -385,51 +421,63 @@ pub async fn publish(
 
     while let Ok(Some(field)) = multipart.next_field().await {
         match field.name() {
-            Some("name")     => name = field.text().await.unwrap_or_default(),
-            Some("version")  => version = field.text().await.unwrap_or_default(),
-            Some("manifest") => manifest_str = field.text().await.unwrap_or_default(),
-            Some("tarball")  => tarball_bytes = field.bytes().await.unwrap_or_default().to_vec(),
+            Some("name") => match field.text().await {
+                Ok(v) => name = v,
+                Err(e) => return err400(format!("Failed to read 'name' field: {e}")),
+            },
+            Some("version") => match field.text().await {
+                Ok(v) => version = v,
+                Err(e) => return err400(format!("Failed to read 'version' field: {e}")),
+            },
+            Some("manifest") => match field.text().await {
+                Ok(v) => manifest_str = v,
+                Err(e) => return err400(format!("Failed to read 'manifest' field: {e}")),
+            },
+            Some("tarball") => match field.bytes().await {
+                Ok(v) => tarball_bytes = v.to_vec(),
+                Err(e) => return err400(format!("Failed to read 'tarball' field: {e}")),
+            },
             _ => {}
         }
+    }
+
+    // --- Validate tarball size and format ---
+    if tarball_bytes.len() > MAX_TARBALL_BYTES {
+        return err400("Tarball exceeds the 100 MB size limit");
+    }
+    if !tarball_bytes.is_empty()
+        && (tarball_bytes.len() < 2 || tarball_bytes[0] != 0x1f || tarball_bytes[1] != 0x8b)
+    {
+        return err400("Tarball must be a valid gzip file (.tar.gz)");
     }
 
     // --- Validate ---
     if name.is_empty() || version.is_empty() || manifest_str.is_empty() || tarball_bytes.is_empty() {
         return (
             StatusCode::BAD_REQUEST,
-            Json(serde_json::to_value(ApiError::new("Missing required fields: name, version, manifest, tarball")).unwrap()),
+            Json(serde_json::to_value(ApiError::new("Missing required fields: name, version, manifest, tarball")).expect("BUG: serialization of known types cannot fail")),
         );
     }
     if semver::Version::parse(&version).is_err() {
         return (
             StatusCode::BAD_REQUEST,
-            Json(serde_json::to_value(ApiError::new(format!("Invalid semver: '{}'", version))).unwrap()),
+            Json(serde_json::to_value(ApiError::new(format!("Invalid semver: '{}'", version))).expect("BUG: serialization of known types cannot fail")),
         );
     }
     let manifest: serde_json::Value = match serde_json::from_str(&manifest_str) {
         Ok(v) => v,
         Err(e) => return (
             StatusCode::BAD_REQUEST,
-            Json(serde_json::to_value(ApiError::new(format!("Invalid manifest JSON: {}", e))).unwrap()),
+            Json(serde_json::to_value(ApiError::new(format!("Invalid manifest JSON: {}", e))).expect("BUG: serialization of known types cannot fail")),
         ),
     };
 
-    let slug = name.split('/').last().unwrap_or(&name).to_string();
+    let slug = name.trim_start_matches('@').replace('/', "__");
 
     // --- Checksum ---
     let mut hasher = Sha256::new();
     hasher.update(&tarball_bytes);
     let checksum = hex::encode(hasher.finalize());
-
-    // --- Store tarball ---
-    let tarball_dir = state.data_dir.join("tarballs").join(&slug);
-    if let Err(e) = tokio::fs::create_dir_all(&tarball_dir).await {
-        return err500(format!("Failed to create tarball dir: {}", e));
-    }
-    let tarball_path = tarball_dir.join(format!("{}.tar.gz", version));
-    if let Err(e) = tokio::fs::write(&tarball_path, &tarball_bytes).await {
-        return err500(format!("Failed to write tarball: {}", e));
-    }
 
     // --- Extract metadata ---
     let description = str_field(&manifest, "description");
@@ -447,7 +495,19 @@ pub async fn publish(
     let author_id   = auth_user.as_ref().map(|u| u.user_id.clone());
     let author_name = auth_user.as_ref().map(|u| u.name.clone()).unwrap_or_default();
 
-    // --- Persist ---
+    // --- Prepare tarball paths (write to .tmp first for atomicity) ---
+    let tarball_dir = state.data_dir.join("tarballs").join(&slug);
+    if let Err(e) = tokio::fs::create_dir_all(&tarball_dir).await {
+        return err500(format!("Failed to create tarball dir: {}", e));
+    }
+    let tarball_path = tarball_dir.join(format!("{}.tar.gz", version));
+    let tarball_tmp  = tarball_dir.join(format!("{}.tar.gz.tmp", version));
+
+    if let Err(e) = tokio::fs::write(&tarball_tmp, &tarball_bytes).await {
+        return err500(format!("Failed to write tarball: {}", e));
+    }
+
+    // --- Persist DB (package + version) ---
     let pkg_id = match db::upsert_package(&state.pool, &UpsertPkg {
         name: name.clone(), slug: slug.clone(),
         description: description.unwrap_or_default(),
@@ -455,7 +515,10 @@ pub async fn publish(
         license, tsx_min, tags, lang, runtime, provides, integrates,
     }).await {
         Ok(id) => id,
-        Err(e) => return err500(e.to_string()),
+        Err(e) => {
+            let _ = tokio::fs::remove_file(&tarball_tmp).await;
+            return err500(e.to_string());
+        }
     };
 
     if let Err(e) = db::upsert_version(&state.pool, pkg_id, &UpsertVersion {
@@ -465,13 +528,29 @@ pub async fn publish(
         size_bytes: tarball_bytes.len() as i64,
         tarball_path: tarball_path.to_string_lossy().to_string(),
     }).await {
+        let _ = tokio::fs::remove_file(&tarball_tmp).await;
         return err500(e.to_string());
+    }
+
+    // --- DB committed — atomically promote temp file to final path ---
+    if let Err(e) = tokio::fs::rename(&tarball_tmp, &tarball_path).await {
+        // Extremely unlikely; DB record exists but file is still at .tmp path.
+        return err500(format!("Failed to finalise tarball: {}", e));
     }
 
     let ip = addr.ip().to_string();
     let _ = db::insert_audit(&state.pool, "publish", &name, Some(&version),
         auth_user.as_ref().map(|u| u.user_id.as_str()),
         Some(&author_name), Some(&ip), None).await;
+
+    info!(
+        package = %name,
+        version = %version,
+        author = %author_name,
+        ip = %ip,
+        size_bytes = tarball_bytes.len(),
+        "Package published"
+    );
 
     (
         StatusCode::CREATED,
@@ -514,7 +593,7 @@ async fn authenticate_publish(
 
     let token = provided.ok_or_else(|| (
         StatusCode::UNAUTHORIZED,
-        Json(serde_json::to_value(ApiError::new("Authorization header required")).unwrap()),
+        Json(serde_json::to_value(ApiError::new("Authorization header required")).expect("BUG: serialization of known types cannot fail")),
     ))?;
 
     // Check static API key first
@@ -527,10 +606,13 @@ async fn authenticate_publish(
     // Try better-auth session token
     match db::validate_session_token(&state.pool, &token).await {
         Ok(Some(user)) => Ok(Some(user)),
-        Ok(None) => Err((
-            StatusCode::UNAUTHORIZED,
-            Json(serde_json::to_value(ApiError::new("Invalid or expired token")).unwrap()),
-        )),
+        Ok(None) => {
+            warn!("Publish auth failed: invalid or expired token");
+            Err((
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::to_value(ApiError::new("Invalid or expired token")).expect("BUG: serialization of known types cannot fail")),
+            ))
+        }
         Err(e) => Err(err500(e.to_string())),
     }
 }
@@ -565,20 +647,20 @@ fn url_encode(s: &str) -> String {
 fn err500(msg: impl Into<String>) -> (StatusCode, Json<Value>) {
     (
         StatusCode::INTERNAL_SERVER_ERROR,
-        Json(serde_json::to_value(ApiError::new(msg)).unwrap()),
+        Json(serde_json::to_value(ApiError::new(msg)).expect("BUG: serialization of known types cannot fail")),
     )
 }
 
 fn err404(msg: impl Into<String>) -> (StatusCode, Json<Value>) {
     (
         StatusCode::NOT_FOUND,
-        Json(serde_json::to_value(ApiError::new(msg)).unwrap()),
+        Json(serde_json::to_value(ApiError::new(msg)).expect("BUG: serialization of known types cannot fail")),
     )
 }
 
 fn err403(msg: impl Into<String>) -> (StatusCode, Json<Value>) {
     (
         StatusCode::FORBIDDEN,
-        Json(serde_json::to_value(ApiError::new(msg)).unwrap()),
+        Json(serde_json::to_value(ApiError::new(msg)).expect("BUG: serialization of known types cannot fail")),
     )
 }

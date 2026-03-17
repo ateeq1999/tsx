@@ -1,49 +1,23 @@
 [workspace]
-members = [".", "crates/forge", "crates/registry-server"]
+members = [
+    "crates/cli",
+    "crates/forge",
+    "crates/registry-server",
+    "crates/shared",
+]
 resolver = "2"
 
 [workspace.dependencies]
-serde = { version = "1", features = ["derive"] }
+serde      = { version = "1",   features = ["derive"] }
 serde_json = "1"
-anyhow = "1"
-heck = "0.5"
-tera = "1"
-walkdir = "2"
-criterion = { version = "0.5", features = ["html_reports"] }
-
-[package]
-name = "tsx"
-version = "0.1.0"
-edition = "2021"
-description = "Universal Framework Protocol CLI — agent-native code generation for TanStack Start and beyond"
-license = "MIT"
-repository = "https://github.com/ateeq1999/tsx"
-keywords = ["codegen", "tanstack", "cli", "framework", "typescript"]
-categories = ["command-line-utilities", "development-tools"]
-exclude = ["target/", ".tsx/"]
-
-[dependencies]
-forge = { package = "tsx-forge", path = "crates/forge", version = "0.1.0" }
-clap = { version = "4", features = ["derive"] }
-minijinja = { version = "2", features = ["loader"] }
-serde = { workspace = true }
-serde_json = { workspace = true }
-anyhow = { workspace = true }
-walkdir = { workspace = true }
-heck = { workspace = true }
-reqwest = { version = "0.12", features = ["json", "blocking", "multipart"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time"] }
-flate2 = "1"
-tar = "0.4"
-semver = "1"
-notify = "6"
-tungstenite = "0.24"
-
-[dev-dependencies]
-tempfile = "3"
+anyhow     = "1"
+heck       = "0.5"
+tera       = "1"
+walkdir    = "2"
+criterion  = { version = "0.5", features = ["html_reports"] }
 
 [profile.release]
-opt-level = 3
-lto = true
-codegen-units = 1
-strip = true
+opt-level      = 3
+lto            = true
+codegen-units  = 1
+strip          = true

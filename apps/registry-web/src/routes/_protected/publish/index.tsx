@@ -56,8 +56,8 @@ function Step1({ onNext }: { onNext: (d: Step1Data) => void }) {
     const e: Partial<Step1Data> = {}
     if (!data.name.match(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/))
       e.name = "Use lowercase letters, numbers and hyphens only."
-    if (!data.version.match(/^\d+\.\d+\.\d+/))
-      e.version = "Must be a valid semver (e.g. 1.0.0)."
+    if (!data.version.match(/^\d+\.\d+\.\d+(-[\w.]+)?(\+[\w.]+)?$/))
+      e.version = "Must be a valid semver (e.g. 1.0.0 or 1.0.0-beta.1)."
     if (data.description.length < 10)
       e.description = "Description must be at least 10 characters."
     return e

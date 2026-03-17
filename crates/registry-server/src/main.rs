@@ -31,8 +31,11 @@
 //! | `TSX_REGISTRY_API_KEY` | *(none — open)*                              | Bearer token for publish (optional)   |
 
 mod db;
-mod models;
 mod routes;
+
+// Re-export shared API types so route handlers can use `crate::models::*`
+// without breaking existing import paths.
+pub use tsx_shared as models;
 
 use axum::{
     routing::{delete, get, post, put},

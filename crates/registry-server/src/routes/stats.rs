@@ -9,10 +9,10 @@ use crate::{models::ApiError, AppState};
 /// Returns flat RegistryStats — matches TypeScript `RegistryStats` interface directly.
 pub async fn get_stats(State(state): State<Arc<AppState>>) -> (StatusCode, Json<Value>) {
     match crate::db::get_stats(&state.pool).await {
-        Ok(stats) => (StatusCode::OK, Json(serde_json::to_value(stats).unwrap())),
+        Ok(stats) => (StatusCode::OK, Json(serde_json::to_value(stats).expect("BUG: serialization of known types cannot fail"))),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::to_value(ApiError::new(e.to_string())).unwrap()),
+            Json(serde_json::to_value(ApiError::new(e.to_string())).expect("BUG: serialization of known types cannot fail")),
         ),
     }
 }

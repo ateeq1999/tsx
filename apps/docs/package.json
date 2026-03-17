@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@tsx/api-types": "workspace:*",
     "@tsx/ui": "workspace:*",
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
     "@mdx-js/react": "^3.1.1",

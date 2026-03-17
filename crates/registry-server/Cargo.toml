@@ -11,6 +11,7 @@ name = "tsx-registry"
 path = "src/main.rs"
 
 [dependencies]
+tsx-shared = { path = "../shared", version = "0.1.0" }
 axum = { version = "0.7", features = ["multipart"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util"] }
 serde = { version = "1", features = ["derive"] }

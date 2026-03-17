@@ -1,6 +1,7 @@
 import { createFileRoute, notFound, Link } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import { marked } from "marked"
+import DOMPurify from "dompurify"
 import { Check, Clock, Copy, Download, Tag, User, TrendingUp } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import hljs from "highlight.js/lib/core"
@@ -57,10 +58,15 @@ export const Route = createFileRoute("/packages/$name")({
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current) }, [])
+
   function copy() {
     navigator.clipboard.writeText(text)
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => setCopied(false), 2000)
   }
   return (
     <button
@@ -82,7 +88,7 @@ function PackageDetailPage() {
   const { data: dlStats } = useQuery(packageDownloadStatsQueryOptions(name))
   const readmeRef = useRef<HTMLDivElement>(null)
 
-  const readmeHtml = readme ? marked.parse(readme) as string : null
+  const readmeHtml = readme ? DOMPurify.sanitize(marked.parse(readme) as string) : null
   const trendData = dlStats?.map((d) => ({
     day: new Date(d.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
     downloads: d.downloads,

@@ -21,6 +21,12 @@ use anyhow::{Context, Result};
 use sqlx::PgPool;
 
 // ── Schema migrations ─────────────────────────────────────────────────────────
+//
+// The canonical SQL source lives in `migrations/0001_initial_schema.sql` at
+// the repo root.  It is reproduced inline here so the binary is self-contained
+// and does not require the file to be present at runtime.
+// Future: switch to `sqlx::migrate!("../../../migrations")` once sqlx offline
+// mode is configured for the CI pipeline.
 
 pub async fn run_migrations(pool: &PgPool) -> Result<()> {
     sqlx::query(
