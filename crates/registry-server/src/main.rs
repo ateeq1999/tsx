@@ -21,14 +21,13 @@
 //! | GET    | /v1/admin/audit-log                           | Publish audit log              |
 //! | GET    | /v1/admin/rate-limits                         | Rate limit status per IP       |
 //!
-//! # Configuration (environment variables)
+//! # Secrets (Shuttle `Secrets.toml` / `Secrets.dev.toml`)
 //!
-//! | Variable               | Default                                      | Description                           |
-//! |------------------------|----------------------------------------------|---------------------------------------|
-//! | `DATABASE_URL`         | *(required)*                                 | PostgreSQL connection string          |
-//! | `PORT`                 | `8080`                                       | TCP port to listen on                 |
-//! | `DATA_DIR`             | `./data`                                     | Directory for tarball storage         |
-//! | `TSX_REGISTRY_API_KEY` | *(none — open)*                              | Bearer token for publish (optional)   |
+//! | Key                    | Required | Description                                      |
+//! |------------------------|----------|--------------------------------------------------|
+//! | `DATABASE_URL`         | yes      | Neon PostgreSQL connection string                |
+//! | `TSX_REGISTRY_API_KEY` | no       | Bearer token for admin + publish (open if unset) |
+//! | `DATA_DIR`             | no       | Tarball storage path (default `./data`)          |
 
 mod db;
 mod routes;
@@ -44,7 +43,6 @@ use axum::{
 use sqlx::postgres::PgPoolOptions;
 use std::{
     collections::HashMap,
-    net::SocketAddr,
     path::PathBuf,
     sync::Arc,
     time::Instant,
@@ -58,58 +56,61 @@ use tracing::info;
 
 /// Shared application state passed to all route handlers.
 pub struct AppState {
-    /// PostgreSQL connection pool
+    /// PostgreSQL connection pool (Neon)
     pub pool: sqlx::PgPool,
     pub data_dir: PathBuf,
-    /// Optional static API key for the publish endpoint. `None` → open (dev mode).
+    /// Optional static API key for admin endpoints. `None` → open (dev mode).
     pub api_key: Option<String>,
-    /// Per-IP rate limiter: ip → (request_count, window_start)
+    /// Per-IP publish rate limiter: ip → (request_count, window_start)
     pub rate_limiter: std::sync::Mutex<HashMap<std::net::IpAddr, (u32, Instant)>>,
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    // Load .env from current dir or parent
-    let _ = dotenvy::dotenv();
-
-    let filter = std::env::var("RUST_LOG")
-        .unwrap_or_else(|_| "tsx_registry=info,tower_http=debug".into());
-    if std::env::var("LOG_FORMAT").as_deref() == Ok("json") {
-        tracing_subscriber::fmt().json().with_env_filter(filter).init();
-    } else {
-        tracing_subscriber::fmt().with_env_filter(filter).init();
-    }
-
-    let database_url = std::env::var("DATABASE_URL")
-        .expect("DATABASE_URL must be set (postgresql://user:pass@host/tsx_db)");
-
-    let port: u16 = std::env::var("PORT")
-        .ok()
-        .and_then(|p| p.parse().ok())
-        .unwrap_or(8080);
+/// Shuttle entry point.
+///
+/// Shuttle owns the TCP listener, TLS, and tracing subscriber — we only build
+/// the `axum::Router` and return it.  Configuration is read from the project's
+/// `Secrets.toml` (production) / `Secrets.dev.toml` (local dev) files.
+#[shuttle_runtime::main]
+async fn main(
+    #[shuttle_runtime::Secrets] secrets: shuttle_runtime::SecretStore,
+) -> shuttle_axum::ShuttleAxum {
+    // ── Config from secrets ────────────────────────────────────────────────
+    let database_url = secrets
+        .get("DATABASE_URL")
+        .expect("DATABASE_URL must be set in Secrets.toml / Secrets.dev.toml");
 
     let data_dir = PathBuf::from(
-        std::env::var("DATA_DIR").unwrap_or_else(|_| "./data".to_string()),
+        secrets.get("DATA_DIR").unwrap_or_else(|| "./data".to_string()),
     );
-    tokio::fs::create_dir_all(&data_dir).await?;
-    tokio::fs::create_dir_all(data_dir.join("tarballs")).await?;
 
+    let api_key = secrets.get("TSX_REGISTRY_API_KEY");
+
+    // ── Storage directories ────────────────────────────────────────────────
+    tokio::fs::create_dir_all(&data_dir).await
+        .expect("Failed to create DATA_DIR");
+    tokio::fs::create_dir_all(data_dir.join("tarballs")).await
+        .expect("Failed to create DATA_DIR/tarballs");
+
+    // ── Database pool ──────────────────────────────────────────────────────
     let pool = PgPoolOptions::new()
         .max_connections(10)
         .connect(&database_url)
-        .await?;
+        .await
+        .expect("Failed to connect to PostgreSQL");
 
-    info!("Connected to PostgreSQL at {}", &database_url);
+    info!("Connected to PostgreSQL (Neon)");
 
-    // Run schema migrations
-    db::run_migrations(&pool).await?;
+    // Run forward-only SQL migrations at startup
+    db::run_migrations(&pool).await
+        .expect("Failed to apply database migrations");
+
     info!("Database migrations applied");
 
-    let api_key = std::env::var("TSX_REGISTRY_API_KEY").ok();
     if api_key.is_none() {
         tracing::warn!("TSX_REGISTRY_API_KEY is not set — publish endpoint is open to anyone");
     }
 
+    // ── Application state ──────────────────────────────────────────────────
     let state = Arc::new(AppState {
         pool,
         data_dir,
@@ -117,47 +118,45 @@ async fn main() -> anyhow::Result<()> {
         rate_limiter: std::sync::Mutex::new(HashMap::new()),
     });
 
+    // ── Middleware ─────────────────────────────────────────────────────────
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
         .allow_headers(Any);
 
+    // ── Router ─────────────────────────────────────────────────────────────
     let app = Router::new()
-        // ── Health ──────────────────────────────────────────────────────────
+        // Health
         .route("/health", get(routes::health::health))
-        // ── Stats ───────────────────────────────────────────────────────────
+        // Stats
         .route("/v1/stats", get(routes::stats::get_stats))
-        // ── Search ──────────────────────────────────────────────────────────
+        // Search
         .route("/v1/search", get(routes::search::search))
-        // ── Packages ────────────────────────────────────────────────────────
-        .route("/v1/packages", get(routes::packages::list_packages))
-        .route("/v1/packages/publish", post(routes::packages::publish))
-        .route("/v1/packages/:name", get(routes::packages::get_package))
-        .route("/v1/packages/:name", put(routes::packages::update_package))
-        .route("/v1/packages/:name", delete(routes::packages::delete_package))
-        .route("/v1/packages/:name/versions", get(routes::packages::get_package_versions))
-        .route("/v1/packages/:name/readme", get(routes::packages::get_readme))
-        .route("/v1/packages/:name/readme", put(routes::packages::update_readme))
-        .route("/v1/packages/:name/stats/downloads", get(routes::packages::get_download_stats))
-        .route("/v1/packages/:name/:version/tarball", get(routes::packages::download_tarball))
-        .route("/v1/packages/:name/versions/:version", delete(routes::packages::yank_version))
-        // ── Admin ────────────────────────────────────────────────────────────
-        .route("/v1/admin/audit-log", get(routes::admin::get_audit_log))
+        // Packages
+        .route("/v1/packages",              get(routes::packages::list_packages))
+        .route("/v1/packages/publish",      post(routes::packages::publish))
+        .route("/v1/packages/:name",        get(routes::packages::get_package))
+        .route("/v1/packages/:name",        put(routes::packages::update_package))
+        .route("/v1/packages/:name",        delete(routes::packages::delete_package))
+        .route("/v1/packages/:name/versions",
+            get(routes::packages::get_package_versions))
+        .route("/v1/packages/:name/readme",
+            get(routes::packages::get_readme).put(routes::packages::update_readme))
+        .route("/v1/packages/:name/stats/downloads",
+            get(routes::packages::get_download_stats))
+        .route("/v1/packages/:name/:version/tarball",
+            get(routes::packages::download_tarball))
+        .route("/v1/packages/:name/versions/:version",
+            delete(routes::packages::yank_version))
+        // Admin
+        .route("/v1/admin/audit-log",   get(routes::admin::get_audit_log))
         .route("/v1/admin/rate-limits", get(routes::admin::get_rate_limits))
         .with_state(state)
         .layer(cors)
         .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http());
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], port));
-    info!("registry.tsx.dev listening on http://{}", addr);
-
-    let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(
-        listener,
-        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
-    )
-    .await?;
-
-    Ok(())
+    // Shuttle handles binding + serving; ConnectInfo<SocketAddr> is supported
+    // because shuttle-axum uses make_service_with_connect_info internally.
+    Ok(app.into())
 }

@@ -2,6 +2,8 @@
 # Runtime data (tarballs, registry DB) — never committed
 data/
 .runtime/
+# Shuttle local dev secrets — never commit (contains real DB credentials)
+Secrets.dev.toml
 node_modules
 .DS_Store
 dist

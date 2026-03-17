@@ -7,137 +7,141 @@
 
 ## 1. Services Overview
 
-| Service | Stack | Host | URL target |
-|---------|-------|------|-----------|
-| `tsx-registry` (Rust API) | Axum + SQLx + PostgreSQL | Fly.io | `api.tsx.dev` |
-| `registry-web` (dashboard) | TanStack Start + Nitro | Vercel | `registry.tsx.dev` |
-| `docs` (documentation) | TanStack Start + MDX | Vercel | `docs.tsx.dev` |
-| PostgreSQL | Neon (serverless) | Neon cloud | (internal) |
-| Tarball storage | Fly.io persistent volume | Fly.io | `/data/tarballs/` |
+| Service | Stack | Host | URL |
+|---------|-------|------|-----|
+| `tsx-registry` (Rust API) | Axum + SQLx + Neon PostgreSQL | **Shuttle.dev** | `tsx-registry.shuttleapp.rs` |
+| `registry-web` (dashboard) | TanStack Start + Nitro | **Vercel** | `registry.tsx.dev` |
+| `docs` (documentation) | TanStack Start + MDX + Nitro | **Vercel** | `docs.tsx.dev` |
+| PostgreSQL | Neon serverless | Neon cloud | (internal) |
+| Tarball storage | Filesystem (Shuttle persistent) | Shuttle.dev | `/data/tarballs/` |
+
+> Shuttle free tier: 3 projects, shared infrastructure. No credit card required.
+> Upgrade to Shuttle Pro ($20/mo) for dedicated resources when traffic grows.
 
 ---
 
 ## 2. Environment Variables
 
-### 2.1 `crates/registry-server` (Fly.io secrets)
+### 2.1 `crates/registry-server` — Shuttle secrets
 
-```
-DATABASE_URL            postgresql://user:pass@neon-host/tsx_registry?sslmode=require
-TSX_REGISTRY_API_KEY    <random 32+ char secret>  — admin endpoints + CLI publish
-PORT                    8080  (set in fly.toml)
-DATA_DIR                /data  (set in fly.toml)
-LOG_FORMAT              json  — enables structured JSON output to Fly log drain
-```
+Shuttle reads from `Secrets.toml` (production) and `Secrets.dev.toml` (local dev, gitignored).
 
-Set with:
+Set production secrets with the CLI (**never hardcode in committed files**):
 
 ```sh
-fly secrets set DATABASE_URL="..." TSX_REGISTRY_API_KEY="..." LOG_FORMAT=json --app tsx-registry
+# Run from crates/registry-server/
+shuttle secret set DATABASE_URL "postgresql://neondb_owner:...@neon.tech/neondb?sslmode=require"
+shuttle secret set TSX_REGISTRY_API_KEY "your-strong-secret-here"
+shuttle secret set DATA_DIR "./data"
 ```
 
-### 2.2 `apps/registry-web` (Vercel environment)
+| Key | Required | Description |
+|-----|----------|-------------|
+| `DATABASE_URL` | yes | Neon PostgreSQL connection string |
+| `TSX_REGISTRY_API_KEY` | no | Admin + publish bearer token (open if unset) |
+| `DATA_DIR` | no | Tarball directory (default `./data`) |
+
+### 2.2 `apps/registry-web` — Vercel environment
+
+Set in Vercel project dashboard → Settings → Environment Variables:
 
 ```
-VITE_REGISTRY_URL       https://api.tsx.dev
-VITE_REGISTRY_API_KEY   <same value as TSX_REGISTRY_API_KEY>
-DATABASE_URL            <same Neon URL — for better-auth session tables only>
-BETTER_AUTH_SECRET      <random 32+ char secret>
-BETTER_AUTH_URL         https://registry.tsx.dev
+VITE_REGISTRY_URL      https://tsx-registry.shuttleapp.rs
+VITE_REGISTRY_API_KEY  <same value as TSX_REGISTRY_API_KEY>
+DATABASE_URL           <same Neon URL — better-auth session tables>
+BETTER_AUTH_SECRET     <random 32+ char secret>
+BETTER_AUTH_URL        https://registry.tsx.dev
 ```
 
-### 2.3 `apps/docs` (Vercel environment)
+### 2.3 `apps/docs` — Vercel environment
 
 ```
-VITE_REGISTRY_URL       https://api.tsx.dev
+VITE_REGISTRY_URL  https://tsx-registry.shuttleapp.rs
 ```
 
 ---
 
 ## 3. Database Setup (Neon)
 
-1. Create a Neon project: `tsx-registry` in region `us-east-1`.
-2. Copy the connection string (pooled endpoint) to all services that need `DATABASE_URL`.
-3. **Migrations are applied automatically** by `tsx-registry` at startup via `sqlx::migrate!`. No manual step needed for the registry tables.
-4. **better-auth tables** (sessions, users, accounts) are managed by the `registry-web` app via Drizzle at startup. These live in the same database but in separate tables.
-
+The Neon database is already provisioned. Connection string:
 ```
-migrations/
-├── 0001_initial_schema.sql   ← applied by tsx-registry on first boot
+postgresql://neondb_owner:...@ep-red-shadow-am07694x-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require
 ```
 
-> Never run `drizzle-kit push` against the production database for the
-> registry tables. Only `tsx-registry` binary owns those tables.
+- **Registry tables** (`packages`, `versions`, `download_logs`, `audit_log`) — created automatically by `tsx-registry` on first boot via `sqlx::migrate!`
+- **Auth tables** (`user`, `session`, `account`) — managed by `better-auth` in `registry-web`
+- Never run `drizzle-kit push` against registry tables; only `tsx-registry` owns them
 
 ---
 
-## 4. Fly.io — Registry Server
+## 4. Shuttle.dev — Registry Server
 
-### 4.1 First deploy
-
-```sh
-# From repo root
-fly launch --no-deploy --name tsx-registry --region iad
-fly volumes create tsx_registry_data --size 10 --region iad --app tsx-registry
-fly secrets set DATABASE_URL="..." TSX_REGISTRY_API_KEY="..." LOG_FORMAT=json --app tsx-registry
-fly deploy --app tsx-registry
-```
-
-### 4.2 Subsequent deploys
+### 4.1 Install Shuttle CLI
 
 ```sh
-fly deploy --app tsx-registry
+# Windows (PowerShell)
+iwr https://www.shuttle.dev/install-win | iex
+
+# macOS / Linux
+curl -sSfL https://www.shuttle.dev/install | bash
+
+# Verify
+shuttle --version
 ```
 
-The GitHub Actions `deploy-registry` job (see §8) handles this automatically on merge to `main`.
-
-### 4.3 `fly.toml` highlights
-
-```toml
-app = "tsx-registry"
-primary_region = "iad"
-
-[build]
-  dockerfile = "crates/registry-server/Dockerfile"
-
-[env]
-  PORT     = "8080"
-  DATA_DIR = "/data"
-
-[http_service]
-  internal_port = 8080
-  force_https   = true
-  auto_stop_machines  = "stop"
-  auto_start_machines = true
-  min_machines_running = 0
-
-  [http_service.concurrency]
-    type       = "connections"
-    hard_limit = 100
-    soft_limit = 80
-
-[[mounts]]
-  source      = "tsx_registry_data"
-  destination = "/data"
-
-[[vm]]
-  size   = "shared-cpu-1x"
-  memory = "256mb"
-```
-
-### 4.4 Health check
+### 4.2 Login and create project
 
 ```sh
-curl https://api.tsx.dev/health
+shuttle login                    # opens browser for GitHub OAuth
+shuttle project create tsx-registry   # one-time project creation
+```
+
+### 4.3 Configure secrets (production)
+
+```sh
+cd crates/registry-server
+shuttle secret set DATABASE_URL         "postgresql://neondb_owner:npg_...@neon.tech/neondb?sslmode=require"
+shuttle secret set TSX_REGISTRY_API_KEY "your-strong-secret"
+shuttle secret set DATA_DIR             "./data"
+```
+
+### 4.4 Local development
+
+`Secrets.dev.toml` (already created, gitignored) contains the Neon dev DB:
+
+```sh
+cd crates/registry-server
+shuttle run          # starts locally at http://localhost:8000
+```
+
+### 4.5 Deploy
+
+```sh
+cd crates/registry-server
+shuttle deploy       # builds from source, deploys to Shuttle cloud
+```
+
+The deployed URL will be: `https://tsx-registry.shuttleapp.rs`
+
+### 4.6 Health check
+
+```sh
+curl https://tsx-registry.shuttleapp.rs/health
 # → {"status":"ok","version":"0.1.0"}
 ```
 
-### 4.5 Scaling
+### 4.7 View logs
 
-When traffic grows beyond the shared-cpu-1x tier:
+```sh
+shuttle logs --follow --app tsx-registry
+```
 
-1. `fly scale vm shared-cpu-2x --app tsx-registry`
-2. `fly scale count 2 --app tsx-registry` for HA
-3. `min_machines_running = 1` to eliminate cold starts
+### 4.8 Scaling (Shuttle Pro)
+
+When traffic outgrows the free tier:
+1. Upgrade to Shuttle Pro: `shuttle upgrade`
+2. Dedicated CPU + memory
+3. Custom domain: `shuttle domain add api.tsx.dev --app tsx-registry`
 
 ---
 
@@ -152,18 +156,22 @@ npx vercel --prod
 
 Or connect the GitHub repo in Vercel dashboard:
 
-- **Framework preset**: Other (Vite + Nitro)
-- **Build command**: `bun --cwd apps/registry-web build`
-- **Output directory**: `apps/registry-web/dist`
-- **Install command**: `bun install` (run at repo root)
+- **Root directory**: `apps/registry-web`
+- **Framework preset**: Other
+- **Build command**: `NITRO_PRESET=vercel bun run build`
+- **Output directory**: `.vercel/output`
+- **Install command**: `bun install`
 
-### 5.2 Environment variables (Vercel dashboard)
+The `apps/registry-web/vercel.json` handles this automatically when Vercel imports the project.
 
-Add all variables from §2.2. Mark `BETTER_AUTH_SECRET` and `DATABASE_URL` as **Sensitive**.
+### 5.2 Custom domain
 
-### 5.3 Custom domain
+In Vercel project → Settings → Domains → Add `registry.tsx.dev`
 
-`registry.tsx.dev` → add as a custom domain in the Vercel project.
+### 5.3 Environment variables
+
+Add from §2.2 in Vercel project → Settings → Environment Variables.
+Mark `BETTER_AUTH_SECRET` and `DATABASE_URL` as **Sensitive**.
 
 ---
 
@@ -176,15 +184,16 @@ cd apps/docs
 npx vercel --prod
 ```
 
-Or in Vercel dashboard:
+Or in Vercel dashboard (second separate project):
 
-- **Build command**: `bun --cwd apps/docs build`
-- **Output directory**: `apps/docs/dist`
+- **Root directory**: `apps/docs`
+- **Build command**: `NITRO_PRESET=vercel bun run build`
+- **Output directory**: `.vercel/output`
 - **Install command**: `bun install`
 
 ### 6.2 Custom domain
 
-`docs.tsx.dev` → Vercel project settings → Domains.
+`docs.tsx.dev` → Vercel project → Settings → Domains.
 
 ---
 
@@ -192,38 +201,38 @@ Or in Vercel dashboard:
 
 ### Security
 
-- [ ] `TSX_REGISTRY_API_KEY` set in Fly.io secrets (never hardcoded)
+- [ ] `TSX_REGISTRY_API_KEY` set in Shuttle secrets (never in committed files)
 - [ ] `BETTER_AUTH_SECRET` set in Vercel (never committed)
-- [ ] Admin endpoints return 401 without API key (`require_admin_key` fails closed)
+- [ ] Admin endpoints return 401 without API key
 - [ ] DOMPurify sanitizes all README HTML before render
-- [ ] Rate limiter active (`RATE_LIMIT_MAX_REQUESTS=10/min` per IP)
-- [ ] `force_https = true` in fly.toml
-- [ ] CORS locked to known origins in Axum middleware
+- [ ] Rate limiter active (10 publishes/min per IP)
+- [ ] CORS configured (`allow_origin(Any)` acceptable for public read API)
 
 ### Data integrity
 
-- [ ] Neon DB created, connection string tested (`psql $DATABASE_URL -c '\dt'`)
-- [ ] `tsx-registry` starts and runs migrations on first boot (check logs)
-- [ ] Fly volume attached and `DATA_DIR=/data` accessible (`fly ssh console -a tsx-registry -C "ls /data"`)
-- [ ] Tarball slug format uses `@scope__name` (no collisions)
+- [ ] Neon DB connection tested: `psql $DATABASE_URL -c '\dt'`
+- [ ] `tsx-registry` starts, runs migrations, logs "Database migrations applied"
+- [ ] `DATA_DIR` writable: `shuttle logs` shows no directory errors
+- [ ] Tarball slug format `@scope__name` tested (no collisions)
 
 ### Functional smoke tests
 
 - [ ] `GET /health` → 200
-- [ ] `GET /v1/stats` → 200 with zero counts (fresh DB)
+- [ ] `GET /v1/stats` → 200 (zero counts on fresh DB)
 - [ ] Publish a test package via CLI: `tsx publish --api-key $KEY my-test-pkg`
-- [ ] Download the test package: `GET /v1/packages/my-test-pkg/1.0.0/tarball`
+- [ ] Download: `GET /v1/packages/my-test-pkg/1.0.0/tarball`
 - [ ] Search: `GET /v1/search?q=test`
-- [ ] Admin audit log: `GET /v1/admin/audit-log` with correct key → 200
+- [ ] Admin audit log with correct key → 200
 - [ ] Admin without key → 401
-- [ ] Registry web dashboard loads
+- [ ] Registry web dashboard loads and shows packages
 - [ ] OAuth login (GitHub) completes in `registry-web`
+- [ ] Docs site renders MDX pages
 
 ### Observability
 
-- [ ] Fly log drain configured (Papertrail / Axiom / Datadog)
-- [ ] `LOG_FORMAT=json` set — structured logs flowing
-- [ ] Uptime monitor pointing at `https://api.tsx.dev/health`
+- [ ] `shuttle logs` shows structured output
+- [ ] Uptime monitor pointing at `https://tsx-registry.shuttleapp.rs/health`
+- [ ] Vercel Analytics enabled for both apps
 
 ---
 
@@ -235,13 +244,11 @@ Or in Vercel dashboard:
 |-----|---------|-------------|
 | `rust` | push/PR | `cargo clippy --all`, `cargo fmt --check`, `cargo build --release -p tsx` |
 | `web` | push/PR | `bun install` (workspace), `bun --cwd apps/registry-web build`, `tsc --noEmit` |
-| `e2e` | push/PR | Playwright tests against `registry-web` |
-| `lighthouse` | push/PR | Lighthouse CI score gates |
+| `e2e` | push/PR | Playwright tests |
+| `lighthouse` | push/PR | Lighthouse CI |
 | `storybook` | push/PR | `bun run build-storybook` |
 
-### Add deploy jobs (recommended)
-
-Extend `ci.yml` with deploy steps gated on `main` branch and CI passing:
+### Add deploy jobs (on merge to `main`)
 
 ```yaml
 deploy-registry:
@@ -250,10 +257,10 @@ deploy-registry:
   runs-on: ubuntu-latest
   steps:
     - uses: actions/checkout@v4
-    - uses: superfly/flyctl-actions/setup-flyctl@master
-    - run: fly deploy --app tsx-registry --remote-only
-      env:
-        FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    - uses: shuttle-hq/deploy-action@main
+      with:
+        working-directory: crates/registry-server
+        shuttle-api-key: ${{ secrets.SHUTTLE_API_KEY }}
 
 deploy-registry-web:
   needs: [web, e2e]
@@ -261,10 +268,13 @@ deploy-registry-web:
   runs-on: ubuntu-latest
   steps:
     - uses: actions/checkout@v4
-    - run: npx vercel --prod --token ${{ secrets.VERCEL_TOKEN }}
-      env:
-        VERCEL_ORG_ID:     ${{ secrets.VERCEL_ORG_ID }}
-        VERCEL_PROJECT_ID: ${{ secrets.VERCEL_REGISTRY_WEB_PROJECT_ID }}
+    - uses: amondnet/vercel-action@v25
+      with:
+        vercel-token:   ${{ secrets.VERCEL_TOKEN }}
+        vercel-org-id:  ${{ secrets.VERCEL_ORG_ID }}
+        vercel-project-id: ${{ secrets.VERCEL_REGISTRY_WEB_PROJECT_ID }}
+        working-directory: apps/registry-web
+        vercel-args: '--prod'
 
 deploy-docs:
   needs: [web]
@@ -272,132 +282,166 @@ deploy-docs:
   runs-on: ubuntu-latest
   steps:
     - uses: actions/checkout@v4
-    - run: npx vercel --prod --token ${{ secrets.VERCEL_TOKEN }}
-      env:
-        VERCEL_ORG_ID:     ${{ secrets.VERCEL_ORG_ID }}
-        VERCEL_PROJECT_ID: ${{ secrets.VERCEL_DOCS_PROJECT_ID }}
+    - uses: amondnet/vercel-action@v25
+      with:
+        vercel-token:   ${{ secrets.VERCEL_TOKEN }}
+        vercel-org-id:  ${{ secrets.VERCEL_ORG_ID }}
+        vercel-project-id: ${{ secrets.VERCEL_DOCS_PROJECT_ID }}
+        working-directory: apps/docs
+        vercel-args: '--prod'
 ```
 
 ### Required GitHub secrets
 
-```
-FLY_API_TOKEN                 fly tokens create deploy -a tsx-registry
-VERCEL_TOKEN                  vercel tokens create
-VERCEL_ORG_ID                 vercel teams ls
-VERCEL_REGISTRY_WEB_PROJECT_ID  vercel project ls (registry-web project)
-VERCEL_DOCS_PROJECT_ID          vercel project ls (docs project)
-```
+| Secret | How to get |
+|--------|-----------|
+| `SHUTTLE_API_KEY` | `shuttle auth key` |
+| `VERCEL_TOKEN` | vercel.com → Account Settings → Tokens |
+| `VERCEL_ORG_ID` | `vercel teams ls` or `.vercel/project.json` |
+| `VERCEL_REGISTRY_WEB_PROJECT_ID` | `.vercel/project.json` in `apps/registry-web` |
+| `VERCEL_DOCS_PROJECT_ID` | `.vercel/project.json` in `apps/docs` |
 
 ---
 
 ## 9. Domain & DNS
 
 ```
-api.tsx.dev         CNAME  tsx-registry.fly.dev        (Fly.io)
-registry.tsx.dev    CNAME  cname.vercel-dns.com         (Vercel)
-docs.tsx.dev        CNAME  cname.vercel-dns.com         (Vercel)
-```
+tsx-registry.shuttleapp.rs   (auto-assigned by Shuttle, no DNS needed)
 
-All three domains enforced HTTPS via Fly (`force_https = true`) and Vercel (automatic).
+# Custom domain (after go-live):
+api.tsx.dev         CNAME  tsx-registry.shuttleapp.rs    (Shuttle custom domain)
+registry.tsx.dev    CNAME  cname.vercel-dns.com           (Vercel)
+docs.tsx.dev        CNAME  cname.vercel-dns.com           (Vercel)
+```
 
 ---
 
 ## 10. Rollback Procedure
 
-### Registry server rollback
+### Registry server (Shuttle)
 
 ```sh
-# List recent releases
-fly releases --app tsx-registry
+# List deployments
+shuttle deployment list --app tsx-registry
 
-# Roll back to previous image
-fly deploy --image registry.fly.io/tsx-registry:<previous-version> --app tsx-registry
+# Roll back to a specific deployment ID
+shuttle deployment redeploy <deployment-id> --app tsx-registry
 ```
 
-### Web app rollback
+### Web apps (Vercel)
 
-In Vercel dashboard → Deployments → click any previous deployment → **Promote to Production**.
+Vercel Dashboard → Project → Deployments → find previous → **Promote to Production**
 
-### Database rollback
+### Database
 
-There is no automated down-migration. If a schema change is breaking:
-
-1. Roll back the binary immediately (§above).
-2. Write a corrective forward migration (`000N_revert_<description>.sql`).
-3. Deploy the corrective migration with the next release.
-
-> Never delete or modify committed migration files. Only forward migrations.
+No automated down-migration. Procedure:
+1. Roll back binary immediately (above)
+2. Write a corrective forward migration `000N_revert_<description>.sql`
+3. Deploy with the next release
 
 ---
 
-## 11. Monitoring & Alerting
+## 11. Step-by-Step: First Deployment
 
-### Recommended setup
-
-| Tool | What to monitor | Alert on |
-|------|----------------|---------|
-| Fly.io metrics | CPU, memory, HTTP error rate | >5% 5xx for 5 min |
-| Uptime Robot (free) | `GET https://api.tsx.dev/health` | Any non-200 |
-| Neon console | DB connections, query latency | >100ms avg query |
-| Vercel Analytics | Web Vitals, error rate | LCP >2.5s, CLS >0.1 |
-
-### Structured log fields (JSON mode)
-
-```json
-{"level":"INFO","package":"my-pkg","version":"1.0.0","author":"alice","ip":"1.2.3.4","message":"Package published"}
-{"level":"WARN","ip":"1.2.3.4","count":11,"message":"Publish rate limit exceeded"}
-```
-
-Query in Fly log drain (Axiom example):
-
-```
-level="WARN" message="Publish rate limit exceeded"
-```
-
----
-
-## 12. Publish — CLI Release Process
-
-When the `tsx` CLI binary is ready for a new release:
+Run these commands in order:
 
 ```sh
-# Bump version in crates/cli/Cargo.toml
-# Tag the release
-git tag v0.2.0
-git push origin v0.2.0
-```
+# 1. Install tools (once)
+iwr https://www.shuttle.dev/install-win | iex    # Windows
+npm i -g vercel
 
-Add a `release` GitHub Actions job that:
+# 2. Shuttle: login + create project
+shuttle login
+cd crates/registry-server
+shuttle project create tsx-registry
 
-1. Runs `cargo build --release -p tsx --target x86_64-unknown-linux-musl`
-2. Cross-compiles for `aarch64-apple-darwin` and `x86_64-pc-windows-msvc`
-3. Uploads binaries to the GitHub release via `gh release create`
-4. Updates the `tsx.dev/install` script to point at the latest tag
+# 3. Set production secrets
+shuttle secret set DATABASE_URL         "postgresql://neondb_owner:npg_dpSjK8D9qBCl@ep-red-shadow-am07694x-pooler.c-5.us-east-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require"
+shuttle secret set TSX_REGISTRY_API_KEY "GENERATE_A_STRONG_SECRET_HERE"
+shuttle secret set DATA_DIR             "./data"
 
-### install.sh skeleton
+# 4. Deploy registry server
+shuttle deploy
+# → https://tsx-registry.shuttleapp.rs
 
-```sh
-#!/bin/sh
-VERSION="$(curl -sf https://api.github.com/repos/ateeq1999/tsx/releases/latest | grep tag_name | cut -d'"' -f4)"
-ARCH="$(uname -m)"
-OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
-curl -fsSL "https://github.com/ateeq1999/tsx/releases/download/${VERSION}/tsx-${OS}-${ARCH}" \
-  -o /usr/local/bin/tsx && chmod +x /usr/local/bin/tsx
+# 5. Smoke-test the API
+curl https://tsx-registry.shuttleapp.rs/health
+
+# 6. Deploy registry-web to Vercel
+cd ../../apps/registry-web
+vercel --prod
+# Set VITE_REGISTRY_URL=https://tsx-registry.shuttleapp.rs in Vercel dashboard
+
+# 7. Deploy docs to Vercel
+cd ../docs
+vercel --prod
+
+# 8. Add GitHub secrets for CI auto-deploy (§8 above)
 ```
 
 ---
 
-## 13. Post-Launch Backlog
+## 12. Monitoring & Observability
+
+| Tool | What | Alert on |
+|------|------|---------|
+| `shuttle logs --follow` | Structured JSON logs | Error volume spikes |
+| Uptime Robot (free) | `GET /health` every 5 min | Any non-200 |
+| Neon console | Query latency, connections | Latency > 200ms avg |
+| Vercel Analytics | Web Vitals | LCP > 2.5s, CLS > 0.1 |
+
+### Log query pattern (Shuttle JSON logs)
+
+```sh
+shuttle logs --app tsx-registry 2>&1 | grep '"level":"WARN"'
+```
+
+---
+
+## 13. CLI Binary Release
+
+When the `tsx` CLI is ready:
+
+```sh
+# Bump version
+sed -i 's/version = "0.1.0"/version = "0.2.0"/' crates/cli/Cargo.toml
+
+# Tag
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+Add a GitHub Actions `release` job:
+
+```yaml
+release:
+  if: startsWith(github.ref, 'refs/tags/v')
+  runs-on: ubuntu-latest
+  strategy:
+    matrix:
+      target: [x86_64-unknown-linux-musl, aarch64-apple-darwin, x86_64-pc-windows-msvc]
+  steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+      with: { targets: "${{ matrix.target }}" }
+    - run: cargo build --release -p tsx --target ${{ matrix.target }}
+    - uses: softprops/action-gh-release@v2
+      with:
+        files: target/${{ matrix.target }}/release/tsx*
+```
+
+---
+
+## 14. Post-Launch Backlog
 
 | Priority | Task | Notes |
 |----------|------|-------|
-| High | Rate limiter persistence in DB | Replace in-memory HashMap; prevents bypass via restart/IP rotation |
-| High | Prometheus `/metrics` endpoint | Add `axum-prometheus` crate; connect to Grafana Cloud |
+| High | Rate limiter persistence (DB) | Replace in-memory HashMap; survives restarts |
 | High | CLI binary release pipeline | GitHub Actions cross-compile + GitHub Releases |
-| Medium | `utoipa` OpenAPI annotations | Auto-generate `packages/api-types/src/index.ts` |
-| Medium | `cargo test -p tsx-registry` CI | Needs test DB in CI (Neon branch per PR, or Docker pg) |
-| Medium | Package ownership transfer API | `PATCH /v1/packages/:name/owner` endpoint |
-| Medium | Tarball CDN (Cloudflare R2) | Move off Fly volume; enable CDN caching for downloads |
-| Low | Download stats webhook | Notify authors on milestone download counts |
+| High | Tarball CDN (Cloudflare R2) | Move off Shuttle local disk; free 10 GB/mo |
+| Medium | Prometheus `/metrics` endpoint | `axum-prometheus` crate → Grafana Cloud |
+| Medium | `utoipa` OpenAPI annotations | Auto-generate `packages/api-types` types |
+| Medium | `cargo test -p tsx-registry` in CI | Needs Neon branch DB per PR |
+| Medium | Package ownership transfer API | `PATCH /v1/packages/:name/owner` |
+| Low | Download stats webhook | Notify authors on milestone counts |
 | Low | Package deprecation flag | Soft-delete with redirect to successor |
-| Low | `better-auth` email magic-link | Replace GitHub-only OAuth with email fallback |
+| Low | better-auth email magic-link | Email fallback for GitHub OAuth |

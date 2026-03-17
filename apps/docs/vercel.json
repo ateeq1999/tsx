@@ -1,6 +1,10 @@
 {
   "framework": null,
   "installCommand": "bun install",
-  "buildCommand": "bun run build",
-  "outputDirectory": "dist"
+  "buildCommand": "NITRO_PRESET=vercel bun run build",
+  "outputDirectory": ".vercel/output",
+  "env": {
+    "NITRO_PRESET": "vercel",
+    "VITE_REGISTRY_URL": "https://tsx-registry.shuttleapp.rs"
+  }
 }
