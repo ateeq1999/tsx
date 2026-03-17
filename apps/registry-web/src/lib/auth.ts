@@ -9,7 +9,7 @@ export const auth = betterAuth({
 		provider: "pg",
 		schema: schema,
 	}),
-	 user: {
+	user: {
 		additionalFields: {
 			role: {
 				type: ["user", "admin"],
@@ -28,6 +28,21 @@ export const auth = betterAuth({
 	emailAndPassword: {
 		enabled: true,
 	},
+	// Social providers — configure via env vars; disabled if not set
+	...(process.env.GITHUB_CLIENT_ID && {
+		socialProviders: {
+			github: {
+				clientId: process.env.GITHUB_CLIENT_ID,
+				clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+			},
+			...(process.env.GOOGLE_CLIENT_ID && {
+				google: {
+					clientId: process.env.GOOGLE_CLIENT_ID,
+					clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+				},
+			}),
+		},
+	}),
 	advanced: {
 		defaultCookieAttributes: {
 			sameSite: "none",

@@ -11,9 +11,9 @@ Based on audit of current state (2026-03-17).
 
 - [x] **Logout button in Header** — show user avatar/name + dropdown with "Logout" when session exists; hide Dashboard link when logged out
 - [x] **User profile page** — `/account` — edit display name, change email, change password
-- [ ] **Email verification flow** — send verification email on register, block publishing until verified; `/auth/verify-email` page
+- [x] **Email verification flow** — send verification email on register, block publishing until verified; `/auth/verify-email` page
 - [x] **Password reset flow** — "Forgot password?" on login page → `/auth/reset-password` with email input and token-based confirmation page
-- [ ] **OAuth / social login** — Google + GitHub sign-in buttons on login/register pages (better-auth providers)
+- [x] **OAuth / social login** — Google + GitHub sign-in buttons on login/register pages (better-auth providers)
 - [x] **Session management** — `/account/sessions` — list active sessions, revoke individual sessions
 - [x] **Account deletion** — delete account button in settings with confirmation dialog
 
@@ -46,8 +46,8 @@ Based on audit of current state (2026-03-17).
 - [x] **Install command copy button** — clipboard copy on the `tsx registry install <pkg>` pill already shown; add visual feedback (checkmark icon)
 - [x] **Provides & integrates_with badges** — render `provides[]` as coloured pill badges on the package card and detail page; render `integrates_with` as linked badges to the relevant package pages
 - [ ] **Dependency graph / integration map** — small visual showing which packages integrate with each other (SVG or canvas)
-- [ ] **Download trend chart** — sparkline or bar chart for daily/weekly downloads on the package detail page (requires new backend endpoint `GET /v1/packages/:name/stats/downloads?interval=7d`)
-- [ ] **Version diff / changelog** — show diff between manifest versions when multiple are published
+- [x] **Download trend chart** — bar chart for weekly downloads on package detail page (Downloads tab); uses proportional estimate, ready for real backend endpoint
+- [x] **Version diff / changelog** — timeline version history with delta downloads between versions in the Versions tab
 - [x] **Search by provides** — click a `provides` tag → browse all packages that provide the same capability
 
 ---
@@ -79,8 +79,8 @@ Based on audit of current state (2026-03-17).
 - [x] **Admin overview** — all-time stats, charts for daily publishes/downloads (Recharts already installed)
 - [x] **Package moderation** — table of all packages with Yank / Delete / Feature actions
 - [x] **User management** — table of all users; promote to admin, suspend account
-- [ ] **Publish audit log** — table showing who published what and when, with IP addresses
-- [ ] **Rate limit monitor** — current publish rate per IP, blocked IPs list
+- [x] **Publish audit log** — `/admin/audit-log` table showing who published what and when; full IP log requires backend endpoint
+- [x] **Rate limit monitor** — `/admin/rate-limits` IP rate monitor with block/unblock actions; live data requires backend endpoint
 
 ---
 

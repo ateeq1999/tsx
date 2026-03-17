@@ -49,11 +49,13 @@ function AdminPackagesPage() {
       </div>
 
       {/* Nav */}
-      <div className="mb-6 flex gap-3">
+      <div className="mb-6 flex flex-wrap gap-2">
         {[
           { to: "/admin", label: "Overview" },
           { to: "/admin/packages", label: "Packages" },
           { to: "/admin/users", label: "Users" },
+          { to: "/admin/audit-log", label: "Audit Log" },
+          { to: "/admin/rate-limits", label: "Rate Limits" },
         ].map(({ to, label }) => (
           <Link
             key={to}

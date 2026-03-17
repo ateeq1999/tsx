@@ -1,7 +1,7 @@
 import { createFileRoute, notFound, Link } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import { marked } from "marked"
-import { Check, Clock, Copy, Download, Tag, User } from "lucide-react"
+import { Check, Clock, Copy, Download, Tag, User, TrendingUp } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import hljs from "highlight.js/lib/core"
 import hljsTs from "highlight.js/lib/languages/typescript"
@@ -10,6 +10,7 @@ import hljsBash from "highlight.js/lib/languages/bash"
 import hljsJson from "highlight.js/lib/languages/json"
 import hljsRust from "highlight.js/lib/languages/rust"
 import "highlight.js/styles/github.css"
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts"
 
 hljs.registerLanguage("typescript", hljsTs)
 hljs.registerLanguage("javascript", hljsJs)
@@ -70,6 +71,16 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
+// Generate synthetic weekly download trend from total download count
+function buildTrendData(total: number) {
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+  const weights = [0.12, 0.18, 0.16, 0.20, 0.17, 0.08, 0.09]
+  return days.map((day, i) => ({
+    day,
+    downloads: Math.round((total / 7) * weights[i] * 7),
+  }))
+}
+
 function PackageDetailPage() {
   const { name } = Route.useParams()
   const { data: pkg } = usePackage(name)
@@ -78,6 +89,7 @@ function PackageDetailPage() {
   const readmeRef = useRef<HTMLDivElement>(null)
 
   const readmeHtml = readme ? marked.parse(readme) as string : null
+  const trendData = pkg ? buildTrendData(pkg.download_count) : []
 
   useEffect(() => {
     const el = readmeRef.current
@@ -128,6 +140,10 @@ function PackageDetailPage() {
           <TabsList className="mb-4">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="versions">Versions</TabsTrigger>
+            <TabsTrigger value="downloads">
+              <TrendingUp className="mr-1 size-3.5" />
+              Downloads
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -149,24 +165,54 @@ function PackageDetailPage() {
 
           <TabsContent value="versions">
             <div className="island-shell rounded-xl p-6">
-              <h2 className="mb-4 font-bold" style={{ color: "var(--sea-ink)" }}>Versions</h2>
+              <h2 className="mb-4 font-bold" style={{ color: "var(--sea-ink)" }}>Version history</h2>
               {versions ? (
-                <div className="space-y-2">
-                  {versions.map((v) => (
-                    <div
-                      key={v.version}
-                      className="flex items-center justify-between text-sm"
-                      style={{ borderBottom: "1px solid var(--line)", paddingBottom: "8px" }}
-                    >
-                      <span className="font-mono font-bold" style={{ color: "var(--sea-ink)" }}>
-                        v{v.version}
-                      </span>
-                      <div className="flex items-center gap-4" style={{ color: "var(--sea-ink-soft)" }}>
-                        <span>{v.download_count.toLocaleString()} downloads</span>
-                        <span>{new Date(v.published_at).toLocaleDateString()}</span>
+                <div className="space-y-0">
+                  {versions.map((v, idx) => {
+                    const isLatest = idx === 0
+                    const prev = versions[idx + 1]
+                    const dlDelta = prev ? v.download_count - prev.download_count : null
+                    return (
+                      <div
+                        key={v.version}
+                        className="flex items-start gap-4 py-4 text-sm"
+                        style={{ borderBottom: "1px solid var(--line)" }}
+                      >
+                        <div className="flex flex-col items-center pt-0.5">
+                          <div
+                            className="size-2.5 rounded-full"
+                            style={{ background: isLatest ? "var(--lagoon)" : "var(--line)" }}
+                          />
+                          {idx < versions.length - 1 && (
+                            <div className="mt-1 w-px flex-1" style={{ background: "var(--line)", minHeight: "24px" }} />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono font-bold" style={{ color: "var(--sea-ink)" }}>
+                              v{v.version}
+                            </span>
+                            {isLatest && (
+                              <span
+                                className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                                style={{ background: "var(--lagoon)", color: "#fff" }}
+                              >
+                                latest
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-0.5 text-xs" style={{ color: "var(--sea-ink-soft)" }}>
+                            Published {new Date(v.published_at).toLocaleDateString()}
+                            {" · "}
+                            {v.download_count.toLocaleString()} downloads
+                            {dlDelta !== null && dlDelta > 0 && (
+                              <span style={{ color: "var(--lagoon-deep)" }}> (+{dlDelta.toLocaleString()} over prev)</span>
+                            )}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -175,6 +221,33 @@ function PackageDetailPage() {
                   ))}
                 </div>
               )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="downloads">
+            <div className="island-shell rounded-xl p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="font-bold" style={{ color: "var(--sea-ink)" }}>Download trend</h2>
+                <span className="text-xs" style={{ color: "var(--sea-ink-soft)" }}>Last 7 days (estimated)</span>
+              </div>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={trendData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
+                  <XAxis dataKey="day" tick={{ fontSize: 11, fill: "var(--sea-ink-soft)" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "var(--sea-ink-soft)" }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{ background: "var(--surface-strong)", border: "1px solid var(--line)", borderRadius: "8px", fontSize: 12 }}
+                    labelStyle={{ color: "var(--sea-ink)", fontWeight: 600 }}
+                    itemStyle={{ color: "var(--lagoon-deep)" }}
+                  />
+                  <Bar dataKey="downloads" fill="var(--lagoon)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+              <p className="mt-4 text-xs" style={{ color: "var(--sea-ink-soft)" }}>
+                Per-day download data requires a backend endpoint
+                (<code>GET /v1/packages/{"{name}"}/stats/downloads</code>).
+                Chart uses a proportional estimate from total downloads.
+              </p>
             </div>
           </TabsContent>
         </Tabs>
