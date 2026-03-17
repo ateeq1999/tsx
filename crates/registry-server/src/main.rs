@@ -21,13 +21,14 @@
 //! | GET    | /v1/admin/audit-log                           | Publish audit log              |
 //! | GET    | /v1/admin/rate-limits                         | Rate limit status per IP       |
 //!
-//! # Secrets (Shuttle `Secrets.toml` / `Secrets.dev.toml`)
+//! # Environment variables
 //!
-//! | Key                    | Required | Description                                      |
+//! | Variable               | Required | Description                                      |
 //! |------------------------|----------|--------------------------------------------------|
 //! | `DATABASE_URL`         | yes      | Neon PostgreSQL connection string                |
 //! | `TSX_REGISTRY_API_KEY` | no       | Bearer token for admin + publish (open if unset) |
 //! | `DATA_DIR`             | no       | Tarball storage path (default `./data`)          |
+//! | `PORT`                 | no       | Listen port (default 8080, Railway sets this)    |
 
 mod db;
 mod routes;
@@ -47,6 +48,7 @@ use std::{
     sync::Arc,
     time::Instant,
 };
+use tokio::net::TcpListener;
 use tower_http::{
     compression::CompressionLayer,
     cors::{Any, CorsLayer},
@@ -65,25 +67,31 @@ pub struct AppState {
     pub rate_limiter: std::sync::Mutex<HashMap<std::net::IpAddr, (u32, Instant)>>,
 }
 
-/// Shuttle entry point.
-///
-/// Shuttle owns the TCP listener, TLS, and tracing subscriber — we only build
-/// the `axum::Router` and return it.  Configuration is read from the project's
-/// `Secrets.toml` (production) / `Secrets.dev.toml` (local dev) files.
-#[shuttle_runtime::main]
-async fn main(
-    #[shuttle_runtime::Secrets] secrets: shuttle_runtime::SecretStore,
-) -> shuttle_axum::ShuttleAxum {
-    // ── Config from secrets ────────────────────────────────────────────────
-    let database_url = secrets
-        .get("DATABASE_URL")
-        .expect("DATABASE_URL must be set in Secrets.toml / Secrets.dev.toml");
+#[tokio::main]
+async fn main() {
+    // ── Logging ────────────────────────────────────────────────────────────
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "tsx_registry=info,tower_http=info".into()),
+        )
+        .json()
+        .init();
+
+    // ── Config from environment ────────────────────────────────────────────
+    let database_url = std::env::var("DATABASE_URL")
+        .expect("DATABASE_URL must be set");
 
     let data_dir = PathBuf::from(
-        secrets.get("DATA_DIR").unwrap_or_else(|| "./data".to_string()),
+        std::env::var("DATA_DIR").unwrap_or_else(|_| "./data".to_string()),
     );
 
-    let api_key = secrets.get("TSX_REGISTRY_API_KEY");
+    let api_key = std::env::var("TSX_REGISTRY_API_KEY").ok();
+
+    let port: u16 = std::env::var("PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(8080);
 
     // ── Storage directories ────────────────────────────────────────────────
     tokio::fs::create_dir_all(&data_dir).await
@@ -156,7 +164,12 @@ async fn main(
         .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http());
 
-    // Shuttle handles binding + serving; ConnectInfo<SocketAddr> is supported
-    // because shuttle-axum uses make_service_with_connect_info internally.
-    Ok(app.into())
+    // ── Listener ───────────────────────────────────────────────────────────
+    let addr = format!("0.0.0.0:{port}");
+    let listener = TcpListener::bind(&addr).await
+        .expect("Failed to bind TCP listener");
+
+    info!(addr, "Registry server listening");
+    axum::serve(listener, app).await
+        .expect("Server error");
 }

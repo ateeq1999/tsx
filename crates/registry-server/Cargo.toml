@@ -13,14 +13,9 @@ path = "src/main.rs"
 [dependencies]
 tsx-shared = { path = "../shared", version = "0.1.0" }
 
-# ── Shuttle runtime (replaces standalone tokio::main + TcpListener) ───────────
-shuttle-runtime = "0.57.0"
-shuttle-axum    = "0.57.0"
-
 # ── Web framework ─────────────────────────────────────────────────────────────
 axum  = { version = "0.8", features = ["multipart"] }
-# tokio still needed for tokio::fs, Mutex, etc.
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util", "net"] }
 
 # ── Serialisation ─────────────────────────────────────────────────────────────
 serde      = { version = "1", features = ["derive"] }
@@ -43,8 +38,8 @@ chrono = { version = "0.4", features = ["serde"] }
 tower-http = { version = "0.6", features = ["cors", "trace", "compression-gzip"] }
 
 # ── Observability ─────────────────────────────────────────────────────────────
-# NOTE: tracing-subscriber is NOT initialised manually; Shuttle owns that.
-tracing = "0.1"
+tracing            = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 uuid       = { version = "1", features = ["v4"] }
