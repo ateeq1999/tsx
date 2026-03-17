@@ -664,6 +664,13 @@ fn err404(msg: impl Into<String>) -> (StatusCode, Json<Value>) {
     )
 }
 
+fn err400(msg: impl Into<String>) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(serde_json::to_value(ApiError::new(msg)).expect("BUG: serialization of known types cannot fail")),
+    )
+}
+
 fn err403(msg: impl Into<String>) -> (StatusCode, Json<Value>) {
     (
         StatusCode::FORBIDDEN,

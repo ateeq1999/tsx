@@ -1,0 +1,33 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO packages (name, slug, description, author_id, author_name, license, tsx_min,\n                              tags, lang, runtime, provides, integrates, published_at, updated_at)\n        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())\n        ON CONFLICT(name) DO UPDATE SET\n            description  = EXCLUDED.description,\n            author_id    = COALESCE(EXCLUDED.author_id, packages.author_id),\n            author_name  = CASE WHEN EXCLUDED.author_name = '' THEN packages.author_name ELSE EXCLUDED.author_name END,\n            license      = EXCLUDED.license,\n            tsx_min      = EXCLUDED.tsx_min,\n            tags         = EXCLUDED.tags,\n            lang         = EXCLUDED.lang,\n            runtime      = EXCLUDED.runtime,\n            provides     = EXCLUDED.provides,\n            integrates   = EXCLUDED.integrates,\n            updated_at   = NOW()\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "9b592bfda23867de936dc5f5bfead2ca16d77e70fe116b4b64894ba347ca62b8"
+}

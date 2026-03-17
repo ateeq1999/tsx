@@ -17,10 +17,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Run tests
-        run: cargo test
+        run: SQLX_OFFLINE=true cargo test
 
       - name: Build release
-        run: cargo build --release -p tsx
+        run: SQLX_OFFLINE=true cargo build --release -p tsx
 
       - name: Check binary size
         shell: bash

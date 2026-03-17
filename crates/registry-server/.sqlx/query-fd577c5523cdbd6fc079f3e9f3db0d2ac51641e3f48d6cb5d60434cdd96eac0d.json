@@ -1,0 +1,118 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, name, slug, description, author_id, author_name, license, tsx_min,\n                  tags, lang, runtime, provides, integrates, readme, downloads,\n                  published_at, updated_at\n           FROM packages\n           ORDER BY updated_at DESC\n           LIMIT $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "slug",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "author_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "author_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "license",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "tsx_min",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "tags",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 9,
+        "name": "lang",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 10,
+        "name": "runtime",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 11,
+        "name": "provides",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 12,
+        "name": "integrates",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 13,
+        "name": "readme",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 14,
+        "name": "downloads",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 15,
+        "name": "published_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 16,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "fd577c5523cdbd6fc079f3e9f3db0d2ac51641e3f48d6cb5d60434cdd96eac0d"
+}

@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            DATE(downloaded_at)::TEXT AS \"date!\",\n            COUNT(*)::BIGINT          AS \"downloads!\"\n        FROM download_logs\n        WHERE package_id = $1\n          AND downloaded_at >= NOW() - ($2::BIGINT || ' days')::INTERVAL\n        GROUP BY DATE(downloaded_at)\n        ORDER BY DATE(downloaded_at) ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "date!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "downloads!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "a28c1f345c95e1d1d58b57da074b7234de25a019e7b34158f45fbff5049ab933"
+}

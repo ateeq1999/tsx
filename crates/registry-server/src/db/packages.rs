@@ -218,7 +218,7 @@ pub async fn get_package_by_id(pool: &PgPool, id: i64) -> Result<Option<PackageR
 }
 
 pub async fn get_versions(pool: &PgPool, pkg_id: i64) -> Result<Vec<VersionRow>> {
-    let mut rows = sqlx::query_as!(
+    let rows = sqlx::query_as!(
         VersionRow,
         r#"SELECT id, version, manifest as "manifest: sqlx::types::JsonValue",
                   checksum, size_bytes, tarball_path, download_count, yanked, published_at
@@ -318,18 +318,17 @@ pub async fn search(
     };
 
     let total: i64 = if let Some(l) = lang {
-        sqlx::query_scalar(count_sql)
+        sqlx::query_scalar::<_, i64>(count_sql)
             .bind(&like)
             .bind(vec![l.to_lowercase()])
             .fetch_one(pool)
             .await?
     } else {
-        sqlx::query_scalar(count_sql)
+        sqlx::query_scalar::<_, i64>(count_sql)
             .bind(&like)
             .fetch_one(pool)
             .await?
-    }
-    .unwrap_or(0);
+    };
 
     let data_sql = format!(
         r#"SELECT id, name, slug, description, author_id, author_name, license, tsx_min,

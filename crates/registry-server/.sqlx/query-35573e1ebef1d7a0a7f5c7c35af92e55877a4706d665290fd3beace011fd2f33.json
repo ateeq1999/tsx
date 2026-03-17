@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO versions (package_id, version, manifest, checksum, size_bytes, tarball_path, published_at)\n        VALUES ($1, $2, $3, $4, $5, $6, NOW())\n        ON CONFLICT(package_id, version) DO UPDATE SET\n            manifest     = EXCLUDED.manifest,\n            checksum     = EXCLUDED.checksum,\n            size_bytes   = EXCLUDED.size_bytes,\n            tarball_path = EXCLUDED.tarball_path\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Jsonb",
+        "Text",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "35573e1ebef1d7a0a7f5c7c35af92e55877a4706d665290fd3beace011fd2f33"
+}

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE versions SET yanked = TRUE WHERE package_id = $1 AND version = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f311ecfb53c7bebac065fc3f24b971fab67dfd2cccc6cf7cae471315d33cf8a0"
+}

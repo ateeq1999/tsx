@@ -8,11 +8,11 @@ pub use auth::{AuthUser, validate_session_token};
 pub use audit::{insert_audit, get_audit_log};
 pub use downloads::{increment_downloads, get_download_stats};
 pub use packages::{
-    PackageRow, VersionRow, UpsertPkg, UpsertVersion,
+    UpsertPkg, UpsertVersion,
     upsert_package, upsert_version,
-    get_package, get_package_by_id,
+    get_package,
     get_versions, get_tarball_path,
-    get_recent, search,
+    get_recent, get_latest_version, search,
     update_readme, update_description, yank_version, delete_package,
 };
 pub use stats::get_stats;
