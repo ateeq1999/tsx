@@ -59,6 +59,7 @@ const sidebar = [
     group: "Resources",
     links: [
       { to: "/docs/examples", label: "Examples", file: "docs/examples.tsx" },
+      { to: "/docs/packages", label: "Official Packages", file: "docs/packages.tsx" },
       { to: "/docs/troubleshooting", label: "Troubleshooting", file: "docs/troubleshooting.tsx" },
     ],
   },

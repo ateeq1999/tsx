@@ -244,6 +244,42 @@ function LandingPage() {
         </div>
       </section>
 
+      {/* Featured packages */}
+      <section className="page-wrap pb-16">
+        <h2 className="mb-8 text-center text-2xl font-bold" style={{ color: "var(--sea-ink)" }}>
+          Official packages
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            { name: "@tsx-pkg/with-auth", icon: "🔐", desc: "Better-auth integration with protected routes, session management, login and register UI." },
+            { name: "@tsx-pkg/tanstack-start", icon: "⚡", desc: "Full TanStack Start scaffold: router, query client, server functions, env validation." },
+            { name: "@tsx-pkg/drizzle-postgres", icon: "🗄️", desc: "Drizzle ORM + Postgres setup with migration scripts and a starter schema." },
+            { name: "@tsx-pkg/with-shadcn", icon: "🎨", desc: "shadcn/ui component library: Tailwind config, globals CSS, and 10 starter components." },
+            { name: "@tsx-pkg/basic-crud", icon: "📋", desc: "CRUD pattern with TanStack Query, Drizzle table, server functions, and optimistic UI." },
+            { name: "@tsx-pkg/full-saas", icon: "🚀", desc: "Batteries-included SaaS starter: auth, billing stubs, org model, and RBAC." },
+          ].map(({ name, icon, desc }) => (
+            <Link
+              key={name}
+              to="/packages/$name"
+              params={{ name }}
+              className="feature-card rounded-xl p-5 hover:no-underline"
+            >
+              <div className="mb-3 flex items-center gap-3">
+                <span className="text-2xl">{icon}</span>
+                <span className="font-mono text-sm font-bold" style={{ color: "var(--sea-ink)" }}>{name}</span>
+              </div>
+              <p className="text-xs leading-relaxed" style={{ color: "var(--sea-ink-soft)" }}>{desc}</p>
+              <span
+                className="mt-3 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                style={{ background: "var(--lagoon)", color: "#fff" }}
+              >
+                official
+              </span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
       {/* Recent packages */}
       {recent && recent.length > 0 && (
         <section className="page-wrap pb-24">

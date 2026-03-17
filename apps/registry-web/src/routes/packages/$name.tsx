@@ -1,8 +1,21 @@
-import { createFileRoute, notFound } from "@tanstack/react-router"
+import { createFileRoute, notFound, Link } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import { marked } from "marked"
 import { Check, Clock, Copy, Download, Tag, User } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
+import hljs from "highlight.js/lib/core"
+import hljsTs from "highlight.js/lib/languages/typescript"
+import hljsJs from "highlight.js/lib/languages/javascript"
+import hljsBash from "highlight.js/lib/languages/bash"
+import hljsJson from "highlight.js/lib/languages/json"
+import hljsRust from "highlight.js/lib/languages/rust"
+import "highlight.js/styles/github.css"
+
+hljs.registerLanguage("typescript", hljsTs)
+hljs.registerLanguage("javascript", hljsJs)
+hljs.registerLanguage("bash", hljsBash)
+hljs.registerLanguage("json", hljsJson)
+hljs.registerLanguage("rust", hljsRust)
 import {
   packageQueryOptions,
   packageVersionsQueryOptions,
@@ -62,10 +75,20 @@ function PackageDetailPage() {
   const { data: pkg } = usePackage(name)
   const { data: versions } = useQuery(packageVersionsQueryOptions(name))
   const { data: readme } = useQuery(packageReadmeQueryOptions(name))
-
-  if (!pkg) return null
+  const readmeRef = useRef<HTMLDivElement>(null)
 
   const readmeHtml = readme ? marked.parse(readme) as string : null
+
+  useEffect(() => {
+    const el = readmeRef.current
+    if (!el || !readmeHtml) return
+    el.querySelectorAll("pre code").forEach((block) => {
+      if (block.getAttribute("data-highlighted")) return
+      hljs.highlightElement(block as HTMLElement)
+    })
+  }, [readmeHtml])
+
+  if (!pkg) return null
 
   return (
     <div className="page-wrap py-12 rise-in">
@@ -110,6 +133,7 @@ function PackageDetailPage() {
           <TabsContent value="overview">
             {readmeHtml ? (
               <div
+                ref={readmeRef}
                 className="island-shell rounded-xl p-6 doc-content"
                 dangerouslySetInnerHTML={{ __html: readmeHtml }}
               />

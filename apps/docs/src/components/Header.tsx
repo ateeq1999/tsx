@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router"
 import { ThemeToggle } from "./ThemeToggle"
+import { DocSearch, DocSearchTrigger } from "./DocSearch"
 import { BookOpen } from "lucide-react"
 
 export function Header() {
@@ -34,8 +35,10 @@ export function Header() {
           </a>
         </nav>
 
+        <DocSearchTrigger />
         <ThemeToggle />
       </div>
     </header>
+    <DocSearch />
   )
 }

@@ -14,6 +14,7 @@ import { Footer } from "@/components/Footer"
 import TanStackQueryProvider from "@/integrations/tanstack-query/root-provider"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
 
+import "@/env" // validate env vars at startup
 import appCss from "@/styles.css?url"
 
 import type { QueryClient } from "@tanstack/react-query"

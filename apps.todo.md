@@ -42,13 +42,13 @@ Based on audit of current state (2026-03-17).
 ### D — Package Detail Enhancements
 
 - [x] **README rendering** — fetch README from tarball on the package detail page and render as HTML with a markdown parser (e.g. `marked` or `micromark`); tabbed layout: Overview (README) / Versions / Install
-- [ ] **Syntax highlighting in README** — use `highlight.js` or `shiki` for fenced code blocks in rendered markdown
+- [x] **Syntax highlighting in README** — use `highlight.js` or `shiki` for fenced code blocks in rendered markdown
 - [x] **Install command copy button** — clipboard copy on the `tsx registry install <pkg>` pill already shown; add visual feedback (checkmark icon)
 - [x] **Provides & integrates_with badges** — render `provides[]` as coloured pill badges on the package card and detail page; render `integrates_with` as linked badges to the relevant package pages
 - [ ] **Dependency graph / integration map** — small visual showing which packages integrate with each other (SVG or canvas)
 - [ ] **Download trend chart** — sparkline or bar chart for daily/weekly downloads on the package detail page (requires new backend endpoint `GET /v1/packages/:name/stats/downloads?interval=7d`)
 - [ ] **Version diff / changelog** — show diff between manifest versions when multiple are published
-- [ ] **Search by provides** — click a `provides` tag → browse all packages that provide the same capability
+- [x] **Search by provides** — click a `provides` tag → browse all packages that provide the same capability
 
 ---
 
@@ -66,7 +66,7 @@ Based on audit of current state (2026-03-17).
 
 - [x] **Hero install command** — animated terminal showing `cargo install tsx` → `tsx registry install tanstack-start` with blinking cursor
 - [x] **Stats counters** — animate the numbers (total packages, downloads, versions) counting up on scroll-into-view
-- [ ] **Featured packages section** — curated grid of 6 official `@tsx-pkg/*` packages with icons
+- [x] **Featured packages section** — curated grid of 6 official `@tsx-pkg/*` packages with icons
 - [x] **"How it works" section** — 3-step visual: 1 Install CLI → 2 Add a package → 3 Run a generator
 - [ ] **Examples gallery section** — link to `examples/` with screenshots or code previews
 - [ ] **"Built with tsx" / showcase** — community-submitted projects using tsx packages
@@ -75,10 +75,10 @@ Based on audit of current state (2026-03-17).
 
 ### G — Admin Dashboard (Role-Gated)
 
-- [ ] **Role guard middleware** — `/_protected/admin` — only accessible if `user.role === "admin"`; 403 page otherwise
-- [ ] **Admin overview** — all-time stats, charts for daily publishes/downloads (Recharts already installed)
-- [ ] **Package moderation** — table of all packages with Yank / Delete / Feature actions
-- [ ] **User management** — table of all users; promote to admin, suspend account
+- [x] **Role guard middleware** — `/_protected/admin` — only accessible if `user.role === "admin"`; 403 page otherwise
+- [x] **Admin overview** — all-time stats, charts for daily publishes/downloads (Recharts already installed)
+- [x] **Package moderation** — table of all packages with Yank / Delete / Feature actions
+- [x] **User management** — table of all users; promote to admin, suspend account
 - [ ] **Publish audit log** — table showing who published what and when, with IP addresses
 - [ ] **Rate limit monitor** — current publish rate per IP, blocked IPs list
 
@@ -93,7 +93,7 @@ Based on audit of current state (2026-03-17).
 - [x] **Toast notifications** — use `sonner` (already installed) for publish success/fail, copy-to-clipboard, auth events
 - [x] **Keyboard shortcuts** — `/` focuses search bar on browse page; `Escape` clears search
 - [x] **SEO / meta tags** — `<title>`, `<meta description>`, Open Graph tags per route (TanStack Start `<Head>`)
-- [ ] **Sitemap + robots.txt** — generate `/sitemap.xml` listing all package pages for search engine indexing
+- [x] **Sitemap + robots.txt** — generate `/sitemap.xml` listing all package pages for search engine indexing
 - [ ] **PWA manifest** — `manifest.webmanifest` + service worker for offline browsing of cached package pages
 
 ---
@@ -164,12 +164,12 @@ Based on audit of current state (2026-03-17).
 - [x] **Breadcrumb navigation** — `Docs > CLI > tsx install` breadcrumb trail above page heading
 - [x] **"Edit on GitHub" link** — per-page link to the source file in the repo
 - [x] **Prev / Next page navigation** — footer navigation between adjacent sidebar pages
-- [ ] **Doc search** — integrate `pagefind` or `fuse.js` full-text search across all doc pages; `Cmd+K` opens command palette
+- [x] **Doc search** — integrate `pagefind` or `fuse.js` full-text search across all doc pages; `Cmd+K` opens command palette
 - [ ] **Versioned docs** — version selector in Header (once CLI has multiple major versions)
 - [ ] **MDX support** — migrate from raw JSX content to `.mdx` files for easier content editing (Vite MDX plugin); keep React components available in MDX
-- [ ] **Dark/light code theme** — switch shiki theme alongside the app theme toggle (e.g. github-light / github-dark)
+- [x] **Dark/light code theme** — switch shiki theme alongside the app theme toggle (e.g. github-light / github-dark)
 - [x] **`/docs/examples`** — Examples gallery page — card grid linking to `examples/basic-crud`, `examples/with-auth`, `examples/with-shadcn`, `examples/full-saas` with description + tech stack tags
-- [ ] **`/docs/packages`** — First-party packages reference page — table of all `@tsx-pkg/*` packages with provides[], install command, link to registry-web detail page
+- [x] **`/docs/packages`** — First-party packages reference page — table of all `@tsx-pkg/*` packages with provides[], install command, link to registry-web detail page
 - [x] **Troubleshooting page** — `tsx registry install` fails (network, version mismatch), `tsx run` unknown command, stack detection issues
 
 ---
@@ -180,7 +180,7 @@ Based on audit of current state (2026-03-17).
 - [ ] **E2E tests** — Playwright tests for registry-web critical paths: landing, search, package detail, login, publish flow
 - [ ] **Storybook or component playground** — document the UI component library in registry-web
 - [ ] **Lighthouse CI** — add Lighthouse performance/accessibility/SEO check to GitHub Actions `web` job
-- [ ] **Environment variable validation** — `zod` parse of `import.meta.env` at startup so missing vars fail loudly at build time
+- [x] **Environment variable validation** — `zod` parse of `import.meta.env` at startup so missing vars fail loudly at build time
 
 ---
 
