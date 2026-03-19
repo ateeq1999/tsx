@@ -20,6 +20,16 @@ fn default_limit() -> i64 { 100 }
 /// GET /v1/admin/audit-log?limit=N
 ///
 /// Requires admin API key (`Authorization: Bearer <TSX_REGISTRY_API_KEY>`).
+#[utoipa::path(
+    get, path = "/v1/admin/audit-log",
+    params(("limit" = Option<i64>, Query, description = "Max entries (default 100)")),
+    responses(
+        (status = 200, description = "Publish audit log", body = Vec<crate::models::AuditEntry>),
+        (status = 401, description = "Unauthorized", body = crate::models::ApiError),
+    ),
+    security(("bearer_auth" = [])),
+    tag = "admin"
+)]
 pub async fn get_audit_log(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
@@ -41,6 +51,15 @@ pub async fn get_audit_log(
 ///
 /// Returns live rate-limit state from the PostgreSQL `rate_limits` table.
 /// Requires admin API key.
+#[utoipa::path(
+    get, path = "/v1/admin/rate-limits",
+    responses(
+        (status = 200, description = "Current rate-limit status per IP", body = Vec<crate::models::RateLimitEntry>),
+        (status = 401, description = "Unauthorized", body = crate::models::ApiError),
+    ),
+    security(("bearer_auth" = [])),
+    tag = "admin"
+)]
 pub async fn get_rate_limits(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,

@@ -6,6 +6,10 @@ description = "Shared API types used by both the tsx CLI and the registry server
 license = "MIT"
 repository = "https://github.com/ateeq1999/tsx"
 
+[features]
+openapi = ["dep:utoipa"]
+
 [dependencies]
 serde      = { workspace = true }
 serde_json = { workspace = true }
+utoipa     = { version = "4", optional = true }

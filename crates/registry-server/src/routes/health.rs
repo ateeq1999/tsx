@@ -5,6 +5,13 @@ use std::sync::Arc;
 use crate::AppState;
 
 /// GET /health
+#[utoipa::path(
+    get, path = "/health",
+    responses(
+        (status = 200, description = "Service is healthy"),
+    ),
+    tag = "meta"
+)]
 pub async fn health(State(state): State<Arc<AppState>>) -> (StatusCode, Json<Value>) {
     let db_ok = sqlx::query("SELECT 1").execute(&state.pool).await.is_ok();
     (

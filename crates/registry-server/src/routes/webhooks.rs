@@ -23,6 +23,16 @@ fn default_events() -> Vec<String> {
 
 // ── POST /v1/webhooks ─────────────────────────────────────────────────────────
 
+#[utoipa::path(
+    post, path = "/v1/webhooks",
+    responses(
+        (status = 201, description = "Webhook created", body = crate::db::Webhook),
+        (status = 400, description = "Invalid request", body = crate::models::ApiError),
+        (status = 401, description = "Unauthorized", body = crate::models::ApiError),
+    ),
+    security(("bearer_auth" = [])),
+    tag = "webhooks"
+)]
 pub async fn create_webhook(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
@@ -70,6 +80,15 @@ pub async fn create_webhook(
 
 // ── GET /v1/webhooks ──────────────────────────────────────────────────────────
 
+#[utoipa::path(
+    get, path = "/v1/webhooks",
+    responses(
+        (status = 200, description = "Your webhooks", body = Vec<crate::db::Webhook>),
+        (status = 401, description = "Unauthorized", body = crate::models::ApiError),
+    ),
+    security(("bearer_auth" = [])),
+    tag = "webhooks"
+)]
 pub async fn list_webhooks(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
@@ -87,6 +106,17 @@ pub async fn list_webhooks(
 
 // ── DELETE /v1/webhooks/:id ───────────────────────────────────────────────────
 
+#[utoipa::path(
+    delete, path = "/v1/webhooks/{id}",
+    params(("id" = i64, Path, description = "Webhook ID")),
+    responses(
+        (status = 200, description = "Webhook deleted"),
+        (status = 401, description = "Unauthorized", body = crate::models::ApiError),
+        (status = 404, description = "Webhook not found", body = crate::models::ApiError),
+    ),
+    security(("bearer_auth" = [])),
+    tag = "webhooks"
+)]
 pub async fn delete_webhook(
     State(state): State<Arc<AppState>>,
     Path(id): Path<i64>,

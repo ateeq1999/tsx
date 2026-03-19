@@ -20,6 +20,10 @@
 //! | DELETE | /v1/packages/{name}                           | Delete a package               |
 //! | GET    | /v1/admin/audit-log                           | Publish audit log              |
 //! | GET    | /v1/admin/rate-limits                         | Rate limit status per IP       |
+//! | GET    | /api-docs/openapi.json                        | OpenAPI 3.1 spec (JSON)        |
+//! | POST   | /v1/webhooks                                  | Register a webhook             |
+//! | GET    | /v1/webhooks                                  | List your webhooks             |
+//! | DELETE | /v1/webhooks/{id}                             | Delete a webhook               |
 //!
 //! # Environment variables
 //!
@@ -37,10 +41,80 @@ mod routes;
 // without breaking existing import paths.
 pub use tsx_shared as models;
 
+// ── OpenAPI spec ──────────────────────────────────────────────────────────────
+
+#[derive(utoipa::OpenApi)]
+#[openapi(
+    info(
+        title = "tsx Registry API",
+        version = "0.1.0",
+        description = "Hosted package registry for the tsx CLI — browse, publish, and install reusable code patterns.",
+        license(name = "MIT"),
+    ),
+    paths(
+        routes::health::health,
+        routes::stats::get_stats,
+        routes::search::search,
+        routes::packages::list_packages,
+        routes::packages::get_package,
+        routes::packages::get_package_versions,
+        routes::packages::get_readme,
+        routes::packages::update_readme,
+        routes::packages::get_download_stats,
+        routes::packages::download_tarball,
+        routes::packages::publish,
+        routes::packages::update_package,
+        routes::packages::yank_version,
+        routes::packages::delete_package,
+        routes::admin::get_audit_log,
+        routes::admin::get_rate_limits,
+        routes::webhooks::create_webhook,
+        routes::webhooks::list_webhooks,
+        routes::webhooks::delete_webhook,
+    ),
+    components(schemas(
+        models::Package,
+        models::PackageVersion,
+        models::SearchResult,
+        models::RegistryStats,
+        models::DailyDownloads,
+        models::AuditEntry,
+        models::RateLimitEntry,
+        models::PublishResult,
+        models::ApiError,
+        db::Webhook,
+    )),
+    modifiers(&SecurityAddon),
+    tags(
+        (name = "meta",     description = "Health check and registry statistics"),
+        (name = "packages", description = "Browse, search, publish, and manage packages"),
+        (name = "admin",    description = "Admin endpoints (require API key)"),
+        (name = "webhooks", description = "Webhook subscriptions for package events"),
+    )
+)]
+struct ApiDoc;
+
+struct SecurityAddon;
+impl utoipa::Modify for SecurityAddon {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        if let Some(components) = &mut openapi.components {
+            components.add_security_scheme(
+                "bearer_auth",
+                utoipa::openapi::security::SecurityScheme::Http(
+                    utoipa::openapi::security::HttpBuilder::new()
+                        .scheme(utoipa::openapi::security::HttpAuthScheme::Bearer)
+                        .build(),
+                ),
+            );
+        }
+    }
+}
+
 use axum::{
     routing::{delete, get, post, put},
     Router,
 };
+use utoipa::OpenApi as _;
 use sqlx::postgres::PgPoolOptions;
 use std::{
     path::PathBuf,
@@ -188,6 +262,10 @@ async fn main() {
         // Admin
         .route("/v1/admin/audit-log",   get(routes::admin::get_audit_log))
         .route("/v1/admin/rate-limits", get(routes::admin::get_rate_limits))
+        // OpenAPI spec
+        .route("/api-docs/openapi.json", get(|| async {
+            axum::response::Json(ApiDoc::openapi())
+        }))
         .with_state(state)
         .layer(cors)
         .layer(CompressionLayer::new())

@@ -33,6 +33,21 @@ fn default_page() -> i64 { 1 }
 ///
 /// Returns `SearchResult { packages: Package[], total, page, per_page }`.
 /// Matches TypeScript `SearchResult` interface exactly.
+#[utoipa::path(
+    get, path = "/v1/search",
+    params(
+        ("q"    = Option<String>, Query, description = "Free-text search query"),
+        ("lang" = Option<String>, Query, description = "Filter by language: typescript | python | rust | go"),
+        ("sort" = Option<String>, Query, description = "Sort order: downloads (default) | newest | updated | name"),
+        ("page" = Option<i64>,   Query, description = "Page number (1-based, default 1)"),
+        ("size" = Option<i64>,   Query, description = "Results per page (default 20, max 50)"),
+    ),
+    responses(
+        (status = 200, description = "Paginated package search results", body = crate::models::SearchResult),
+        (status = 500, description = "Internal server error", body = crate::models::ApiError),
+    ),
+    tag = "packages"
+)]
 pub async fn search(
     State(state): State<Arc<AppState>>,
     Query(params): Query<SearchParams>,

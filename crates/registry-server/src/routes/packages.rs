@@ -56,6 +56,18 @@ pub struct UpdatePackageBody {
 
 // ── GET /v1/packages?sort=recent&limit=N ─────────────────────────────────────
 
+#[utoipa::path(
+    get, path = "/v1/packages",
+    params(
+        ("sort"  = Option<String>, Query, description = "Sort order (recent)"),
+        ("limit" = Option<i64>,   Query, description = "Max results (default 12, max 50)"),
+    ),
+    responses(
+        (status = 200, description = "Recent packages", body = Vec<crate::models::Package>),
+        (status = 500, description = "Internal server error", body = crate::models::ApiError),
+    ),
+    tag = "packages"
+)]
 pub async fn list_packages(
     State(state): State<Arc<AppState>>,
     Query(params): Query<ListPackagesQuery>,
@@ -78,6 +90,16 @@ pub async fn list_packages(
 
 // ── GET /v1/packages/:name ────────────────────────────────────────────────────
 
+#[utoipa::path(
+    get, path = "/v1/packages/{name}",
+    params(("name" = String, Path, description = "Package name or %40scope%2Fname")),
+    responses(
+        (status = 200, description = "Package metadata", body = crate::models::Package),
+        (status = 404, description = "Package not found", body = crate::models::ApiError),
+        (status = 500, description = "Internal server error", body = crate::models::ApiError),
+    ),
+    tag = "packages"
+)]
 pub async fn get_package(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
@@ -98,6 +120,15 @@ pub async fn get_package(
 
 // ── GET /v1/packages/:name/versions ──────────────────────────────────────────
 
+#[utoipa::path(
+    get, path = "/v1/packages/{name}/versions",
+    params(("name" = String, Path, description = "Package name")),
+    responses(
+        (status = 200, description = "Version list", body = Vec<crate::models::PackageVersion>),
+        (status = 404, description = "Package not found", body = crate::models::ApiError),
+    ),
+    tag = "packages"
+)]
 pub async fn get_package_versions(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
@@ -127,6 +158,16 @@ pub async fn get_package_versions(
 
 // ── GET /v1/packages/:name/readme ─────────────────────────────────────────────
 
+#[utoipa::path(
+    get, path = "/v1/packages/{name}/readme",
+    params(("name" = String, Path, description = "Package name")),
+    responses(
+        (status = 200, description = "README in Markdown (text/markdown)"),
+        (status = 204, description = "No README for this package"),
+        (status = 404, description = "Package not found", body = crate::models::ApiError),
+    ),
+    tag = "packages"
+)]
 pub async fn get_readme(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
@@ -150,6 +191,19 @@ pub async fn get_readme(
 
 // ── PUT /v1/packages/:name/readme ─────────────────────────────────────────────
 
+#[utoipa::path(
+    put, path = "/v1/packages/{name}/readme",
+    params(("name" = String, Path, description = "Package name")),
+    request_body(content = String, description = "Markdown content", content_type = "text/markdown"),
+    responses(
+        (status = 200, description = "README updated"),
+        (status = 401, description = "Unauthorized", body = crate::models::ApiError),
+        (status = 403, description = "Forbidden", body = crate::models::ApiError),
+        (status = 404, description = "Package not found", body = crate::models::ApiError),
+    ),
+    security(("bearer_auth" = [])),
+    tag = "packages"
+)]
 pub async fn update_readme(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
@@ -191,6 +245,18 @@ pub async fn update_readme(
 
 // ── PUT /v1/packages/:name ────────────────────────────────────────────────────
 
+#[utoipa::path(
+    put, path = "/v1/packages/{name}",
+    params(("name" = String, Path, description = "Package name")),
+    responses(
+        (status = 200, description = "Package updated"),
+        (status = 401, description = "Unauthorized", body = crate::models::ApiError),
+        (status = 403, description = "Forbidden", body = crate::models::ApiError),
+        (status = 404, description = "Package not found", body = crate::models::ApiError),
+    ),
+    security(("bearer_auth" = [])),
+    tag = "packages"
+)]
 pub async fn update_package(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
@@ -231,6 +297,20 @@ pub async fn update_package(
 
 // ── DELETE /v1/packages/:name/versions/:version ───────────────────────────────
 
+#[utoipa::path(
+    delete, path = "/v1/packages/{name}/versions/{version}",
+    params(
+        ("name"    = String, Path, description = "Package name"),
+        ("version" = String, Path, description = "Semver version to yank"),
+    ),
+    responses(
+        (status = 200, description = "Version yanked"),
+        (status = 403, description = "Forbidden", body = crate::models::ApiError),
+        (status = 404, description = "Package or version not found", body = crate::models::ApiError),
+    ),
+    security(("bearer_auth" = [])),
+    tag = "packages"
+)]
 pub async fn yank_version(
     State(state): State<Arc<AppState>>,
     Path((name, version)): Path<(String, String)>,
@@ -271,6 +351,17 @@ pub async fn yank_version(
 
 // ── DELETE /v1/packages/:name ─────────────────────────────────────────────────
 
+#[utoipa::path(
+    delete, path = "/v1/packages/{name}",
+    params(("name" = String, Path, description = "Package name")),
+    responses(
+        (status = 200, description = "Package deleted"),
+        (status = 403, description = "Forbidden", body = crate::models::ApiError),
+        (status = 404, description = "Package not found", body = crate::models::ApiError),
+    ),
+    security(("bearer_auth" = [])),
+    tag = "packages"
+)]
 pub async fn delete_package(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
@@ -310,6 +401,18 @@ pub async fn delete_package(
 
 // ── GET /v1/packages/:name/stats/downloads ────────────────────────────────────
 
+#[utoipa::path(
+    get, path = "/v1/packages/{name}/stats/downloads",
+    params(
+        ("name" = String, Path, description = "Package name"),
+        ("days" = Option<i64>, Query, description = "Days of history (default 7, max 90)"),
+    ),
+    responses(
+        (status = 200, description = "Per-day download counts", body = Vec<crate::models::DailyDownloads>),
+        (status = 404, description = "Package not found", body = crate::models::ApiError),
+    ),
+    tag = "packages"
+)]
 pub async fn get_download_stats(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
@@ -332,6 +435,18 @@ pub async fn get_download_stats(
 
 // ── GET /v1/packages/:name/:version/tarball ───────────────────────────────────
 
+#[utoipa::path(
+    get, path = "/v1/packages/{name}/{version}/tarball",
+    params(
+        ("name"    = String, Path, description = "Package name"),
+        ("version" = String, Path, description = "Semver version"),
+    ),
+    responses(
+        (status = 200, description = "Tarball (.tar.gz) binary stream"),
+        (status = 404, description = "Package or version not found", body = crate::models::ApiError),
+    ),
+    tag = "packages"
+)]
 pub async fn download_tarball(
     State(state): State<Arc<AppState>>,
     Path((name, version)): Path<(String, String)>,
@@ -381,6 +496,18 @@ pub async fn download_tarball(
 
 // ── POST /v1/packages/publish ─────────────────────────────────────────────────
 
+#[utoipa::path(
+    post, path = "/v1/packages/publish",
+    request_body(content_type = "multipart/form-data", description = "Multipart: name, version, manifest (JSON), tarball (.tar.gz)"),
+    responses(
+        (status = 201, description = "Package published", body = crate::models::PublishResult),
+        (status = 400, description = "Bad request (validation error)", body = crate::models::ApiError),
+        (status = 401, description = "Unauthorized", body = crate::models::ApiError),
+        (status = 429, description = "Rate limit exceeded", body = crate::models::ApiError),
+    ),
+    security(("bearer_auth" = [])),
+    tag = "packages"
+)]
 pub async fn publish(
     State(state): State<Arc<AppState>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
