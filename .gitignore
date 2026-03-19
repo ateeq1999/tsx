@@ -13,6 +13,7 @@ Secrets.dev.toml
 # Local env files
 .env
 .env.*
+!.env.example
 *.local
 
 # Misc

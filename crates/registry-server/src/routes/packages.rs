@@ -465,6 +465,9 @@ pub async fn publish(
             Json(serde_json::to_value(ApiError::new("Missing required fields: name, version, manifest, tarball")).expect("BUG: serialization of known types cannot fail")),
         );
     }
+    if let Err(msg) = validate_package_name(&name) {
+        return err400(msg);
+    }
     if semver::Version::parse(&version).is_err() {
         return (
             StatusCode::BAD_REQUEST,
@@ -646,6 +649,54 @@ fn arr_field(v: &serde_json::Value, key: &str) -> Vec<String> {
 fn url_decode(s: &str) -> String {
     s.replace("%40", "@").replace("%2F", "/")
 }
+
+/// Validate a package name.
+///
+/// Allowed formats:
+///   - `my-package`          (plain)
+///   - `@scope/my-package`   (scoped)
+///
+/// Rules: lowercase alphanumeric, hyphens, underscores, dots.
+/// Scoped names allow one `@` prefix and one `/` separator.
+/// Maximum 214 characters total (npm convention).
+fn validate_package_name(name: &str) -> Result<(), &'static str> {
+    if name.is_empty() {
+        return Err("Package name must not be empty");
+    }
+    if name.len() > 214 {
+        return Err("Package name must not exceed 214 characters");
+    }
+    // Reject any path-traversal sequences regardless of other validation.
+    if name.contains("..") || name.contains('/') && !name.starts_with('@') {
+        return Err("Package name contains invalid characters");
+    }
+    let (scope, local) = if let Some(rest) = name.strip_prefix('@') {
+        match rest.split_once('/') {
+            Some((scope, local)) => (Some(scope), local),
+            None => return Err("Scoped package name must be in the form @scope/name"),
+        }
+    } else {
+        (None, name)
+    };
+
+    let is_valid_segment = |s: &str| {
+        !s.is_empty()
+            && s.chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_' || c == '.')
+            && !s.starts_with('.')
+            && !s.ends_with('.')
+    };
+
+    if let Some(scope) = scope {
+        if !is_valid_segment(scope) {
+            return Err("Scope must contain only lowercase letters, digits, hyphens, or underscores");
+        }
+    }
+    if !is_valid_segment(local) {
+        return Err("Package name must contain only lowercase letters, digits, hyphens, underscores, or dots and must not start or end with a dot");
+    }
+
+    Ok(())
 
 fn url_encode(s: &str) -> String {
     s.replace('@', "%40").replace('/', "%2F")
