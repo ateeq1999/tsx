@@ -44,7 +44,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 # ── Utilities ─────────────────────────────────────────────────────────────────
 uuid       = { version = "1", features = ["v4"] }
 sha2       = "0.10"
+hmac       = "0.12"
 hex        = "0.4"
+reqwest    = { version = "0.12", features = ["json", "native-tls"], default-features = false }
 semver     = "1"
 tokio-util = { version = "0.7", features = ["io"] }
 bytes      = "1"

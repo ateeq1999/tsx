@@ -4,6 +4,7 @@ pub mod downloads;
 pub mod packages;
 pub mod rate_limit;
 pub mod stats;
+pub mod webhooks;
 
 pub use auth::{AuthUser, validate_session_token};
 pub use audit::{insert_audit, get_audit_log};
@@ -18,6 +19,11 @@ pub use packages::{
 };
 pub use rate_limit::check_rate_limit;
 pub use stats::get_stats;
+pub use webhooks::{
+    Webhook,
+    create_webhook, list_webhooks, get_webhook, delete_webhook,
+    get_active_webhooks_for_event,
+};
 
 use anyhow::{Context, Result};
 use sqlx::PgPool;
@@ -111,6 +117,17 @@ pub async fn run_migrations(pool: &PgPool) -> Result<()> {
             PRIMARY KEY (ip, window_start)
         )"#,
         "DELETE FROM rate_limits WHERE window_start < NOW() - INTERVAL '1 hour'",
+        // ── Webhooks (added in v0.3) ──────────────────────────────────────────
+        r#"CREATE TABLE IF NOT EXISTS webhooks (
+            id         BIGSERIAL PRIMARY KEY,
+            owner_id   TEXT NOT NULL,
+            url        TEXT NOT NULL,
+            secret     TEXT,
+            events     TEXT[] NOT NULL DEFAULT '{"package:publish"}',
+            active     BOOLEAN NOT NULL DEFAULT TRUE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )"#,
+        "CREATE INDEX IF NOT EXISTS idx_webhooks_owner ON webhooks(owner_id)",
     ];
 
     for sql in &statements {

@@ -559,6 +559,18 @@ pub async fn publish(
         auth_user.as_ref().map(|u| u.user_id.as_str()),
         Some(&author_name), Some(&ip), None).await;
 
+    // Fire webhooks asynchronously — does not block the response.
+    crate::routes::webhook_fire::fire(
+        state.pool.clone(),
+        "package:publish",
+        serde_json::json!({
+            "event": "package:publish",
+            "package": name,
+            "version": version,
+            "author": author_name,
+        }),
+    );
+
     info!(
         package = %name,
         version = %version,
@@ -703,6 +715,7 @@ fn validate_package_name(name: &str) -> Result<(), &'static str> {
     }
 
     Ok(())
+}
 
 fn url_encode(s: &str) -> String {
     s.replace('@', "%40").replace('/', "%2F")

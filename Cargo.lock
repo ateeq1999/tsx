@@ -3109,6 +3109,8 @@ dependencies = [
  "chrono",
  "flate2",
  "hex",
+ "hmac",
+ "reqwest",
  "semver",
  "serde",
  "serde_json",

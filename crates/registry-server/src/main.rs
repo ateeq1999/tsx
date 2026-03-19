@@ -181,6 +181,10 @@ async fn main() {
             get(routes::packages::download_tarball))
         .route("/v1/packages/{name}/versions/{version}",
             delete(routes::packages::yank_version))
+        // Webhooks
+        .route("/v1/webhooks",      post(routes::webhooks::create_webhook))
+        .route("/v1/webhooks",       get(routes::webhooks::list_webhooks))
+        .route("/v1/webhooks/{id}", delete(routes::webhooks::delete_webhook))
         // Admin
         .route("/v1/admin/audit-log",   get(routes::admin::get_audit_log))
         .route("/v1/admin/rate-limits", get(routes::admin::get_rate_limits))
