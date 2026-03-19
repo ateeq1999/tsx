@@ -28,6 +28,7 @@ pub struct PackageRow {
 }
 
 #[derive(sqlx::FromRow, Debug)]
+#[allow(dead_code)]
 pub struct VersionRow {
     pub id: i64,
     pub version: String,
@@ -203,6 +204,7 @@ pub async fn get_package(pool: &PgPool, name: &str) -> Result<Option<PackageRow>
     Ok(row)
 }
 
+#[allow(dead_code)]
 pub async fn get_package_by_id(pool: &PgPool, id: i64) -> Result<Option<PackageRow>> {
     let row = sqlx::query_as!(
         PackageRow,

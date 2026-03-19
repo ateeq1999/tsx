@@ -29,9 +29,10 @@ use sqlx::PgPool;
 // mode is configured for the CI pipeline.
 
 pub async fn run_migrations(pool: &PgPool) -> Result<()> {
-    sqlx::raw_sql(
-        r#"
-        CREATE TABLE IF NOT EXISTS packages (
+    // Execute each DDL statement individually — PostgreSQL's extended query
+    // protocol (used by SQLx) does not allow multiple commands per statement.
+    let statements = [
+        r#"CREATE TABLE IF NOT EXISTS packages (
             id           BIGSERIAL PRIMARY KEY,
             name         TEXT NOT NULL UNIQUE,
             slug         TEXT NOT NULL UNIQUE,
@@ -49,12 +50,10 @@ pub async fn run_migrations(pool: &PgPool) -> Result<()> {
             downloads    BIGINT NOT NULL DEFAULT 0,
             published_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_packages_downloads ON packages(downloads DESC);
-        CREATE INDEX IF NOT EXISTS idx_packages_updated   ON packages(updated_at DESC);
-
-        CREATE TABLE IF NOT EXISTS versions (
+        )"#,
+        "CREATE INDEX IF NOT EXISTS idx_packages_downloads ON packages(downloads DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_packages_updated   ON packages(updated_at DESC)",
+        r#"CREATE TABLE IF NOT EXISTS versions (
             id             BIGSERIAL PRIMARY KEY,
             package_id     BIGINT NOT NULL REFERENCES packages(id) ON DELETE CASCADE,
             version        TEXT NOT NULL,
@@ -66,23 +65,19 @@ pub async fn run_migrations(pool: &PgPool) -> Result<()> {
             yanked         BOOLEAN NOT NULL DEFAULT FALSE,
             published_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             UNIQUE(package_id, version)
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_versions_package ON versions(package_id);
-
-        CREATE TABLE IF NOT EXISTS download_logs (
+        )"#,
+        "CREATE INDEX IF NOT EXISTS idx_versions_package ON versions(package_id)",
+        r#"CREATE TABLE IF NOT EXISTS download_logs (
             id            BIGSERIAL PRIMARY KEY,
             package_id    BIGINT NOT NULL REFERENCES packages(id) ON DELETE CASCADE,
             version_id    BIGINT REFERENCES versions(id) ON DELETE SET NULL,
             ip_address    TEXT,
             user_agent    TEXT,
             downloaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_download_logs_package ON download_logs(package_id);
-        CREATE INDEX IF NOT EXISTS idx_download_logs_time   ON download_logs(downloaded_at DESC);
-
-        CREATE TABLE IF NOT EXISTS audit_log (
+        )"#,
+        "CREATE INDEX IF NOT EXISTS idx_download_logs_package ON download_logs(package_id)",
+        "CREATE INDEX IF NOT EXISTS idx_download_logs_time    ON download_logs(downloaded_at DESC)",
+        r#"CREATE TABLE IF NOT EXISTS audit_log (
             id           BIGSERIAL PRIMARY KEY,
             action       TEXT NOT NULL,
             package_name TEXT NOT NULL,
@@ -92,13 +87,15 @@ pub async fn run_migrations(pool: &PgPool) -> Result<()> {
             ip_address   TEXT,
             detail       JSONB,
             created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
+        )"#,
+        "CREATE INDEX IF NOT EXISTS idx_audit_log_time ON audit_log(created_at DESC)",
+    ];
 
-        CREATE INDEX IF NOT EXISTS idx_audit_log_time ON audit_log(created_at DESC);
-        "#,
-    )
-    .execute(pool)
-    .await
-    .context("Failed to run registry migrations")?;
+    for sql in &statements {
+        sqlx::query(sql)
+            .execute(pool)
+            .await
+            .context("Failed to run registry migrations")?;
+    }
     Ok(())
 }

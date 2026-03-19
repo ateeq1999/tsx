@@ -36,6 +36,7 @@ const MAX_TARBALL_BYTES: usize = 100 * 1024 * 1024;
 
 #[derive(Deserialize)]
 pub struct ListPackagesQuery {
+    #[allow(dead_code)]
     pub sort: Option<String>,
     pub limit: Option<i64>,
 }

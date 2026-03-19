@@ -4,6 +4,7 @@ use sqlx::PgPool;
 pub struct AuthUser {
     pub user_id: String,
     pub name: String,
+    #[allow(dead_code)]
     pub email: String,
 }
 
