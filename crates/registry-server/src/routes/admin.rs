@@ -5,6 +5,7 @@ use axum::{
 };
 use serde::Deserialize;
 use serde_json::Value;
+use sqlx::Row;
 use std::sync::Arc;
 
 use crate::{models::ApiError, AppState};
@@ -38,7 +39,7 @@ pub async fn get_audit_log(
 
 /// GET /v1/admin/rate-limits
 ///
-/// Returns live rate-limit state: current window request counts per IP.
+/// Returns live rate-limit state from the PostgreSQL `rate_limits` table.
 /// Requires admin API key.
 pub async fn get_rate_limits(
     State(state): State<Arc<AppState>>,
@@ -48,31 +49,42 @@ pub async fn get_rate_limits(
         return e;
     }
 
-    let now = std::time::Instant::now();
-    let window = std::time::Duration::from_secs(crate::routes::packages::RATE_LIMIT_WINDOW_SECS);
-    let limit = crate::routes::packages::RATE_LIMIT_MAX_REQUESTS;
+    let limit = crate::routes::packages::RATE_LIMIT_MAX_REQUESTS as i64;
+    let window_secs = crate::routes::packages::RATE_LIMIT_WINDOW_SECS as i64;
 
-    let entries: Vec<crate::models::RateLimitEntry> = {
-        let limiter = state.rate_limiter.lock().unwrap();
-        limiter
-            .iter()
-            .map(|(ip, (count, start))| {
-                let elapsed = now.duration_since(*start);
-                let remaining = if elapsed < window {
-                    window.saturating_sub(elapsed).as_secs()
-                } else {
-                    0
-                };
-                crate::models::RateLimitEntry {
-                    ip: ip.to_string(),
-                    requests: *count,
-                    limit,
-                    blocked: *count >= limit && elapsed < window,
-                    window_secs_remaining: remaining,
-                }
-            })
-            .collect()
+    let rows = match sqlx::query(
+        r#"SELECT ip, request_count,
+                  GREATEST(0, $1 - CEIL(EXTRACT(EPOCH FROM (NOW() - window_start)))::BIGINT) AS secs_remaining
+           FROM rate_limits
+           WHERE window_start >= to_timestamp(floor(extract(epoch from now()) / $1) * $1)
+           ORDER BY request_count DESC
+           LIMIT 200"#,
+    )
+    .bind(window_secs)
+    .fetch_all(&state.pool)
+    .await
+    {
+        Ok(r) => r,
+        Err(e) => return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::to_value(ApiError::new(e.to_string())).expect("BUG: serialization of known types cannot fail")),
+        ),
     };
+
+    let entries: Vec<crate::models::RateLimitEntry> = rows
+        .iter()
+        .map(|r| {
+            let count = r.get::<i32, _>("request_count") as u32;
+            let remaining = r.get::<i64, _>("secs_remaining").max(0) as u64;
+            crate::models::RateLimitEntry {
+                ip: r.get::<String, _>("ip"),
+                requests: count,
+                limit: limit as u32,
+                blocked: count as i64 >= limit,
+                window_secs_remaining: remaining,
+            }
+        })
+        .collect();
 
     (StatusCode::OK, Json(serde_json::to_value(entries).expect("BUG: serialization of known types cannot fail")))
 }

@@ -2,6 +2,7 @@ pub mod auth;
 pub mod audit;
 pub mod downloads;
 pub mod packages;
+pub mod rate_limit;
 pub mod stats;
 
 pub use auth::{AuthUser, validate_session_token};
@@ -15,6 +16,7 @@ pub use packages::{
     get_recent, get_latest_version, search,
     update_readme, update_description, yank_version, delete_package,
 };
+pub use rate_limit::check_rate_limit;
 pub use stats::get_stats;
 
 use anyhow::{Context, Result};
@@ -89,6 +91,26 @@ pub async fn run_migrations(pool: &PgPool) -> Result<()> {
             created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )"#,
         "CREATE INDEX IF NOT EXISTS idx_audit_log_time ON audit_log(created_at DESC)",
+        // ── Full-text search (added in v0.2) ──────────────────────────────────
+        // Generated stored column — auto-updated when name/description/tags change.
+        r#"ALTER TABLE packages
+           ADD COLUMN IF NOT EXISTS search_vector tsvector
+           GENERATED ALWAYS AS (
+               to_tsvector('english',
+                   name || ' ' ||
+                   COALESCE(description, '') || ' ' ||
+                   array_to_string(tags, ' ')
+               )
+           ) STORED"#,
+        "CREATE INDEX IF NOT EXISTS idx_packages_fts ON packages USING GIN(search_vector)",
+        // ── Persistent rate limiting (added in v0.2) ──────────────────────────
+        r#"CREATE TABLE IF NOT EXISTS rate_limits (
+            ip            TEXT NOT NULL,
+            window_start  TIMESTAMPTZ NOT NULL,
+            request_count INT NOT NULL DEFAULT 1,
+            PRIMARY KEY (ip, window_start)
+        )"#,
+        "DELETE FROM rate_limits WHERE window_start < NOW() - INTERVAL '1 hour'",
     ];
 
     for sql in &statements {

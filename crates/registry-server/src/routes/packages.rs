@@ -387,25 +387,31 @@ pub async fn publish(
     headers: HeaderMap,
     mut multipart: Multipart,
 ) -> (StatusCode, Json<Value>) {
-    // --- Rate limiting ---
+    // --- Rate limiting (DB-backed, survives restarts) ---
     {
-        let ip = addr.ip();
-        let mut limiter = state.rate_limiter.lock().unwrap();
-        let now = std::time::Instant::now();
-        let entry = limiter.entry(ip).or_insert((0, now));
-        if now.duration_since(entry.1) >= std::time::Duration::from_secs(RATE_LIMIT_WINDOW_SECS) {
-            *entry = (0, now);
-        }
-        entry.0 += 1;
-        if entry.0 > RATE_LIMIT_MAX_REQUESTS {
-            warn!(ip = %ip, count = entry.0, "Publish rate limit exceeded");
-            return (
-                StatusCode::TOO_MANY_REQUESTS,
-                Json(serde_json::to_value(ApiError::new(format!(
-                    "Rate limit exceeded: max {} publishes per {} seconds per IP",
-                    RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW_SECS
-                ))).unwrap()),
-            );
+        let ip = addr.ip().to_string();
+        match db::check_rate_limit(
+            &state.pool,
+            &ip,
+            RATE_LIMIT_WINDOW_SECS as i64,
+            RATE_LIMIT_MAX_REQUESTS as i64,
+        )
+        .await
+        {
+            Ok(false) => {
+                warn!(ip = %ip, "Publish rate limit exceeded");
+                return (
+                    StatusCode::TOO_MANY_REQUESTS,
+                    Json(serde_json::to_value(ApiError::new(format!(
+                        "Rate limit exceeded: max {} publishes per {} seconds per IP",
+                        RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW_SECS
+                    ))).unwrap()),
+                );
+            }
+            Err(e) => {
+                warn!(error = %e, "Rate limit DB check failed — allowing request");
+            }
+            Ok(true) => {}
         }
     }
 

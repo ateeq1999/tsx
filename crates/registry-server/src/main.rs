@@ -43,10 +43,8 @@ use axum::{
 };
 use sqlx::postgres::PgPoolOptions;
 use std::{
-    collections::HashMap,
     path::PathBuf,
     sync::Arc,
-    time::Instant,
 };
 use tokio::net::TcpListener;
 use tower_http::{
@@ -63,8 +61,6 @@ pub struct AppState {
     pub data_dir: PathBuf,
     /// Optional static API key for admin endpoints. `None` → open (dev mode).
     pub api_key: Option<String>,
-    /// Per-IP publish rate limiter: ip → (request_count, window_start)
-    pub rate_limiter: std::sync::Mutex<HashMap<std::net::IpAddr, (u32, Instant)>>,
 }
 
 #[tokio::main]
@@ -123,7 +119,6 @@ async fn main() {
         pool,
         data_dir,
         api_key,
-        rate_limiter: std::sync::Mutex::new(HashMap::new()),
     });
 
     // ── Middleware ─────────────────────────────────────────────────────────

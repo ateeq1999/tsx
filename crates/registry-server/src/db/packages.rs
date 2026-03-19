@@ -312,8 +312,9 @@ pub async fn search(
     page: i64,
     per_page: i64,
 ) -> Result<(Vec<(PackageRow, String)>, i64)> {
-    let like = format!("%{}%", query.to_lowercase());
     let offset = (page - 1) * per_page;
+    let lang_arr: Vec<String> = lang.map(|l| vec![l.to_lowercase()]).unwrap_or_default();
+    let has_lang = lang.is_some();
 
     let order_clause = match sort {
         "newest"  => "published_at DESC",
@@ -322,47 +323,76 @@ pub async fn search(
         _         => "downloads DESC",
     };
 
-    let count_sql = if lang.is_some() {
-        "SELECT COUNT(*) FROM packages WHERE (LOWER(name) LIKE $1 OR LOWER(description) LIKE $1 OR $1 = '%%') AND lang && $2::TEXT[]"
-    } else {
-        "SELECT COUNT(*) FROM packages WHERE (LOWER(name) LIKE $1 OR LOWER(description) LIKE $1 OR $1 = '%%')"
-    };
+    // Use full-text search when a query is provided, ILIKE fallback otherwise.
+    let (total, pkgs) = if query.is_empty() {
+        // No query — list all, optionally filtered by lang.
+        let total: i64 = if has_lang {
+            sqlx::query_scalar("SELECT COUNT(*) FROM packages WHERE lang && $1::TEXT[]")
+                .bind(&lang_arr)
+                .fetch_one(pool)
+                .await?
+        } else {
+            sqlx::query_scalar("SELECT COUNT(*) FROM packages")
+                .fetch_one(pool)
+                .await?
+        };
 
-    let total: i64 = if let Some(l) = lang {
-        sqlx::query_scalar::<_, i64>(count_sql)
-            .bind(&like)
-            .bind(vec![l.to_lowercase()])
+        let data_sql = format!(
+            r#"SELECT id, name, slug, description, author_id, author_name, license, tsx_min,
+                      tags, lang, runtime, provides, integrates, readme, downloads,
+                      published_at, updated_at
+               FROM packages
+               {}
+               ORDER BY {} LIMIT $2 OFFSET $3"#,
+            if has_lang { "WHERE lang && $1::TEXT[]" } else { "WHERE ($1::TEXT[] IS NULL OR TRUE)" },
+            order_clause
+        );
+        let pkgs: Vec<PackageRow> = sqlx::query_as(&data_sql)
+            .bind(&lang_arr)
+            .bind(per_page)
+            .bind(offset)
+            .fetch_all(pool)
+            .await?;
+        (total, pkgs)
+    } else {
+        // Full-text search via tsvector GIN index.
+        let total: i64 = if has_lang {
+            sqlx::query_scalar(
+                "SELECT COUNT(*) FROM packages WHERE search_vector @@ plainto_tsquery('english', $1) AND lang && $2::TEXT[]",
+            )
+            .bind(query)
+            .bind(&lang_arr)
             .fetch_one(pool)
             .await?
-    } else {
-        sqlx::query_scalar::<_, i64>(count_sql)
-            .bind(&like)
+        } else {
+            sqlx::query_scalar(
+                "SELECT COUNT(*) FROM packages WHERE search_vector @@ plainto_tsquery('english', $1)",
+            )
+            .bind(query)
             .fetch_one(pool)
             .await?
+        };
+
+        let data_sql = format!(
+            r#"SELECT id, name, slug, description, author_id, author_name, license, tsx_min,
+                      tags, lang, runtime, provides, integrates, readme, downloads,
+                      published_at, updated_at
+               FROM packages
+               WHERE search_vector @@ plainto_tsquery('english', $1)
+               {}
+               ORDER BY {} LIMIT $3 OFFSET $4"#,
+            if has_lang { "AND lang && $2::TEXT[]" } else { "AND ($2::TEXT[] IS NULL OR TRUE)" },
+            order_clause
+        );
+        let pkgs: Vec<PackageRow> = sqlx::query_as(&data_sql)
+            .bind(query)
+            .bind(&lang_arr)
+            .bind(per_page)
+            .bind(offset)
+            .fetch_all(pool)
+            .await?;
+        (total, pkgs)
     };
-
-    let data_sql = format!(
-        r#"SELECT id, name, slug, description, author_id, author_name, license, tsx_min,
-                  tags, lang, runtime, provides, integrates, readme, downloads,
-                  published_at, updated_at
-           FROM packages
-           WHERE (LOWER(name) LIKE $1 OR LOWER(description) LIKE $1 OR $1 = '%%')
-           {}
-           ORDER BY {}
-           LIMIT $3 OFFSET $4"#,
-        if lang.is_some() { "AND lang && $2::TEXT[]" } else { "AND ($2::TEXT[] IS NULL OR TRUE)" },
-        order_clause
-    );
-
-    let lang_arr: Vec<String> = lang.map(|l| vec![l.to_lowercase()]).unwrap_or_default();
-
-    let pkgs: Vec<PackageRow> = sqlx::query_as(&data_sql)
-        .bind(&like)
-        .bind(&lang_arr)
-        .bind(per_page)
-        .bind(offset)
-        .fetch_all(pool)
-        .await?;
 
     let mut result = Vec::with_capacity(pkgs.len());
     for pkg in pkgs {
