@@ -8,16 +8,16 @@
 //! | GET    | /v1/stats                                     | Aggregate stats                |
 //! | GET    | /v1/search?q=&lang=&sort=&page=&size=         | Search packages (paginated)    |
 //! | GET    | /v1/packages?sort=recent&limit=N              | Recent packages                |
-//! | GET    | /v1/packages/:name                            | Package metadata               |
-//! | GET    | /v1/packages/:name/versions                   | Version list                   |
-//! | GET    | /v1/packages/:name/readme                     | README markdown                |
-//! | GET    | /v1/packages/:name/stats/downloads            | Per-day download stats         |
-//! | GET    | /v1/packages/:name/:version/tarball           | Download tarball               |
+//! | GET    | /v1/packages/{name}                           | Package metadata               |
+//! | GET    | /v1/packages/{name}/versions                  | Version list                   |
+//! | GET    | /v1/packages/{name}/readme                    | README markdown                |
+//! | GET    | /v1/packages/{name}/stats/downloads           | Per-day download stats         |
+//! | GET    | /v1/packages/{name}/{version}/tarball         | Download tarball               |
 //! | POST   | /v1/packages/publish                          | Publish a package              |
-//! | PUT    | /v1/packages/:name                            | Update description/metadata    |
-//! | PUT    | /v1/packages/:name/readme                     | Update README                  |
-//! | DELETE | /v1/packages/:name/versions/:version          | Yank a version                 |
-//! | DELETE | /v1/packages/:name                            | Delete a package               |
+//! | PUT    | /v1/packages/{name}                           | Update description/metadata    |
+//! | PUT    | /v1/packages/{name}/readme                    | Update README                  |
+//! | DELETE | /v1/packages/{name}/versions/{version}        | Yank a version                 |
+//! | DELETE | /v1/packages/{name}                           | Delete a package               |
 //! | GET    | /v1/admin/audit-log                           | Publish audit log              |
 //! | GET    | /v1/admin/rate-limits                         | Rate limit status per IP       |
 //!
@@ -143,18 +143,18 @@ async fn main() {
         // Packages
         .route("/v1/packages",              get(routes::packages::list_packages))
         .route("/v1/packages/publish",      post(routes::packages::publish))
-        .route("/v1/packages/:name",        get(routes::packages::get_package))
-        .route("/v1/packages/:name",        put(routes::packages::update_package))
-        .route("/v1/packages/:name",        delete(routes::packages::delete_package))
-        .route("/v1/packages/:name/versions",
+        .route("/v1/packages/{name}",        get(routes::packages::get_package))
+        .route("/v1/packages/{name}",        put(routes::packages::update_package))
+        .route("/v1/packages/{name}",        delete(routes::packages::delete_package))
+        .route("/v1/packages/{name}/versions",
             get(routes::packages::get_package_versions))
-        .route("/v1/packages/:name/readme",
+        .route("/v1/packages/{name}/readme",
             get(routes::packages::get_readme).put(routes::packages::update_readme))
-        .route("/v1/packages/:name/stats/downloads",
+        .route("/v1/packages/{name}/stats/downloads",
             get(routes::packages::get_download_stats))
-        .route("/v1/packages/:name/:version/tarball",
+        .route("/v1/packages/{name}/{version}/tarball",
             get(routes::packages::download_tarball))
-        .route("/v1/packages/:name/versions/:version",
+        .route("/v1/packages/{name}/versions/{version}",
             delete(routes::packages::yank_version))
         // Admin
         .route("/v1/admin/audit-log",   get(routes::admin::get_audit_log))
