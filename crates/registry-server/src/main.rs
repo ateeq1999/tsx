@@ -121,6 +121,36 @@ async fn main() {
         api_key,
     });
 
+    // ── Background: download-log aggregation ───────────────────────────────
+    // Runs every 24 hours. Prunes download_logs older than 90 days to keep
+    // the table from growing unboundedly.  The aggregated counts are already
+    // stored on the packages and versions rows so no data is lost.
+    {
+        let bg_pool = state.pool.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(24 * 3600));
+            loop {
+                interval.tick().await;
+                match sqlx::query(
+                    "DELETE FROM download_logs WHERE downloaded_at < NOW() - INTERVAL '90 days'",
+                )
+                .execute(&bg_pool)
+                .await
+                {
+                    Ok(r) => {
+                        if r.rows_affected() > 0 {
+                            tracing::info!(
+                                rows = r.rows_affected(),
+                                "Pruned old download_logs rows"
+                            );
+                        }
+                    }
+                    Err(e) => tracing::warn!(error = %e, "download_logs prune failed"),
+                }
+            }
+        });
+    }
+
     // ── Middleware ─────────────────────────────────────────────────────────
     let cors = CorsLayer::new()
         .allow_origin(Any)
