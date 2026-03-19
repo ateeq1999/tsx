@@ -356,6 +356,12 @@ enum Upgrade {
         #[arg(long)]
         check: bool,
     },
+    /// Check for a newer tsx binary and self-update from GitHub Releases
+    Cli {
+        /// Only print the latest version without downloading
+        #[arg(long)]
+        check: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -707,6 +713,11 @@ fn main() {
             Upgrade::Atoms { check } => {
                 use tsx::commands::upgrade;
                 let result = upgrade::upgrade(check, cli.verbose);
+                result.print();
+            }
+            Upgrade::Cli { check } => {
+                use tsx::commands::self_update;
+                let result = self_update::self_update(check);
                 result.print();
             }
         },

@@ -22,6 +22,7 @@ pub use manage::dev;
 pub use manage::framework_cmd;
 pub use manage::init;
 pub use manage::plugin;
+pub use manage::self_update;
 pub use manage::upgrade;
 
 pub use ops::batch;
