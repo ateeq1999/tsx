@@ -29,7 +29,7 @@ use sqlx::PgPool;
 // mode is configured for the CI pipeline.
 
 pub async fn run_migrations(pool: &PgPool) -> Result<()> {
-    sqlx::query(
+    sqlx::raw_sql(
         r#"
         CREATE TABLE IF NOT EXISTS packages (
             id           BIGSERIAL PRIMARY KEY,
