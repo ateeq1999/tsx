@@ -83,10 +83,12 @@ fn require_admin_key(
     state: &Arc<AppState>,
     headers: &HeaderMap,
 ) -> Result<(), (StatusCode, Json<Value>)> {
-    let expected = state.api_key.as_ref().ok_or_else(|| (
+    let unauthorized = || (
         StatusCode::UNAUTHORIZED,
-        Json(serde_json::to_value(ApiError::new("Admin access is not configured on this server")).expect("BUG: serialization of known types cannot fail")),
-    ))?;
+        Json(serde_json::to_value(ApiError::new("Unauthorized")).expect("BUG: serialization of known types cannot fail")),
+    );
+
+    let expected = state.api_key.as_ref().ok_or_else(unauthorized)?;
 
     let provided = headers
         .get("Authorization")
@@ -94,10 +96,7 @@ fn require_admin_key(
         .and_then(|v| v.strip_prefix("Bearer "));
 
     if provided.map(|k| k != expected.as_str()).unwrap_or(true) {
-        return Err((
-            StatusCode::UNAUTHORIZED,
-            Json(serde_json::to_value(ApiError::new("Admin API key required")).expect("BUG: serialization of known types cannot fail")),
-        ));
+        return Err(unauthorized());
     }
     Ok(())
 }

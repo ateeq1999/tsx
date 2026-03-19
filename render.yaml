@@ -1,0 +1,18 @@
+services:
+  - type: web
+    runtime: rust
+    name: tsx-registry
+    region: oregon
+    plan: free
+    buildCommand: cargo build --release -p tsx-registry
+    startCommand: ./target/release/tsx-registry
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: TSX_REGISTRY_API_KEY
+        sync: false
+      - key: DATA_DIR
+        value: /tmp/tsx-data
+      - key: RUST_LOG
+        value: tsx_registry=info,tower_http=info
