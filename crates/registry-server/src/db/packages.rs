@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use chrono::Utc;
-use sqlx::PgPool;
+use sqlx::{PgPool, Row};
 
 use crate::models::Package;
 
@@ -91,7 +91,7 @@ pub struct UpsertVersion {
 // ── Write queries ─────────────────────────────────────────────────────────────
 
 pub async fn upsert_package(pool: &PgPool, pkg: &UpsertPkg) -> Result<i64> {
-    let row = sqlx::query!(
+    let id: i64 = sqlx::query_scalar(
         r#"
         INSERT INTO packages (name, slug, description, author_id, author_name, license, tsx_min,
                               tags, lang, runtime, provides, integrates, published_at, updated_at)
@@ -110,21 +110,28 @@ pub async fn upsert_package(pool: &PgPool, pkg: &UpsertPkg) -> Result<i64> {
             updated_at   = NOW()
         RETURNING id
         "#,
-        pkg.name, pkg.slug, pkg.description,
-        pkg.author_id.as_deref(),
-        pkg.author_name, pkg.license, pkg.tsx_min,
-        &pkg.tags, &pkg.lang, &pkg.runtime, &pkg.provides, &pkg.integrates,
     )
+    .bind(&pkg.name)
+    .bind(&pkg.slug)
+    .bind(&pkg.description)
+    .bind(pkg.author_id.as_deref())
+    .bind(&pkg.author_name)
+    .bind(&pkg.license)
+    .bind(&pkg.tsx_min)
+    .bind(&pkg.tags)
+    .bind(&pkg.lang)
+    .bind(&pkg.runtime)
+    .bind(&pkg.provides)
+    .bind(&pkg.integrates)
     .fetch_one(pool)
     .await
     .context("Failed to upsert package")?;
 
-    Ok(row.id)
+    Ok(id)
 }
 
 pub async fn upsert_version(pool: &PgPool, pkg_id: i64, ver: &UpsertVersion) -> Result<i64> {
-    let manifest_json = serde_json::to_value(&ver.manifest)?;
-    let row = sqlx::query!(
+    let id: i64 = sqlx::query_scalar(
         r#"
         INSERT INTO versions (package_id, version, manifest, checksum, size_bytes, tarball_path, published_at)
         VALUES ($1, $2, $3, $4, $5, $6, NOW())
@@ -135,52 +142,57 @@ pub async fn upsert_version(pool: &PgPool, pkg_id: i64, ver: &UpsertVersion) -> 
             tarball_path = EXCLUDED.tarball_path
         RETURNING id
         "#,
-        pkg_id, ver.version, manifest_json,
-        ver.checksum, ver.size_bytes, ver.tarball_path,
     )
+    .bind(pkg_id)
+    .bind(&ver.version)
+    .bind(&ver.manifest)
+    .bind(&ver.checksum)
+    .bind(ver.size_bytes)
+    .bind(&ver.tarball_path)
     .fetch_one(pool)
     .await
     .context("Failed to upsert version")?;
 
-    sqlx::query!("UPDATE packages SET updated_at = NOW() WHERE id = $1", pkg_id)
+    sqlx::query("UPDATE packages SET updated_at = NOW() WHERE id = $1")
+        .bind(pkg_id)
         .execute(pool)
         .await?;
 
-    Ok(row.id)
+    Ok(id)
 }
 
 pub async fn update_readme(pool: &PgPool, pkg_id: i64, readme: &str) -> Result<()> {
-    sqlx::query!(
-        "UPDATE packages SET readme = $1, updated_at = NOW() WHERE id = $2",
-        readme, pkg_id
-    )
-    .execute(pool)
-    .await?;
+    sqlx::query("UPDATE packages SET readme = $1, updated_at = NOW() WHERE id = $2")
+        .bind(readme)
+        .bind(pkg_id)
+        .execute(pool)
+        .await?;
     Ok(())
 }
 
 pub async fn update_description(pool: &PgPool, pkg_id: i64, description: &str) -> Result<()> {
-    sqlx::query!(
-        "UPDATE packages SET description = $1, updated_at = NOW() WHERE id = $2",
-        description, pkg_id
-    )
-    .execute(pool)
-    .await?;
+    sqlx::query("UPDATE packages SET description = $1, updated_at = NOW() WHERE id = $2")
+        .bind(description)
+        .bind(pkg_id)
+        .execute(pool)
+        .await?;
     Ok(())
 }
 
 pub async fn yank_version(pool: &PgPool, pkg_id: i64, version: &str) -> Result<bool> {
-    let result = sqlx::query!(
+    let result = sqlx::query(
         "UPDATE versions SET yanked = TRUE WHERE package_id = $1 AND version = $2",
-        pkg_id, version
     )
+    .bind(pkg_id)
+    .bind(version)
     .execute(pool)
     .await?;
     Ok(result.rows_affected() > 0)
 }
 
 pub async fn delete_package(pool: &PgPool, pkg_id: i64) -> Result<()> {
-    sqlx::query!("DELETE FROM packages WHERE id = $1", pkg_id)
+    sqlx::query("DELETE FROM packages WHERE id = $1")
+        .bind(pkg_id)
         .execute(pool)
         .await?;
     Ok(())
@@ -189,15 +201,14 @@ pub async fn delete_package(pool: &PgPool, pkg_id: i64) -> Result<()> {
 // ── Read queries ──────────────────────────────────────────────────────────────
 
 pub async fn get_package(pool: &PgPool, name: &str) -> Result<Option<PackageRow>> {
-    let row = sqlx::query_as!(
-        PackageRow,
+    let row = sqlx::query_as::<_, PackageRow>(
         r#"SELECT id, name, slug, description, author_id, author_name, license, tsx_min,
                   tags, lang, runtime, provides, integrates, readme, downloads,
                   published_at, updated_at
            FROM packages
            WHERE name = $1 OR slug = $1"#,
-        name
     )
+    .bind(name)
     .fetch_optional(pool)
     .await
     .context("Failed to get package")?;
@@ -206,29 +217,27 @@ pub async fn get_package(pool: &PgPool, name: &str) -> Result<Option<PackageRow>
 
 #[allow(dead_code)]
 pub async fn get_package_by_id(pool: &PgPool, id: i64) -> Result<Option<PackageRow>> {
-    let row = sqlx::query_as!(
-        PackageRow,
+    let row = sqlx::query_as::<_, PackageRow>(
         r#"SELECT id, name, slug, description, author_id, author_name, license, tsx_min,
                   tags, lang, runtime, provides, integrates, readme, downloads,
                   published_at, updated_at
            FROM packages WHERE id = $1"#,
-        id
     )
+    .bind(id)
     .fetch_optional(pool)
     .await?;
     Ok(row)
 }
 
 pub async fn get_versions(pool: &PgPool, pkg_id: i64) -> Result<Vec<VersionRow>> {
-    let rows = sqlx::query_as!(
-        VersionRow,
-        r#"SELECT id, version, manifest as "manifest: sqlx::types::JsonValue",
+    let rows = sqlx::query_as::<_, VersionRow>(
+        r#"SELECT id, version, manifest,
                   checksum, size_bytes, tarball_path, download_count, yanked, published_at
            FROM versions
            WHERE package_id = $1
            ORDER BY published_at DESC"#,
-        pkg_id
     )
+    .bind(pkg_id)
     .fetch_all(pool)
     .await
     .context("Failed to get versions")?;
@@ -262,26 +271,26 @@ pub async fn get_latest_version(pool: &PgPool, pkg_id: i64) -> Result<Option<Str
 }
 
 pub async fn get_tarball_path(pool: &PgPool, pkg_id: i64, version: &str) -> Result<Option<(i64, String)>> {
-    let row = sqlx::query!(
+    let row = sqlx::query(
         "SELECT id, tarball_path FROM versions WHERE package_id = $1 AND version = $2 AND yanked = FALSE",
-        pkg_id, version
     )
+    .bind(pkg_id)
+    .bind(version)
     .fetch_optional(pool)
     .await?;
-    Ok(row.map(|r| (r.id, r.tarball_path)))
+    Ok(row.map(|r| (r.get::<i64, _>("id"), r.get::<String, _>("tarball_path"))))
 }
 
 pub async fn get_recent(pool: &PgPool, limit: i64) -> Result<Vec<(PackageRow, String)>> {
-    let pkgs = sqlx::query_as!(
-        PackageRow,
+    let pkgs = sqlx::query_as::<_, PackageRow>(
         r#"SELECT id, name, slug, description, author_id, author_name, license, tsx_min,
                   tags, lang, runtime, provides, integrates, readme, downloads,
                   published_at, updated_at
            FROM packages
            ORDER BY updated_at DESC
            LIMIT $1"#,
-        limit
     )
+    .bind(limit)
     .fetch_all(pool)
     .await?;
 
