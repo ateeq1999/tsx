@@ -1,28 +1,28 @@
 use crate::output::CommandResult;
 use crate::schemas::AddFeatureArgs;
 
-pub fn add_feature(args: AddFeatureArgs, overwrite: bool, dry_run: bool) -> CommandResult {
+pub fn add_feature(args: AddFeatureArgs, overwrite: bool, dry_run: bool, diff_only: bool) -> CommandResult {
     let mut files_created = Vec::new();
 
-    let result = add_feature_schema(&args, overwrite, dry_run);
+    let result = add_feature_schema(&args, overwrite, dry_run, diff_only);
     files_created.extend(result.files_created);
 
-    let result = add_feature_server_fns(&args, overwrite, dry_run);
+    let result = add_feature_server_fns(&args, overwrite, dry_run, diff_only);
     files_created.extend(result.files_created);
 
-    let result = add_feature_query(&args, overwrite, dry_run);
+    let result = add_feature_query(&args, overwrite, dry_run, diff_only);
     files_created.extend(result.files_created);
 
-    let result = add_feature_table(&args, overwrite, dry_run);
+    let result = add_feature_table(&args, overwrite, dry_run, diff_only);
     files_created.extend(result.files_created);
 
-    let result = add_feature_form(&args, overwrite, dry_run);
+    let result = add_feature_form(&args, overwrite, dry_run, diff_only);
     files_created.extend(result.files_created);
 
-    let result = add_feature_index_page(&args, overwrite, dry_run);
+    let result = add_feature_index_page(&args, overwrite, dry_run, diff_only);
     files_created.extend(result.files_created);
 
-    let result = add_feature_detail_page(&args, overwrite, dry_run);
+    let result = add_feature_detail_page(&args, overwrite, dry_run, diff_only);
     files_created.extend(result.files_created);
 
     let mut command_result = CommandResult::ok("add:feature", files_created);
@@ -30,7 +30,7 @@ pub fn add_feature(args: AddFeatureArgs, overwrite: bool, dry_run: bool) -> Comm
     command_result
 }
 
-fn add_feature_schema(args: &AddFeatureArgs, overwrite: bool, dry_run: bool) -> CommandResult {
+fn add_feature_schema(args: &AddFeatureArgs, overwrite: bool, dry_run: bool, diff_only: bool) -> CommandResult {
     use crate::commands::generate::add_schema;
     use crate::schemas::AddSchemaArgs;
 
@@ -43,10 +43,11 @@ fn add_feature_schema(args: &AddFeatureArgs, overwrite: bool, dry_run: bool) -> 
         },
         overwrite,
         dry_run,
+        diff_only,
     )
 }
 
-fn add_feature_server_fns(args: &AddFeatureArgs, overwrite: bool, dry_run: bool) -> CommandResult {
+fn add_feature_server_fns(args: &AddFeatureArgs, overwrite: bool, dry_run: bool, diff_only: bool) -> CommandResult {
     use crate::commands::generate::add_server_fn;
     use crate::schemas::AddServerFnArgs;
 
@@ -70,6 +71,7 @@ fn add_feature_server_fns(args: &AddFeatureArgs, overwrite: bool, dry_run: bool)
             },
             overwrite,
             dry_run,
+            diff_only,
         );
         files_created.extend(result.files_created);
     }
@@ -77,7 +79,7 @@ fn add_feature_server_fns(args: &AddFeatureArgs, overwrite: bool, dry_run: bool)
     CommandResult::ok("add:server-fn", files_created)
 }
 
-fn add_feature_query(args: &AddFeatureArgs, overwrite: bool, dry_run: bool) -> CommandResult {
+fn add_feature_query(args: &AddFeatureArgs, overwrite: bool, dry_run: bool, diff_only: bool) -> CommandResult {
     use crate::commands::generate::add_query;
     use crate::schemas::AddQueryArgs;
 
@@ -90,10 +92,11 @@ fn add_feature_query(args: &AddFeatureArgs, overwrite: bool, dry_run: bool) -> C
         },
         overwrite,
         dry_run,
+        diff_only,
     )
 }
 
-fn add_feature_table(args: &AddFeatureArgs, overwrite: bool, dry_run: bool) -> CommandResult {
+fn add_feature_table(args: &AddFeatureArgs, overwrite: bool, dry_run: bool, diff_only: bool) -> CommandResult {
     use crate::commands::generate::add_table;
     use crate::schemas::AddTableArgs;
 
@@ -107,10 +110,11 @@ fn add_feature_table(args: &AddFeatureArgs, overwrite: bool, dry_run: bool) -> C
         },
         overwrite,
         dry_run,
+        diff_only,
     )
 }
 
-fn add_feature_form(args: &AddFeatureArgs, overwrite: bool, dry_run: bool) -> CommandResult {
+fn add_feature_form(args: &AddFeatureArgs, overwrite: bool, dry_run: bool, diff_only: bool) -> CommandResult {
     use crate::commands::generate::add_form;
     use crate::schemas::AddFormArgs;
 
@@ -123,10 +127,11 @@ fn add_feature_form(args: &AddFeatureArgs, overwrite: bool, dry_run: bool) -> Co
         },
         overwrite,
         dry_run,
+        diff_only,
     )
 }
 
-fn add_feature_index_page(args: &AddFeatureArgs, overwrite: bool, dry_run: bool) -> CommandResult {
+fn add_feature_index_page(args: &AddFeatureArgs, overwrite: bool, dry_run: bool, diff_only: bool) -> CommandResult {
     use crate::commands::generate::add_page;
     use crate::schemas::AddPageArgs;
 
@@ -139,6 +144,7 @@ fn add_feature_index_page(args: &AddFeatureArgs, overwrite: bool, dry_run: bool)
         },
         overwrite,
         dry_run,
+        diff_only,
     )
 }
 
@@ -146,6 +152,7 @@ fn add_feature_detail_page(
     args: &AddFeatureArgs,
     overwrite: bool,
     dry_run: bool,
+    diff_only: bool,
 ) -> CommandResult {
     use crate::commands::generate::add_page;
     use crate::schemas::AddPageArgs;
@@ -159,5 +166,6 @@ fn add_feature_detail_page(
         },
         overwrite,
         dry_run,
+        diff_only,
     )
 }

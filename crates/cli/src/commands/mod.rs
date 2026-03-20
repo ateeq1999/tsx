@@ -26,11 +26,14 @@ pub use manage::plugin;
 pub use manage::self_update;
 pub use manage::upgrade;
 
+pub use ops::analyze;
+pub use ops::atoms;
 pub use ops::batch;
 pub use ops::codegen;
 pub use ops::context;
 pub use ops::lint_template;
 pub use ops::pattern;
+pub use ops::replay;
 pub use ops::snapshot;
 pub use ops::generate as fw_generate;
 pub use ops::inspect;

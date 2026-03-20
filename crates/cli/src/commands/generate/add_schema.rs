@@ -5,7 +5,7 @@ use crate::utils::format::format_typescript;
 use crate::utils::paths::resolve_output_path;
 use crate::utils::validate::{validate_field_names, validate_fields_non_empty, validate_identifier};
 
-pub fn add_schema(args: AddSchemaArgs, overwrite: bool, dry_run: bool) -> CommandResult {
+pub fn add_schema(args: AddSchemaArgs, overwrite: bool, dry_run: bool, diff_only: bool) -> CommandResult {
     if let Err(e) = validate_identifier(&args.name) {
         return CommandResult::err("add:schema", format!("Invalid name: {}", e));
     }
@@ -29,5 +29,6 @@ pub fn add_schema(args: AddSchemaArgs, overwrite: bool, dry_run: bool) -> Comman
         format_typescript,
         overwrite,
         dry_run,
+        diff_only,
     )
 }

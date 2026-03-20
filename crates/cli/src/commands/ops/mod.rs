@@ -1,7 +1,10 @@
+pub mod analyze;
+pub mod atoms;
 pub mod batch;
 pub mod codegen;
 pub mod lint_template;
 pub mod pattern;
+pub mod replay;
 pub mod snapshot;
 pub mod context;
 pub mod generate;

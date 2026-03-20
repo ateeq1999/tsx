@@ -14,6 +14,10 @@ use crate::utils::write::{write_file, WriteOutcome};
 /// 4. Formats the output with `format_fn` (falls back to unformatted on error).
 /// 5. Writes (or skips) the file at `build_output_path(root)`.
 /// 6. Returns a `CommandResult` with the created file path.
+///
+/// When `diff_only = true` the file is **not** written; instead a line-based diff
+/// between the existing file and the generated content is placed in `result.warnings`
+/// prefixed with `"diff:"`.  This implements `tsx generate <cmd> --diff`.
 pub fn render_and_write<F>(
     command: &str,
     template_name: &str,
@@ -22,6 +26,7 @@ pub fn render_and_write<F>(
     format_fn: fn(&str) -> Result<String>,
     overwrite: bool,
     dry_run: bool,
+    diff_only: bool,
 ) -> CommandResult
 where
     F: FnOnce(&PathBuf) -> PathBuf,
@@ -76,6 +81,18 @@ where
         ),
     };
 
+    // ── diff_only mode ────────────────────────────────────────────────────────
+    if diff_only {
+        let existing = std::fs::read_to_string(&output_path).unwrap_or_default();
+        let diff = compute_diff(output_path.to_string_lossy().as_ref(), &existing, &formatted);
+        let mut result = CommandResult::ok(command, vec![output_path.to_string_lossy().to_string()]);
+        result.warnings.push(format!("diff:{}", diff));
+        if let Some(w) = format_warning {
+            result.warnings.push(w);
+        }
+        return result;
+    }
+
     let files_created = if dry_run {
         vec![output_path.to_string_lossy().to_string()]
     } else {
@@ -98,4 +115,61 @@ where
         result.warnings.push(warning);
     }
     result
+}
+
+/// Produce a simple unified-style diff between `old` and `new` content.
+pub fn compute_diff(path: &str, old: &str, new: &str) -> String {
+    if old == new {
+        return format!("--- {}\n(no changes)\n", path);
+    }
+
+    let old_lines: Vec<&str> = old.lines().collect();
+    let new_lines: Vec<&str> = new.lines().collect();
+
+    let mut out = String::new();
+    let label_a = if old.is_empty() { "/dev/null" } else { &format!("a/{}", path) };
+    let label_b = format!("b/{}", path);
+    out.push_str(&format!("--- {}\n", label_a));
+    out.push_str(&format!("+++ {}\n", label_b));
+
+    // Simple diff: emit removed/added lines without LCS (sufficient for reviewer context)
+    let max = old_lines.len().max(new_lines.len());
+    let mut chunk_start = None;
+    let mut chunk: Vec<String> = Vec::new();
+
+    for i in 0..max {
+        let ol = old_lines.get(i).copied();
+        let nl = new_lines.get(i).copied();
+        if ol != nl {
+            if chunk_start.is_none() {
+                chunk_start = Some(i + 1);
+            }
+            if let Some(l) = ol { chunk.push(format!("-{}", l)); }
+            if let Some(l) = nl { chunk.push(format!("+{}", l)); }
+        } else if !chunk.is_empty() {
+            let start = chunk_start.unwrap_or(1);
+            out.push_str(&format!("@@ -{} +{} @@\n", start, start));
+            for line in &chunk { out.push_str(line); out.push('\n'); }
+            chunk.clear();
+            chunk_start = None;
+        }
+    }
+    if !chunk.is_empty() {
+        let start = chunk_start.unwrap_or(1);
+        out.push_str(&format!("@@ -{} +{} @@\n", start, start));
+        for line in &chunk { out.push_str(line); out.push('\n'); }
+    }
+
+    // Trailing lines
+    if new_lines.len() > old_lines.len() {
+        let start = old_lines.len() + 1;
+        out.push_str(&format!("@@ -{},{} +{},{} @@\n", start, 0, start, new_lines.len() - old_lines.len()));
+        for l in &new_lines[old_lines.len()..] { out.push_str(&format!("+{}\n", l)); }
+    } else if old_lines.len() > new_lines.len() {
+        let start = new_lines.len() + 1;
+        out.push_str(&format!("@@ -{},{} +{},{} @@\n", start, old_lines.len() - new_lines.len(), start, 0));
+        for l in &old_lines[new_lines.len()..] { out.push_str(&format!("-{}\n", l)); }
+    }
+
+    out
 }

@@ -6,7 +6,7 @@ use crate::utils::paths::resolve_output_path;
 use std::path::Path;
 use std::process::Command;
 
-pub fn add_auth(args: AddAuthArgs, overwrite: bool, dry_run: bool) -> CommandResult {
+pub fn add_auth(args: AddAuthArgs, overwrite: bool, dry_run: bool, diff_only: bool) -> CommandResult {
     let mut result = render_and_write(
         "add:auth",
         "features/auth_config.jinja",
@@ -19,6 +19,7 @@ pub fn add_auth(args: AddAuthArgs, overwrite: bool, dry_run: bool) -> CommandRes
         format_typescript,
         overwrite,
         dry_run,
+        diff_only,
     );
 
     if result.success && !dry_run {

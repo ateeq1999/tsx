@@ -5,7 +5,7 @@ use crate::utils::format::format_tsx;
 use crate::utils::paths::resolve_output_path;
 use crate::utils::validate::{validate_field_names, validate_fields_non_empty, validate_identifier};
 
-pub fn add_form(args: AddFormArgs, overwrite: bool, dry_run: bool) -> CommandResult {
+pub fn add_form(args: AddFormArgs, overwrite: bool, dry_run: bool, diff_only: bool) -> CommandResult {
     if let Err(e) = validate_identifier(&args.name) {
         return CommandResult::err("add:form", format!("Invalid name: {}", e));
     }
@@ -28,5 +28,6 @@ pub fn add_form(args: AddFormArgs, overwrite: bool, dry_run: bool) -> CommandRes
         format_tsx,
         overwrite,
         dry_run,
+        diff_only,
     )
 }

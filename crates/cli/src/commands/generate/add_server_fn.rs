@@ -5,7 +5,7 @@ use crate::utils::format::format_typescript;
 use crate::utils::paths::resolve_output_path;
 use crate::utils::validate::validate_identifier;
 
-pub fn add_server_fn(args: AddServerFnArgs, overwrite: bool, dry_run: bool) -> CommandResult {
+pub fn add_server_fn(args: AddServerFnArgs, overwrite: bool, dry_run: bool, diff_only: bool) -> CommandResult {
     if let Err(e) = validate_identifier(&args.name) {
         return CommandResult::err("add:server-fn", format!("Invalid name: {}", e));
     }
@@ -29,5 +29,6 @@ pub fn add_server_fn(args: AddServerFnArgs, overwrite: bool, dry_run: bool) -> C
         format_typescript,
         overwrite,
         dry_run,
+        diff_only,
     )
 }

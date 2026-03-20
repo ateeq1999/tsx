@@ -368,7 +368,7 @@ fn execute_command(
         ($args_type:ty, $handler:expr) => {{
             let args: $args_type = serde_json::from_str(&options_str)
                 .map_err(|e| (ErrorCode::ValidationError, e.to_string()))?;
-            let result = $handler(args, overwrite, dry_run);
+            let result = $handler(args, overwrite, dry_run, false);
             if result.success {
                 Ok(result.files_created)
             } else {

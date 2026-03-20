@@ -18,6 +18,10 @@ struct Cli {
     #[arg(long, global = true)]
     verbose: bool,
 
+    /// Show a unified diff of what would change without writing files
+    #[arg(long, global = true)]
+    diff: bool,
+
     /// Read command payload from stdin as JSON
     #[arg(long, global = true)]
     stdin: bool,
@@ -229,6 +233,25 @@ enum Command {
     Codegen {
         #[command(subcommand)]
         target: CodegenCmd,
+    },
+    /// Queryable catalog of atoms and molecules for the active framework
+    Atoms {
+        #[command(subcommand)]
+        action: AtomsCmd,
+    },
+    /// Scan project structure and report health/convention issues
+    Analyze {
+        /// Auto-apply safe fixes where possible
+        #[arg(long)]
+        fix: bool,
+        /// Emit structured JSON suitable for CI pipelines
+        #[arg(long)]
+        report: bool,
+    },
+    /// Record and replay generation sessions
+    Replay {
+        #[command(subcommand)]
+        action: ReplayCmd,
     },
     /// Run any installed framework generator by id or command name
     Run {
@@ -652,6 +675,46 @@ enum CodegenCmd {
     DrizzleToZod,
 }
 
+#[derive(Subcommand)]
+enum AtomsCmd {
+    /// List available atoms and molecules, optionally filtered by category
+    List {
+        /// Filter by category (e.g. drizzle, form, zod, query)
+        #[arg(long, value_name = "CATEGORY")]
+        category: Option<String>,
+    },
+    /// Show the raw template source for an atom or molecule
+    Preview {
+        /// Atom id (e.g. drizzle/column, form/field_input)
+        #[arg(value_name = "ID")]
+        id: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum ReplayCmd {
+    /// Start recording a generation session
+    Record {
+        /// Path to write the session JSON file (default: .tsx/sessions/session-<ts>.json)
+        #[arg(long, value_name = "FILE")]
+        out: Option<String>,
+        /// Stop the active recording and write the session file
+        #[arg(long)]
+        stop: bool,
+    },
+    /// Replay a previously recorded session file
+    Run {
+        /// Path to the session JSON file
+        #[arg(value_name = "FILE")]
+        file: String,
+        /// Show what would be created without writing any files
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// List recorded session files in .tsx/sessions/
+    List,
+}
+
 /// Parse a `--json` argument, printing a structured error and returning `None` on failure.
 /// This replaces the old `serde_json::from_str(&json.unwrap()).unwrap()` pattern that panics.
 fn parse_json_input<T: serde::de::DeserializeOwned>(
@@ -724,7 +787,7 @@ fn main() {
                 use tsx::schemas::AddFeatureArgs;
                 let ji = json_input.as_deref();
                 if let Some(args) = parse_json_input::<AddFeatureArgs>(json, ji, "generate feature") {
-                    add_feature::add_feature(args, cli.overwrite, cli.dry_run).print();
+                    add_feature::add_feature(args, cli.overwrite, cli.dry_run, cli.diff).print();
                 }
             }
             Generate::Schema { json } => {
@@ -732,7 +795,7 @@ fn main() {
                 use tsx::schemas::AddSchemaArgs;
                 let ji = json_input.as_deref();
                 if let Some(args) = parse_json_input::<AddSchemaArgs>(json, ji, "generate schema") {
-                    add_schema::add_schema(args, cli.overwrite, cli.dry_run).print();
+                    add_schema::add_schema(args, cli.overwrite, cli.dry_run, cli.diff).print();
                 }
             }
             Generate::ServerFn { json } => {
@@ -740,7 +803,7 @@ fn main() {
                 use tsx::schemas::AddServerFnArgs;
                 let ji = json_input.as_deref();
                 if let Some(args) = parse_json_input::<AddServerFnArgs>(json, ji, "generate server-fn") {
-                    add_server_fn::add_server_fn(args, cli.overwrite, cli.dry_run).print();
+                    add_server_fn::add_server_fn(args, cli.overwrite, cli.dry_run, cli.diff).print();
                 }
             }
             Generate::Query { json } => {
@@ -748,7 +811,7 @@ fn main() {
                 use tsx::schemas::AddQueryArgs;
                 let ji = json_input.as_deref();
                 if let Some(args) = parse_json_input::<AddQueryArgs>(json, ji, "generate query") {
-                    add_query::add_query(args, cli.overwrite, cli.dry_run).print();
+                    add_query::add_query(args, cli.overwrite, cli.dry_run, cli.diff).print();
                 }
             }
             Generate::Form { json } => {
@@ -756,7 +819,7 @@ fn main() {
                 use tsx::schemas::AddFormArgs;
                 let ji = json_input.as_deref();
                 if let Some(args) = parse_json_input::<AddFormArgs>(json, ji, "generate form") {
-                    add_form::add_form(args, cli.overwrite, cli.dry_run).print();
+                    add_form::add_form(args, cli.overwrite, cli.dry_run, cli.diff).print();
                 }
             }
             Generate::Table { json } => {
@@ -764,7 +827,7 @@ fn main() {
                 use tsx::schemas::AddTableArgs;
                 let ji = json_input.as_deref();
                 if let Some(args) = parse_json_input::<AddTableArgs>(json, ji, "generate table") {
-                    add_table::add_table(args, cli.overwrite, cli.dry_run).print();
+                    add_table::add_table(args, cli.overwrite, cli.dry_run, cli.diff).print();
                 }
             }
             Generate::Page { json } => {
@@ -772,7 +835,7 @@ fn main() {
                 use tsx::schemas::AddPageArgs;
                 let ji = json_input.as_deref();
                 if let Some(args) = parse_json_input::<AddPageArgs>(json, ji, "generate page") {
-                    add_page::add_page(args, cli.overwrite, cli.dry_run).print();
+                    add_page::add_page(args, cli.overwrite, cli.dry_run, cli.diff).print();
                 }
             }
             Generate::Seed { json } => {
@@ -780,7 +843,7 @@ fn main() {
                 use tsx::schemas::AddSeedArgs;
                 let ji = json_input.as_deref();
                 if let Some(args) = parse_json_input::<AddSeedArgs>(json, ji, "generate seed") {
-                    add_seed::add_seed(args, cli.overwrite, cli.dry_run).print();
+                    add_seed::add_seed(args, cli.overwrite, cli.dry_run, cli.diff).print();
                 }
             }
             Generate::Fw { id, fw, json } => {
@@ -796,7 +859,7 @@ fn main() {
                 use tsx::schemas::AddAuthArgs;
                 let ji = json_input.as_deref();
                 if let Some(args) = parse_json_input::<AddAuthArgs>(json, ji, "add auth") {
-                    add_auth::add_auth(args, cli.overwrite, cli.dry_run).print();
+                    add_auth::add_auth(args, cli.overwrite, cli.dry_run, cli.diff).print();
                 }
             }
             Add::AuthGuard { json } => {
@@ -804,7 +867,7 @@ fn main() {
                 use tsx::schemas::AddAuthGuardArgs;
                 let ji = json_input.as_deref();
                 if let Some(args) = parse_json_input::<AddAuthGuardArgs>(json, ji, "add auth-guard") {
-                    add_auth_guard::add_auth_guard(args, cli.overwrite, cli.dry_run).print();
+                    add_auth_guard::add_auth_guard(args, cli.overwrite, cli.dry_run, cli.diff).print();
                 }
             }
             Add::Migration => {
@@ -1168,6 +1231,33 @@ fn main() {
                     cli.verbose,
                 )
                 .print();
+            }
+        }
+        Command::Atoms { action } => {
+            use tsx::commands::atoms;
+            match action {
+                AtomsCmd::List { category } => atoms::atoms_list(category, cli.verbose).print(),
+                AtomsCmd::Preview { id } => atoms::atoms_preview(id, cli.verbose).print(),
+            }
+        }
+        Command::Analyze { fix, report } => {
+            use tsx::commands::analyze;
+            analyze::analyze(fix, report, cli.verbose).print();
+        }
+        Command::Replay { action } => {
+            use tsx::commands::replay;
+            match action {
+                ReplayCmd::Record { out, stop } => {
+                    if stop {
+                        replay::replay_record_stop(cli.verbose).print();
+                    } else {
+                        replay::replay_record_start(out, cli.verbose).print();
+                    }
+                }
+                ReplayCmd::Run { file, dry_run } => {
+                    replay::replay_run(file, dry_run, cli.verbose).print();
+                }
+                ReplayCmd::List => replay::replay_list(cli.verbose).print(),
             }
         }
     }
