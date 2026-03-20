@@ -3,6 +3,7 @@ pub mod context;
 pub mod generate;
 pub mod inspect;
 pub mod list;
+pub mod pkg;
 pub mod plan;
 pub mod publish;
 pub mod registry;

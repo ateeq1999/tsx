@@ -16,6 +16,8 @@ pub struct SearchParams {
     pub q: String,
     /// Filter by language (typescript, python, rust, go)
     pub lang: Option<String>,
+    /// Filter by tag (exact match against the tags array)
+    pub tag: Option<String>,
     /// Sort: downloads (default) | newest | updated | name
     #[serde(default = "default_sort")]
     pub sort: String,
@@ -38,6 +40,7 @@ fn default_page() -> i64 { 1 }
     params(
         ("q"    = Option<String>, Query, description = "Free-text search query"),
         ("lang" = Option<String>, Query, description = "Filter by language: typescript | python | rust | go"),
+        ("tag"  = Option<String>, Query, description = "Filter by tag (exact match)"),
         ("sort" = Option<String>, Query, description = "Sort order: downloads (default) | newest | updated | name"),
         ("page" = Option<i64>,   Query, description = "Page number (1-based, default 1)"),
         ("size" = Option<i64>,   Query, description = "Results per page (default 20, max 50)"),
@@ -60,6 +63,7 @@ pub async fn search(
         &state.pool,
         query,
         params.lang.as_deref(),
+        params.tag.as_deref(),
         &params.sort,
         page,
         per_page,

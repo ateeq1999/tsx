@@ -53,6 +53,7 @@ pub use tsx_shared as models;
     ),
     paths(
         routes::health::health,
+        routes::auth_route::whoami,
         routes::stats::get_stats,
         routes::search::search,
         routes::packages::list_packages,
@@ -66,6 +67,7 @@ pub use tsx_shared as models;
         routes::packages::update_package,
         routes::packages::yank_version,
         routes::packages::delete_package,
+        routes::users::get_user_packages,
         routes::admin::get_audit_log,
         routes::admin::get_rate_limits,
         routes::webhooks::create_webhook,
@@ -259,6 +261,10 @@ async fn main() {
         .route("/v1/webhooks",      post(routes::webhooks::create_webhook))
         .route("/v1/webhooks",       get(routes::webhooks::list_webhooks))
         .route("/v1/webhooks/{id}", delete(routes::webhooks::delete_webhook))
+        // Auth helpers (used by CLI login)
+        .route("/v1/auth/whoami", get(routes::auth_route::whoami))
+        // User profiles
+        .route("/v1/users/{name}/packages", get(routes::users::get_user_packages))
         // Admin
         .route("/v1/admin/audit-log",   get(routes::admin::get_audit_log))
         .route("/v1/admin/rate-limits", get(routes::admin::get_rate_limits))

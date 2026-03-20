@@ -6,7 +6,7 @@ pub mod rate_limit;
 pub mod stats;
 pub mod webhooks;
 
-pub use auth::{AuthUser, validate_session_token};
+pub use auth::{AuthUser, validate_session_token, validate_api_key};
 pub use audit::{insert_audit, get_audit_log};
 pub use downloads::{increment_downloads, get_download_stats};
 pub use packages::{
@@ -15,6 +15,7 @@ pub use packages::{
     get_package,
     get_versions, get_tarball_path,
     get_recent, get_latest_version, search,
+    get_packages_by_author,
     update_readme, update_description, yank_version, delete_package,
 };
 pub use rate_limit::check_rate_limit;

@@ -1,7 +1,9 @@
 pub mod admin;
+pub mod auth_route;
 pub mod health;
 pub mod packages;
 pub mod search;
 pub mod stats;
+pub mod users;
 pub mod webhook_fire;
 pub mod webhooks;

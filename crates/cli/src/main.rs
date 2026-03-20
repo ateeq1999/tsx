@@ -155,6 +155,24 @@ enum Command {
         #[command(subcommand)]
         target: Upgrade,
     },
+    /// Log in to the tsx package registry with an API key
+    Login {
+        /// API key from registry-web /account/api-keys
+        #[arg(long)]
+        token: String,
+        /// Registry URL (default: https://tsx-tsnv.onrender.com)
+        #[arg(long)]
+        registry: Option<String>,
+    },
+    /// Log out and remove stored registry credentials
+    Logout,
+    /// Show the currently logged-in user and registry
+    Whoami,
+    /// Install and inspect packages from the tsx registry
+    Pkg {
+        #[command(subcommand)]
+        action: PkgCmd,
+    },
     /// Manage installed template plugins
     Plugin {
         #[command(subcommand)]
@@ -442,6 +460,28 @@ enum StackCmd {
         /// Automatically install detected packages via `tsx registry install`
         #[arg(long)]
         install: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum PkgCmd {
+    /// Install a package from the tsx registry into .tsx/packages/<name>/
+    Install {
+        /// Package name (e.g. auth-form or @scope/pkg)
+        #[arg(value_name = "NAME")]
+        name: String,
+        /// Pin to a specific version (default: latest)
+        #[arg(long)]
+        version: Option<String>,
+        /// Install into this directory instead of .tsx/packages/
+        #[arg(long, value_name = "DIR")]
+        target: Option<String>,
+    },
+    /// Show metadata, versions, and download stats for a registry package
+    Info {
+        /// Package name
+        #[arg(value_name = "NAME")]
+        name: String,
     },
 }
 
@@ -763,6 +803,28 @@ fn main() {
                 use tsx::commands::registry;
                 let result = registry::registry_info(package, cli.verbose);
                 result.print();
+            }
+        },
+        Command::Login { token, registry } => {
+            use tsx::commands::auth;
+            auth::login(token, registry).print();
+        }
+        Command::Logout => {
+            use tsx::commands::auth;
+            auth::logout().print();
+        }
+        Command::Whoami => {
+            use tsx::commands::auth;
+            auth::whoami().print();
+        }
+        Command::Pkg { action } => match action {
+            PkgCmd::Install { name, version, target } => {
+                use tsx::commands::pkg;
+                pkg::pkg_install(name, version, target).print();
+            }
+            PkgCmd::Info { name } => {
+                use tsx::commands::pkg;
+                pkg::pkg_info(name).print();
             }
         },
         Command::Plugin { action } => match action {

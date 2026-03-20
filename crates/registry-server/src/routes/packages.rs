@@ -498,7 +498,6 @@ pub async fn download_tarball(
 
 #[utoipa::path(
     post, path = "/v1/packages/publish",
-    request_body(content_type = "multipart/form-data", description = "Multipart: name, version, manifest (JSON), tarball (.tar.gz)"),
     responses(
         (status = 201, description = "Package published", body = crate::models::PublishResult),
         (status = 400, description = "Bad request (validation error)", body = crate::models::ApiError),
@@ -759,10 +758,15 @@ async fn authenticate_publish(
     }
 
     // Try better-auth session token
-    match db::validate_session_token(&state.pool, &token).await {
+    if let Ok(Some(user)) = db::validate_session_token(&state.pool, &token).await {
+        return Ok(Some(user));
+    }
+
+    // Try better-auth API key (from /account/api-keys in registry-web)
+    match db::validate_api_key(&state.pool, &token).await {
         Ok(Some(user)) => Ok(Some(user)),
         Ok(None) => {
-            warn!("Publish auth failed: invalid or expired token");
+            warn!("Publish auth failed: invalid or expired token/API key");
             Err((
                 StatusCode::UNAUTHORIZED,
                 Json(serde_json::to_value(ApiError::new("Invalid or expired token")).expect("BUG: serialization of known types cannot fail")),
