@@ -209,6 +209,22 @@ enum Command {
     },
     /// Run diagnostic checks on the current project and environment
     Doctor,
+    /// Lint .forge / .jinja template files for common errors
+    LintTemplate {
+        /// Path to a template file or directory (default: .tsx/templates/ or templates/)
+        #[arg(value_name = "PATH")]
+        path: Option<String>,
+    },
+    /// Snapshot testing for generators — save & diff outputs
+    Snapshot {
+        #[command(subcommand)]
+        action: SnapshotCmd,
+    },
+    /// Manage user-defined generator patterns
+    Pattern {
+        #[command(subcommand)]
+        action: PatternCmd,
+    },
     /// Generate TypeScript interfaces and Zod schemas from Rust/OpenAPI/Drizzle sources
     Codegen {
         #[command(subcommand)]
@@ -519,6 +535,93 @@ enum PkgCmd {
         /// Validate and show what would be published without uploading
         #[arg(long)]
         dry_run: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum SnapshotCmd {
+    /// Run all generators with fixture inputs and save their output as snapshots
+    Update {
+        /// Only update snapshots for this generator id
+        #[arg(long, value_name = "ID")]
+        generator: Option<String>,
+    },
+    /// Re-run generators and diff against saved snapshots
+    Diff {
+        /// Only diff snapshots for this generator id
+        #[arg(long, value_name = "ID")]
+        generator: Option<String>,
+    },
+    /// Accept current output as the new baseline (alias for update)
+    Accept {
+        /// Only accept snapshots for this generator id
+        #[arg(long, value_name = "ID")]
+        generator: Option<String>,
+    },
+    /// List all registered snapshot fixtures
+    List,
+    /// Register a new fixture input for a generator
+    Add {
+        /// Generator id (e.g. add-schema)
+        #[arg(long, value_name = "ID")]
+        generator: String,
+        /// Fixture name (e.g. users)
+        #[arg(long, value_name = "NAME")]
+        fixture: String,
+        /// JSON input for the generator
+        #[arg(long, value_name = "JSON")]
+        input: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum PatternCmd {
+    /// Register a new generator pattern from a template file
+    Add {
+        /// Pattern id / name (e.g. "add-service")
+        #[arg(long)]
+        name: String,
+        /// Human-readable description
+        #[arg(long)]
+        description: Option<String>,
+        /// Path to the .forge template file
+        #[arg(long, value_name = "FILE")]
+        template: Option<String>,
+        /// Argument spec: "name:string, entity:string, methods:string[]"
+        #[arg(long, value_name = "SPEC")]
+        args: Option<String>,
+    },
+    /// Start recording file changes as a reusable pattern
+    Record {
+        /// Pattern name (required when starting a recording)
+        #[arg(long)]
+        name: Option<String>,
+        /// Stop the active recording session and save the pattern
+        #[arg(long)]
+        stop: bool,
+    },
+    /// List all local patterns in .tsx/patterns/
+    List,
+    /// Show details of a specific pattern
+    Show {
+        /// Pattern id
+        #[arg(value_name = "ID")]
+        id: String,
+    },
+    /// Remove a pattern
+    Remove {
+        /// Pattern id
+        #[arg(value_name = "ID")]
+        id: String,
+    },
+    /// Publish a pattern to the tsx registry
+    Share {
+        /// Pattern id
+        #[arg(long)]
+        name: String,
+        /// Version to publish
+        #[arg(long)]
+        version: Option<String>,
     },
 }
 
@@ -969,6 +1072,73 @@ fn main() {
             use tsx::commands::manage::doctor;
             doctor::doctor().print();
         }
+        Command::LintTemplate { path } => {
+            use tsx::commands::lint_template;
+            lint_template::lint_template(path, cli.verbose).print();
+        }
+        Command::Snapshot { action } => match action {
+            SnapshotCmd::Update { generator } => {
+                use tsx::commands::snapshot;
+                snapshot::snapshot_update(generator, cli.verbose).print();
+            }
+            SnapshotCmd::Diff { generator } => {
+                use tsx::commands::snapshot;
+                snapshot::snapshot_diff(generator, cli.verbose).print();
+            }
+            SnapshotCmd::Accept { generator } => {
+                use tsx::commands::snapshot;
+                snapshot::snapshot_accept(generator, cli.verbose).print();
+            }
+            SnapshotCmd::List => {
+                use tsx::commands::snapshot;
+                snapshot::snapshot_list(cli.verbose).print();
+            }
+            SnapshotCmd::Add { generator, fixture, input } => {
+                use tsx::commands::snapshot;
+                snapshot::snapshot_add(generator, fixture, input, cli.verbose).print();
+            }
+        },
+        Command::Pattern { action } => match action {
+            PatternCmd::Add { name, description, template, args } => {
+                use tsx::commands::pattern;
+                pattern::pattern_add(name, description, template, args, cli.verbose).print();
+            }
+            PatternCmd::Record { name, stop } => {
+                use tsx::commands::pattern;
+                if stop {
+                    pattern::pattern_record_stop(cli.verbose).print();
+                } else {
+                    match name {
+                        Some(n) => pattern::pattern_record_start(n, cli.verbose).print(),
+                        None => {
+                            use tsx::json::error::{ErrorCode, ErrorResponse};
+                            use tsx::json::response::ResponseEnvelope;
+                            ResponseEnvelope::error(
+                                "pattern record",
+                                ErrorResponse::new(ErrorCode::ValidationError, "--name is required when starting a recording"),
+                                0,
+                            ).print();
+                        }
+                    }
+                }
+            }
+            PatternCmd::List => {
+                use tsx::commands::pattern;
+                pattern::pattern_list(cli.verbose).print();
+            }
+            PatternCmd::Show { id } => {
+                use tsx::commands::pattern;
+                pattern::pattern_show(id, cli.verbose).print();
+            }
+            PatternCmd::Remove { id } => {
+                use tsx::commands::pattern;
+                pattern::pattern_remove(id, cli.verbose).print();
+            }
+            PatternCmd::Share { name, version } => {
+                use tsx::commands::pattern;
+                pattern::pattern_share(name, version, cli.verbose).print();
+            }
+        },
         Command::Codegen { target } => match target {
             CodegenCmd::RustToTs { input, out, watch } => {
                 use tsx::commands::codegen;

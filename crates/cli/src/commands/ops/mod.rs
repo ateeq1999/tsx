@@ -1,5 +1,8 @@
 pub mod batch;
 pub mod codegen;
+pub mod lint_template;
+pub mod pattern;
+pub mod snapshot;
 pub mod context;
 pub mod generate;
 pub mod inspect;
