@@ -234,6 +234,12 @@ enum Command {
         #[command(subcommand)]
         target: CodegenCmd,
     },
+    /// Launch the ratatui terminal dashboard (registry browser, doctor, stack editor)
+    Tui {
+        /// Which view to open: browser (default), doctor, stack
+        #[arg(long, value_name = "VIEW", default_value = "browser")]
+        view: String,
+    },
     /// Manage global tsx configuration (~/.tsx/config.json)
     Config {
         #[command(subcommand)]
@@ -1332,6 +1338,21 @@ fn main() {
                     cli.verbose,
                 )
                 .print();
+            }
+        }
+        Command::Tui { view } => {
+            use tsx_tui::{run, TuiView, BrowserItem};
+            let tui_view = TuiView::from_str(&view);
+            // Provide a minimal set of items if no registry data is available
+            let items = vec![
+                BrowserItem::new("tanstack-start", "Full-stack React framework with SSR and file-based routing"),
+                BrowserItem::new("drizzle-pg", "PostgreSQL schema and query generator for Drizzle ORM"),
+                BrowserItem::new("better-auth", "Authentication integration for TanStack Start"),
+                BrowserItem::new("shadcn", "shadcn/ui component generator"),
+            ];
+            if let Err(e) = run(tui_view, items) {
+                eprintln!("TUI error: {}", e);
+                std::process::exit(1);
             }
         }
         Command::Config { action } => {

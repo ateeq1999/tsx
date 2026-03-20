@@ -16,6 +16,7 @@ path = "src/main.rs"
 [dependencies]
 forge      = { package = "tsx-forge",   path = "../forge",   version = "0.1.0" }
 tsx-shared = { package = "tsx-shared",  path = "../shared",  version = "0.1.0" }
+tsx-tui    = { package = "tsx-tui",     path = "../tui",     version = "0.1.0" }
 clap          = { version = "4", features = ["derive"] }
 clap_complete = "4"
 minijinja = { version = "2", features = ["loader"] }
