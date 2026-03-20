@@ -3,6 +3,7 @@ pub mod audit;
 pub mod downloads;
 pub mod packages;
 pub mod rate_limit;
+pub mod stars;
 pub mod stats;
 pub mod webhooks;
 
@@ -14,11 +15,12 @@ pub use packages::{
     upsert_package, upsert_version,
     get_package,
     get_versions, get_tarball_path,
-    get_recent, get_latest_version, search,
+    get_recent, get_latest_version, search, suggest_packages,
     get_packages_by_author,
-    update_readme, update_description, yank_version, delete_package,
+    update_readme, update_description, yank_version, delete_package, set_deprecated,
 };
 pub use rate_limit::check_rate_limit;
+pub use stars::{star_package, unstar_package, get_star_count, is_starred, get_starred_packages, get_starred_package_rows};
 pub use stats::get_stats;
 pub use webhooks::{
     Webhook,

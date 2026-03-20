@@ -23,6 +23,7 @@ pub struct PackageRow {
     pub integrates: Vec<String>,
     pub readme: Option<String>,
     pub downloads: i64,
+    pub deprecated_message: Option<String>,
     pub published_at: chrono::DateTime<Utc>,
     pub updated_at: chrono::DateTime<Utc>,
 }
@@ -55,6 +56,8 @@ impl PackageRow {
             created_at: self.published_at.to_rfc3339(),
             updated_at: self.updated_at.to_rfc3339(),
             download_count: self.downloads,
+            star_count: 0, // filled in by route handlers after a separate query
+            deprecated_message: self.deprecated_message,
             lang: self.lang.into_iter().next(),
             runtime: self.runtime.into_iter().next(),
             provides: Some(self.provides),
@@ -204,7 +207,7 @@ pub async fn get_package(pool: &PgPool, name: &str) -> Result<Option<PackageRow>
     let row = sqlx::query_as::<_, PackageRow>(
         r#"SELECT id, name, slug, description, author_id, author_name, license, tsx_min,
                   tags, lang, runtime, provides, integrates, readme, downloads,
-                  published_at, updated_at
+                  deprecated_message, published_at, updated_at
            FROM packages
            WHERE name = $1 OR slug = $1"#,
     )
@@ -220,7 +223,7 @@ pub async fn get_package_by_id(pool: &PgPool, id: i64) -> Result<Option<PackageR
     let row = sqlx::query_as::<_, PackageRow>(
         r#"SELECT id, name, slug, description, author_id, author_name, license, tsx_min,
                   tags, lang, runtime, provides, integrates, readme, downloads,
-                  published_at, updated_at
+                  deprecated_message, published_at, updated_at
            FROM packages WHERE id = $1"#,
     )
     .bind(id)
@@ -285,7 +288,7 @@ pub async fn get_recent(pool: &PgPool, limit: i64) -> Result<Vec<(PackageRow, St
     let pkgs = sqlx::query_as::<_, PackageRow>(
         r#"SELECT id, name, slug, description, author_id, author_name, license, tsx_min,
                   tags, lang, runtime, provides, integrates, readme, downloads,
-                  published_at, updated_at
+                  deprecated_message, published_at, updated_at
            FROM packages
            ORDER BY updated_at DESC
            LIMIT $1"#,
@@ -309,7 +312,7 @@ pub async fn get_packages_by_author(pool: &PgPool, author: &str, limit: i64) -> 
     sqlx::query_as::<_, PackageRow>(
         r#"SELECT id, name, slug, description, author_id, author_name, license, tsx_min,
                   tags, lang, runtime, provides, integrates, readme, downloads,
-                  published_at, updated_at
+                  deprecated_message, published_at, updated_at
            FROM packages
            WHERE lower(author_name) = lower($1)
            ORDER BY downloads DESC
@@ -360,7 +363,7 @@ pub async fn search(
         let data_sql = format!(
             r#"SELECT id, name, slug, description, author_id, author_name, license, tsx_min,
                       tags, lang, runtime, provides, integrates, readme, downloads,
-                      published_at, updated_at
+                      deprecated_message, published_at, updated_at
                FROM packages
                WHERE ($1::TEXT IS NULL OR $1 = ANY(tags))
                  AND ($2::TEXT IS NULL OR $2 = ANY(lang))
@@ -391,7 +394,7 @@ pub async fn search(
         let data_sql = format!(
             r#"SELECT id, name, slug, description, author_id, author_name, license, tsx_min,
                       tags, lang, runtime, provides, integrates, readme, downloads,
-                      published_at, updated_at
+                      deprecated_message, published_at, updated_at
                FROM packages
                WHERE search_vector @@ plainto_tsquery('english', $1)
                  AND ($2::TEXT IS NULL OR $2 = ANY(tags))
@@ -417,4 +420,31 @@ pub async fn search(
         result.push((pkg, latest));
     }
     Ok((result, total))
+}
+
+/// Set or clear the deprecation message for a package.
+/// Pass `None` to un-deprecate.
+pub async fn set_deprecated(pool: &PgPool, pkg_id: i64, message: Option<&str>) -> Result<()> {
+    sqlx::query("UPDATE packages SET deprecated_message = $1, updated_at = NOW() WHERE id = $2")
+        .bind(message)
+        .bind(pkg_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+/// Return up to `limit` package names that start with or contain `q`,
+/// ordered by download count.  Used by the typeahead suggest endpoint.
+pub async fn suggest_packages(pool: &PgPool, q: &str, limit: i64) -> Result<Vec<String>> {
+    let names: Vec<String> = sqlx::query_scalar(
+        r#"SELECT name FROM packages
+           WHERE name ILIKE $1 || '%' OR name ILIKE '%' || $1 || '%'
+           ORDER BY downloads DESC
+           LIMIT $2"#,
+    )
+    .bind(q)
+    .bind(limit)
+    .fetch_all(pool)
+    .await?;
+    Ok(names)
 }

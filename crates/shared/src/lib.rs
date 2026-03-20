@@ -27,6 +27,10 @@ pub struct Package {
     pub created_at: String,
     pub updated_at: String,
     pub download_count: i64,
+    #[serde(default)]
+    pub star_count: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub deprecated_message: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lang: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -1,9 +1,11 @@
 pub mod add_auth;
+pub mod completions;
 pub mod add_auth_guard;
 pub mod add_migration;
 pub mod auth;
 pub mod create;
 pub mod dev;
+pub mod doctor;
 pub mod framework_cmd;
 pub mod init;
 pub mod plugin;

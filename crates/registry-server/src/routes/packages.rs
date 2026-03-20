@@ -113,7 +113,56 @@ pub async fn get_package(
                 .await
                 .unwrap_or_default()
                 .unwrap_or_default();
-            (StatusCode::OK, Json(serde_json::to_value(pkg.into_package(latest)).expect("BUG: serialization of known types cannot fail")))
+            let star_count = db::get_star_count(&state.pool, &decoded).await.unwrap_or(0);
+            let mut package = pkg.into_package(latest);
+            package.star_count = star_count;
+            (StatusCode::OK, Json(serde_json::to_value(package).expect("BUG: serialization of known types cannot fail")))
+        }
+    }
+}
+
+// ── GET /v1/packages/:name/:version ──────────────────────────────────────────
+
+#[utoipa::path(
+    get, path = "/v1/packages/{name}/{version}",
+    params(
+        ("name"    = String, Path, description = "Package name or %40scope%2Fname"),
+        ("version" = String, Path, description = "Exact semver version (e.g. 1.2.3)"),
+    ),
+    responses(
+        (status = 200, description = "Package metadata at the pinned version", body = crate::models::Package),
+        (status = 404, description = "Package or version not found", body = crate::models::ApiError),
+        (status = 500, description = "Internal server error", body = crate::models::ApiError),
+    ),
+    tag = "packages"
+)]
+pub async fn get_package_at_version(
+    State(state): State<Arc<AppState>>,
+    Path((name, version)): Path<(String, String)>,
+) -> (StatusCode, Json<Value>) {
+    let decoded = url_decode(&name);
+    match db::get_package(&state.pool, &decoded).await {
+        Err(e) => err500(e.to_string()),
+        Ok(None) => err404(format!("Package '{}' not found", decoded)),
+        Ok(Some(pkg)) => {
+            match db::get_versions(&state.pool, pkg.id).await {
+                Err(e) => err500(e.to_string()),
+                Ok(rows) => {
+                    let exists = rows.iter().any(|v| v.version == version && !v.yanked);
+                    if !exists {
+                        return err404(format!(
+                            "Version '{}' not found for package '{}'",
+                            version, decoded
+                        ));
+                    }
+                    let ver_row = rows.into_iter().find(|v| v.version == version).unwrap();
+                    let star_count = db::get_star_count(&state.pool, &decoded).await.unwrap_or(0);
+                    let mut package = pkg.into_package(version);
+                    package.download_count = ver_row.download_count;
+                    package.star_count = star_count;
+                    (StatusCode::OK, Json(serde_json::to_value(package).expect("BUG: serialization of known types cannot fail")))
+                }
+            }
         }
     }
 }
@@ -291,6 +340,72 @@ pub async fn update_package(
                     None, None).await;
             }
             (StatusCode::OK, Json(serde_json::json!({ "ok": true })))
+        }
+    }
+}
+
+// ── PUT /v1/packages/:name/deprecate ──────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+pub struct DeprecateBody {
+    /// Deprecation message, or null / empty string to un-deprecate.
+    pub message: Option<String>,
+}
+
+#[utoipa::path(
+    put, path = "/v1/packages/{name}/deprecate",
+    params(("name" = String, Path, description = "Package name")),
+    request_body(
+        content = inline(DeprecateBody),
+        description = r#"{"message":"Use foo instead"} or {"message":null} to un-deprecate"#,
+        content_type = "application/json"
+    ),
+    responses(
+        (status = 200, description = "Deprecation status updated"),
+        (status = 401, description = "Unauthorized", body = crate::models::ApiError),
+        (status = 403, description = "Forbidden", body = crate::models::ApiError),
+        (status = 404, description = "Package not found", body = crate::models::ApiError),
+    ),
+    security(("bearer_auth" = [])),
+    tag = "packages"
+)]
+pub async fn deprecate_package(
+    State(state): State<Arc<AppState>>,
+    Path(name): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<DeprecateBody>,
+) -> (StatusCode, Json<Value>) {
+    let decoded = url_decode(&name);
+    let auth = match extract_auth(&state, &headers).await {
+        Ok(a) => a,
+        Err(e) => return e,
+    };
+
+    match db::get_package(&state.pool, &decoded).await {
+        Err(e) => err500(e.to_string()),
+        Ok(None) => err404(format!("Package '{}' not found", decoded)),
+        Ok(Some(pkg)) => {
+            match pkg.author_id {
+                Some(ref uid) => {
+                    if auth.as_ref().map(|u| &u.user_id) != Some(uid) {
+                        return err403("Only the package author may deprecate this package");
+                    }
+                }
+                None => return err403("Package has no owner — contact an admin"),
+            }
+            // Treat empty string as un-deprecate
+            let msg = body.message.as_deref().filter(|s| !s.is_empty());
+            match db::set_deprecated(&state.pool, pkg.id, msg).await {
+                Ok(_) => {
+                    let action = if msg.is_some() { "deprecate" } else { "undeprecate" };
+                    let _ = db::insert_audit(&state.pool, action, &decoded, None,
+                        auth.as_ref().map(|u| u.user_id.as_str()),
+                        auth.as_ref().map(|u| u.name.as_str()),
+                        None, None).await;
+                    (StatusCode::OK, Json(serde_json::json!({ "ok": true })))
+                }
+                Err(e) => err500(e.to_string()),
+            }
         }
     }
 }
@@ -797,6 +912,11 @@ fn arr_field(v: &serde_json::Value, key: &str) -> Vec<String> {
 
 fn url_decode(s: &str) -> String {
     s.replace("%40", "@").replace("%2F", "/")
+}
+
+/// Public alias so sibling route modules (stars, etc.) can reuse the decode logic.
+pub fn url_decode_pub(s: &str) -> String {
+    url_decode(s)
 }
 
 /// Validate a package name.

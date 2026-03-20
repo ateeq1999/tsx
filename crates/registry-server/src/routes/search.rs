@@ -1,7 +1,7 @@
 use axum::{
     extract::{Query, State},
     http::StatusCode,
-    response::Json,
+    response::{Json, Redirect},
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -30,6 +30,12 @@ pub struct SearchParams {
 
 fn default_sort() -> String { "downloads".to_string() }
 fn default_page() -> i64 { 1 }
+
+#[derive(Debug, Deserialize)]
+pub struct SuggestParams {
+    #[serde(default)]
+    pub q: String,
+}
 
 /// GET /v1/search?q=&lang=&sort=&page=&size=
 ///
@@ -88,5 +94,33 @@ pub async fn search(
             };
             (StatusCode::OK, Json(serde_json::to_value(result).expect("BUG: serialization of known types cannot fail")))
         }
+    }
+}
+
+// ── GET /v1/search/suggest?q= ─────────────────────────────────────────────────
+
+#[utoipa::path(
+    get, path = "/v1/search/suggest",
+    params(("q" = String, Query, description = "Partial package name (minimum 1 character)")),
+    responses(
+        (status = 200, description = "Top 5 package name completions as a JSON string array"),
+        (status = 500, description = "Internal server error", body = crate::models::ApiError),
+    ),
+    tag = "packages"
+)]
+pub async fn suggest(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<SuggestParams>,
+) -> (StatusCode, Json<Value>) {
+    let q = params.q.trim();
+    if q.is_empty() {
+        return (StatusCode::OK, Json(serde_json::json!([])));
+    }
+    match crate::db::suggest_packages(&state.pool, q, 5).await {
+        Ok(names) => (StatusCode::OK, Json(serde_json::to_value(names).expect("BUG"))),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::to_value(ApiError::new(e.to_string())).expect("BUG")),
+        ),
     }
 }

@@ -60,6 +60,9 @@ fn iso_now() -> String {
 ///
 /// Fetches and displays package metadata from the tsx registry.
 pub fn pkg_info(name: String) -> CommandResult {
+    // Accept name@version shorthand (e.g. "my-pkg@1.2.3")
+    let (name, pinned_version) = split_name_version(&name);
+
     let registry_url = load_credentials()
         .map(|c| c.registry_url)
         .unwrap_or_else(|| DEFAULT_REGISTRY_URL.to_string());
@@ -73,7 +76,10 @@ pub fn pkg_info(name: String) -> CommandResult {
         Err(e) => return CommandResult::err("pkg info", format!("HTTP client error: {e}")),
     };
 
-    let pkg_url = format!("{registry_url}/v1/packages/{}", url_encode(&name));
+    let pkg_url = match &pinned_version {
+        Some(v) => format!("{registry_url}/v1/packages/{}/{}", url_encode(&name), url_encode(v)),
+        None    => format!("{registry_url}/v1/packages/{}", url_encode(&name)),
+    };
     let resp = match client.get(&pkg_url).send() {
         Ok(r) => r,
         Err(e) => return CommandResult::err("pkg info", format!("Request failed: {e}")),
@@ -132,6 +138,10 @@ pub fn pkg_info(name: String) -> CommandResult {
 /// Downloads the tarball from the tsx registry and extracts it into
 /// `.tsx/packages/<name>/` in the nearest project root (or `--target`).
 pub fn pkg_install(name: String, version: Option<String>, target: Option<String>) -> CommandResult {
+    // Accept name@version shorthand — --version flag takes precedence
+    let (name, name_version) = split_name_version(&name);
+    let version = version.or(name_version);
+
     let creds = load_credentials();
     let registry_url = creds
         .as_ref()
@@ -228,7 +238,278 @@ pub fn pkg_install(name: String, version: Option<String>, target: Option<String>
     result
 }
 
+// ── tsx pkg upgrade <name> ────────────────────────────────────────────────────
+
+/// `tsx pkg upgrade <name>`
+///
+/// Fetches the latest version from the registry and re-installs the package
+/// if a newer version is available.  Prints an up-to-date message otherwise.
+pub fn pkg_upgrade(name: String, target: Option<String>) -> CommandResult {
+    // Accept name@version (unusual but handle gracefully — just ignore the pin)
+    let (name, _pinned) = split_name_version(&name);
+
+    let registry_url = load_credentials()
+        .map(|c| c.registry_url)
+        .unwrap_or_else(|| DEFAULT_REGISTRY_URL.to_string());
+    let registry_url = registry_url.trim_end_matches('/').to_string();
+
+    // ── Resolve project root & current installed version ──────────────────────
+    let project_root = crate::utils::paths::find_project_root()
+        .unwrap_or_else(|_| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+    let pkgs = load_pkg_index(&project_root);
+    let current_version = pkgs.iter().find(|p| p.name == name).map(|p| p.version.clone());
+
+    // ── Fetch latest version from registry ───────────────────────────────────
+    let client = match reqwest::blocking::Client::builder()
+        .user_agent(format!("tsx-cli/{}", env!("CARGO_PKG_VERSION")))
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => return CommandResult::err("pkg upgrade", format!("HTTP client error: {e}")),
+    };
+
+    let pkg_url = format!("{registry_url}/v1/packages/{}", url_encode(&name));
+    let resp = match client.get(&pkg_url).send() {
+        Ok(r) => r,
+        Err(e) => return CommandResult::err("pkg upgrade", format!("Request failed: {e}")),
+    };
+    if resp.status() == reqwest::StatusCode::NOT_FOUND {
+        return CommandResult::err("pkg upgrade", format!("Package '{name}' not found in registry"));
+    }
+    if !resp.status().is_success() {
+        return CommandResult::err("pkg upgrade", format!("Registry returned {}", resp.status()));
+    }
+    let pkg: serde_json::Value = match resp.json() {
+        Ok(v) => v,
+        Err(e) => return CommandResult::err("pkg upgrade", format!("Failed to parse response: {e}")),
+    };
+    let latest = match pkg.get("version").and_then(|v| v.as_str()) {
+        Some(v) => v.to_string(),
+        None => return CommandResult::err("pkg upgrade", "Could not determine latest version"),
+    };
+
+    // ── Already up to date? ───────────────────────────────────────────────────
+    if current_version.as_deref() == Some(&latest) {
+        let mut result = CommandResult::ok("pkg upgrade", vec![]);
+        result.next_steps = vec![format!("{name}@{latest} is already the latest version")];
+        return result;
+    }
+
+    let prev = current_version.as_deref().unwrap_or("(not installed)");
+
+    // ── Re-install ────────────────────────────────────────────────────────────
+    let install_result = pkg_install(name.clone(), Some(latest.clone()), target);
+    if !install_result.success {
+        return install_result;
+    }
+
+    let mut result = CommandResult::ok("pkg upgrade", vec![]);
+    result.next_steps = vec![
+        format!("Upgraded {name}: {prev} → {latest}"),
+        format!("  Run `tsx pkg info {name}` for release notes."),
+    ];
+    result
+}
+
+// ── tsx pkg publish [--path <dir>] [--name <n>] [--version <v>] [--dry-run] ──
+
+/// `tsx pkg publish`
+///
+/// Packages the current directory (or `--path`) as a `.tar.gz` and uploads it
+/// to the tsx registry using the API key stored by `tsx login`.
+pub fn pkg_publish(
+    path: Option<String>,
+    name: Option<String>,
+    version: Option<String>,
+    dry_run: bool,
+) -> CommandResult {
+    // ── Credentials ───────────────────────────────────────────────────────────
+    let creds = match load_credentials() {
+        Some(c) => c,
+        None => {
+            return CommandResult::err(
+                "pkg publish",
+                "Not logged in. Run `tsx login --token <key>` first.",
+            )
+        }
+    };
+
+    // ── Resolve package directory ─────────────────────────────────────────────
+    let pkg_dir = match path {
+        Some(p) => std::path::PathBuf::from(p),
+        None => std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
+    };
+
+    // ── Read manifest.json ────────────────────────────────────────────────────
+    let manifest_path = pkg_dir.join("manifest.json");
+    let manifest_str = match std::fs::read_to_string(&manifest_path) {
+        Ok(s) => s,
+        Err(e) => {
+            return CommandResult::err(
+                "pkg publish",
+                format!("Could not read manifest.json in {}: {e}", pkg_dir.display()),
+            )
+        }
+    };
+    let manifest: serde_json::Value = match serde_json::from_str(&manifest_str) {
+        Ok(v) => v,
+        Err(e) => {
+            return CommandResult::err("pkg publish", format!("Invalid manifest.json: {e}"))
+        }
+    };
+
+    // ── Resolve name / version ────────────────────────────────────────────────
+    let pkg_name = name
+        .or_else(|| {
+            manifest
+                .get("name")
+                .and_then(|v| v.as_str())
+                .map(String::from)
+        })
+        .or_else(|| {
+            manifest
+                .get("id")
+                .and_then(|v| v.as_str())
+                .map(String::from)
+        })
+        .unwrap_or_default();
+
+    let pkg_version = version
+        .or_else(|| {
+            manifest
+                .get("version")
+                .and_then(|v| v.as_str())
+                .map(String::from)
+        })
+        .unwrap_or_default();
+
+    if pkg_name.is_empty() {
+        return CommandResult::err(
+            "pkg publish",
+            "Package name not found in manifest.json — add a \"name\" field or pass --name.",
+        );
+    }
+    if pkg_version.is_empty() {
+        return CommandResult::err(
+            "pkg publish",
+            "Version not found in manifest.json — add a \"version\" field or pass --version.",
+        );
+    }
+
+    let registry_url = creds.registry_url.trim_end_matches('/').to_string();
+
+    // ── Dry-run: print what would be published ────────────────────────────────
+    if dry_run {
+        let mut result = CommandResult::ok("pkg publish", vec![]);
+        result.next_steps = vec![
+            format!("Would publish {pkg_name}@{pkg_version} to {registry_url}"),
+            format!("  Source: {}", pkg_dir.display()),
+        ];
+        return result;
+    }
+
+    // ── Build tarball ─────────────────────────────────────────────────────────
+    let tarball_bytes = match build_tarball(&pkg_dir) {
+        Ok(b) => b,
+        Err(e) => {
+            return CommandResult::err("pkg publish", format!("Failed to build tarball: {e}"))
+        }
+    };
+
+    // ── Upload ────────────────────────────────────────────────────────────────
+    let client = match reqwest::blocking::Client::builder()
+        .user_agent(format!("tsx-cli/{}", env!("CARGO_PKG_VERSION")))
+        .timeout(std::time::Duration::from_secs(120))
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => return CommandResult::err("pkg publish", format!("HTTP client error: {e}")),
+    };
+
+    let file_name = format!("{}-{}.tar.gz", pkg_name.replace('/', "__"), pkg_version);
+    let part = match reqwest::blocking::multipart::Part::bytes(tarball_bytes)
+        .file_name(file_name)
+        .mime_str("application/gzip")
+    {
+        Ok(p) => p,
+        Err(e) => return CommandResult::err("pkg publish", format!("MIME error: {e}")),
+    };
+
+    let form = reqwest::blocking::multipart::Form::new()
+        .text("name", pkg_name.clone())
+        .text("version", pkg_version.clone())
+        .text("manifest", manifest_str)
+        .part("tarball", part);
+
+    let resp = match client
+        .post(format!("{registry_url}/v1/packages/publish"))
+        .header("Authorization", format!("Bearer {}", creds.api_key))
+        .multipart(form)
+        .send()
+    {
+        Ok(r) => r,
+        Err(e) => return CommandResult::err("pkg publish", format!("Request failed: {e}")),
+    };
+
+    let status = resp.status();
+    let body: serde_json::Value = resp.json().unwrap_or_default();
+
+    if !status.is_success() {
+        let msg = body
+            .get("error")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Unknown error");
+        return CommandResult::err("pkg publish", format!("Registry returned {status}: {msg}"));
+    }
+
+    let tarball_url = body
+        .get("tarball_url")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    let mut result = CommandResult::ok("pkg publish", vec![]);
+    result.next_steps = vec![
+        format!("Published {pkg_name}@{pkg_version}"),
+        format!("  Registry: {registry_url}"),
+        format!("  Install:  tsx pkg install {pkg_name}"),
+    ];
+    if !tarball_url.is_empty() {
+        result.next_steps.push(format!("  Tarball:  {tarball_url}"));
+    }
+    result
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+fn build_tarball(dir: &std::path::Path) -> anyhow::Result<Vec<u8>> {
+    let mut buf = Vec::new();
+    {
+        let enc = flate2::write::GzEncoder::new(&mut buf, flate2::Compression::default());
+        let mut archive = tar::Builder::new(enc);
+        archive.append_dir_all(".", dir)?;
+        let enc = archive.into_inner()?;
+        enc.finish()?;
+    }
+    Ok(buf)
+}
+
+/// Split `name@version` → `(name, Some(version))`, or `name` → `(name, None)`.
+/// Handles scoped packages like `@scope/pkg@1.0.0`:
+///   - If the string starts with `@`, the leading `@` belongs to the scope, so
+///     we look for `@` after position 1.
+fn split_name_version(input: &str) -> (String, Option<String>) {
+    let at_pos = if input.starts_with('@') {
+        input[1..].find('@').map(|i| i + 1)
+    } else {
+        input.find('@')
+    };
+    match at_pos {
+        Some(i) => (input[..i].to_string(), Some(input[i + 1..].to_string())),
+        None    => (input.to_string(), None),
+    }
+}
 
 fn url_encode(s: &str) -> String {
     s.replace('@', "%40").replace('/', "%2F")

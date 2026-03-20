@@ -9,6 +9,7 @@
 //! | GET    | /v1/search?q=&lang=&sort=&page=&size=         | Search packages (paginated)    |
 //! | GET    | /v1/packages?sort=recent&limit=N              | Recent packages                |
 //! | GET    | /v1/packages/{name}                           | Package metadata               |
+//! | GET    | /v1/packages/{name}/{version}                 | Package metadata at version    |
 //! | GET    | /v1/packages/{name}/versions                  | Version list                   |
 //! | GET    | /v1/packages/{name}/readme                    | README markdown                |
 //! | GET    | /v1/packages/{name}/stats/downloads           | Per-day download stats         |
@@ -16,10 +17,18 @@
 //! | POST   | /v1/packages/publish                          | Publish a package              |
 //! | PUT    | /v1/packages/{name}                           | Update description/metadata    |
 //! | PUT    | /v1/packages/{name}/readme                    | Update README                  |
+//! | PUT    | /v1/packages/{name}/deprecate                 | Deprecate / un-deprecate       |
 //! | DELETE | /v1/packages/{name}/versions/{version}        | Yank a version                 |
 //! | DELETE | /v1/packages/{name}                           | Delete a package               |
+//! | GET    | /v1/packages/{name}/star                      | Star count + current user status |
+//! | POST   | /v1/packages/{name}/star                      | Star a package                 |
+//! | DELETE | /v1/packages/{name}/star                      | Unstar a package               |
 //! | GET    | /v1/admin/audit-log                           | Publish audit log              |
 //! | GET    | /v1/admin/rate-limits                         | Rate limit status per IP       |
+//! | GET    | /v1/search/suggest?q=                         | Typeahead name completions     |
+//! | GET    | /v1/feed.xml                                  | RSS feed (last 20 packages)    |
+//! | GET    | /v1/packages/{name}/badge.svg                 | Download count badge (SVG)     |
+//! | GET    | /v1/account/starred                           | Packages starred by auth user  |
 //! | GET    | /api-docs/openapi.json                        | OpenAPI 3.1 spec (JSON)        |
 //! | POST   | /v1/webhooks                                  | Register a webhook             |
 //! | GET    | /v1/webhooks                                  | List your webhooks             |
@@ -58,6 +67,7 @@ pub use tsx_shared as models;
         routes::search::search,
         routes::packages::list_packages,
         routes::packages::get_package,
+        routes::packages::get_package_at_version,
         routes::packages::get_package_versions,
         routes::packages::get_readme,
         routes::packages::update_readme,
@@ -65,6 +75,7 @@ pub use tsx_shared as models;
         routes::packages::download_tarball,
         routes::packages::publish,
         routes::packages::update_package,
+        routes::packages::deprecate_package,
         routes::packages::yank_version,
         routes::packages::delete_package,
         routes::users::get_user_packages,
@@ -73,6 +84,13 @@ pub use tsx_shared as models;
         routes::webhooks::create_webhook,
         routes::webhooks::list_webhooks,
         routes::webhooks::delete_webhook,
+        routes::stars::star_package,
+        routes::stars::unstar_package,
+        routes::stars::get_star_status,
+        routes::stars::list_starred,
+        routes::search::suggest,
+        routes::feed::rss_feed,
+        routes::feed::download_badge,
     ),
     components(schemas(
         models::Package,
@@ -245,6 +263,7 @@ async fn main() {
         .route("/v1/packages",              get(routes::packages::list_packages))
         .route("/v1/packages/publish",      post(routes::packages::publish))
         .route("/v1/packages/{name}",        get(routes::packages::get_package))
+        .route("/v1/packages/{name}/{version}", get(routes::packages::get_package_at_version))
         .route("/v1/packages/{name}",        put(routes::packages::update_package))
         .route("/v1/packages/{name}",        delete(routes::packages::delete_package))
         .route("/v1/packages/{name}/versions",
@@ -255,12 +274,23 @@ async fn main() {
             get(routes::packages::get_download_stats))
         .route("/v1/packages/{name}/{version}/tarball",
             get(routes::packages::download_tarball))
+        .route("/v1/packages/{name}/deprecate",
+            put(routes::packages::deprecate_package))
         .route("/v1/packages/{name}/versions/{version}",
             delete(routes::packages::yank_version))
+        // Package starring
+        .route("/v1/packages/{name}/star",
+            get(routes::stars::get_star_status)
+            .post(routes::stars::star_package)
+            .delete(routes::stars::unstar_package))
         // Webhooks
         .route("/v1/webhooks",      post(routes::webhooks::create_webhook))
         .route("/v1/webhooks",       get(routes::webhooks::list_webhooks))
         .route("/v1/webhooks/{id}", delete(routes::webhooks::delete_webhook))
+        .route("/v1/account/starred", get(routes::stars::list_starred))
+        .route("/v1/search/suggest", get(routes::search::suggest))
+        .route("/v1/feed.xml", get(routes::feed::rss_feed))
+        .route("/v1/packages/{name}/badge.svg", get(routes::feed::download_badge))
         // Auth helpers (used by CLI login)
         .route("/v1/auth/whoami", get(routes::auth_route::whoami))
         // User profiles

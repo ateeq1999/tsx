@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(name = "tsx", version, about = "TanStack Start code generation CLI")]
@@ -201,6 +201,14 @@ enum Command {
     },
     /// Print agent-ready context: active stack, available commands, and usage summary
     Context,
+    /// Generate shell completion scripts
+    Completions {
+        /// Shell to generate completions for: bash, zsh, fish, powershell, elvish
+        #[arg(value_name = "SHELL")]
+        shell: String,
+    },
+    /// Run diagnostic checks on the current project and environment
+    Doctor,
     /// Run any installed framework generator by id or command name
     Run {
         /// Generator id (e.g. `add-schema`) or command name (e.g. `add:schema`).
@@ -482,6 +490,30 @@ enum PkgCmd {
         /// Package name
         #[arg(value_name = "NAME")]
         name: String,
+    },
+    /// Upgrade an installed package to its latest version
+    Upgrade {
+        /// Package name (e.g. auth-form or @scope/pkg)
+        #[arg(value_name = "NAME")]
+        name: String,
+        /// Install into this directory instead of .tsx/packages/
+        #[arg(long, value_name = "DIR")]
+        target: Option<String>,
+    },
+    /// Publish a package directory to the tsx registry
+    Publish {
+        /// Path to the package directory (default: current directory)
+        #[arg(long, value_name = "DIR")]
+        path: Option<String>,
+        /// Override the package name from manifest.json
+        #[arg(long)]
+        name: Option<String>,
+        /// Override the version from manifest.json
+        #[arg(long)]
+        version: Option<String>,
+        /// Validate and show what would be published without uploading
+        #[arg(long)]
+        dry_run: bool,
     },
 }
 
@@ -826,6 +858,14 @@ fn main() {
                 use tsx::commands::pkg;
                 pkg::pkg_info(name).print();
             }
+            PkgCmd::Upgrade { name, target } => {
+                use tsx::commands::pkg;
+                pkg::pkg_upgrade(name, target).print();
+            }
+            PkgCmd::Publish { path, name, version, dry_run } => {
+                use tsx::commands::pkg;
+                pkg::pkg_publish(path, name, version, dry_run).print();
+            }
         },
         Command::Plugin { action } => match action {
             Plugin::List => {
@@ -877,6 +917,25 @@ fn main() {
         Command::Context => {
             use tsx::commands::context;
             context::context(cli.verbose).print();
+        }
+        Command::Completions { shell } => {
+            use clap_complete::generate;
+            use std::io::Write;
+            use tsx::commands::manage::completions;
+
+            match completions::resolve_shell(&shell) {
+                Err(_) => completions::unknown_shell_error(&shell).print(),
+                Ok(sh) => {
+                    let mut cmd = Cli::command();
+                    let mut buf = Vec::<u8>::new();
+                    generate(sh, &mut cmd, "tsx", &mut buf);
+                    std::io::stdout().write_all(&buf).ok();
+                }
+            }
+        }
+        Command::Doctor => {
+            use tsx::commands::manage::doctor;
+            doctor::doctor().print();
         }
         Command::Run { id, fw, json, list } => {
             use tsx::commands::run;
