@@ -234,6 +234,61 @@ enum Command {
         #[command(subcommand)]
         target: CodegenCmd,
     },
+    /// Manage global tsx configuration (~/.tsx/config.json)
+    Config {
+        #[command(subcommand)]
+        action: ConfigCmd,
+    },
+    /// Validate or diff .env files
+    Env {
+        #[command(subcommand)]
+        action: EnvCmd,
+    },
+    /// Run drizzle-kit database migrations
+    Migrate {
+        /// Only run `drizzle-kit generate` (skip apply)
+        #[arg(long)]
+        generate_only: bool,
+        /// Only apply pending migrations (skip generate)
+        #[arg(long)]
+        apply_only: bool,
+    },
+    /// Detect and run the project's build command
+    Build {
+        /// Emit structured JSON events (agent mode)
+        #[arg(long)]
+        json_events: bool,
+    },
+    /// Run the project's test suite (vitest / jest / playwright)
+    Test {
+        /// Run only tests matching this pattern
+        #[arg(long, value_name = "PATTERN")]
+        filter: Option<String>,
+        /// Watch mode — re-run on file changes
+        #[arg(long)]
+        watch: bool,
+        /// Emit structured JSON test results
+        #[arg(long)]
+        json: bool,
+    },
+    /// Run npm audit and format vulnerabilities
+    Audit {
+        /// Minimum severity to report: critical, high, moderate, low
+        #[arg(long, value_name = "LEVEL")]
+        severity: Option<String>,
+        /// Run `npm audit fix`
+        #[arg(long)]
+        fix: bool,
+    },
+    /// Interactive goal-driven REPL
+    Repl {
+        /// One-shot goal (agent mode — skips interactive loop)
+        #[arg(long, value_name = "GOAL")]
+        goal: Option<String>,
+        /// Execute proposed commands without prompting
+        #[arg(long)]
+        execute: bool,
+    },
     /// Queryable catalog of atoms and molecules for the active framework
     Atoms {
         #[command(subcommand)]
@@ -673,6 +728,52 @@ enum CodegenCmd {
     },
     /// Auto-run drizzle-zod across all schema files
     DrizzleToZod,
+}
+
+#[derive(Subcommand)]
+enum ConfigCmd {
+    /// Get a single config value
+    Get {
+        #[arg(value_name = "KEY")]
+        key: String,
+    },
+    /// Set a config value
+    Set {
+        #[arg(value_name = "KEY")]
+        key: String,
+        #[arg(value_name = "VALUE")]
+        value: String,
+    },
+    /// List all config values
+    List,
+    /// Reset a key (or all keys) to defaults
+    Reset {
+        /// Key to reset (omit to reset everything)
+        #[arg(value_name = "KEY")]
+        key: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum EnvCmd {
+    /// Validate .env against .env.schema
+    Check {
+        /// Path to schema file (default: .env.schema)
+        #[arg(long, value_name = "FILE")]
+        schema: Option<String>,
+        /// Path to .env file (default: .env)
+        #[arg(long, value_name = "FILE")]
+        env: Option<String>,
+    },
+    /// Show vars in .env.example missing from .env
+    Diff {
+        /// Path to example file (default: .env.example)
+        #[arg(long, value_name = "FILE")]
+        example: Option<String>,
+        /// Path to .env file (default: .env)
+        #[arg(long, value_name = "FILE")]
+        env: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -1232,6 +1333,42 @@ fn main() {
                 )
                 .print();
             }
+        }
+        Command::Config { action } => {
+            use tsx::commands::config;
+            match action {
+                ConfigCmd::Get { key } => config::config_get(key).print(),
+                ConfigCmd::Set { key, value } => config::config_set(key, value).print(),
+                ConfigCmd::List => config::config_list().print(),
+                ConfigCmd::Reset { key } => config::config_reset(key).print(),
+            }
+        }
+        Command::Env { action } => {
+            use tsx::commands::env;
+            match action {
+                EnvCmd::Check { schema, env: env_path } => env::env_check(schema, env_path).print(),
+                EnvCmd::Diff { example, env: env_path } => env::env_diff(example, env_path).print(),
+            }
+        }
+        Command::Migrate { generate_only, apply_only } => {
+            use tsx::commands::migrate;
+            migrate::migrate(generate_only, apply_only, cli.dry_run, cli.verbose).print();
+        }
+        Command::Build { json_events } => {
+            use tsx::commands::build;
+            build::build(json_events, cli.verbose).print();
+        }
+        Command::Test { filter, watch, json } => {
+            use tsx::commands::test_run;
+            test_run::test_run(filter, watch, json, cli.verbose).print();
+        }
+        Command::Audit { severity, fix } => {
+            use tsx::commands::audit;
+            audit::audit(severity, fix, cli.verbose).print();
+        }
+        Command::Repl { goal, execute } => {
+            use tsx::commands::repl;
+            repl::repl(goal, execute, cli.verbose).print();
         }
         Command::Atoms { action } => {
             use tsx::commands::atoms;
