@@ -38,6 +38,21 @@ pub struct StyleConfig {
     pub indent: u8,
     #[serde(default = "default_semicolons")]
     pub semicolons: bool,
+    /// CSS framework: "tailwind", "css-modules", "styled-components"
+    #[serde(default)]
+    pub css: Option<String>,
+    /// Component library: "shadcn", "radix", "headlessui", "none"
+    #[serde(default)]
+    pub components: Option<String>,
+    /// Form library: "tanstack-form", "react-hook-form", "none"
+    #[serde(default)]
+    pub forms: Option<String>,
+    /// Icon library: "lucide-react", "heroicons", "none"
+    #[serde(default)]
+    pub icons: Option<String>,
+    /// Toast/notification library: "sonner", "react-hot-toast", "none"
+    #[serde(default)]
+    pub toast: Option<String>,
 }
 
 fn default_quotes() -> String {
@@ -56,6 +71,11 @@ impl Default for StyleConfig {
             quotes: default_quotes(),
             indent: default_indent(),
             semicolons: default_semicolons(),
+            css: None,
+            components: None,
+            forms: None,
+            icons: None,
+            toast: None,
         }
     }
 }
@@ -73,6 +93,142 @@ pub struct PathConfig {
     pub server_fns: Option<String>,
     #[serde(default)]
     pub hooks: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
+// PatternConfig — code convention preferences
+// ---------------------------------------------------------------------------
+
+/// Code-pattern preferences applied to all generated files.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PatternConfig {
+    /// Component export style: "named-export", "default-export"
+    #[serde(default)]
+    pub component_style: Option<String>,
+    /// File naming convention: "kebab-case", "camelCase", "PascalCase"
+    #[serde(default)]
+    pub file_naming: Option<String>,
+    /// Import alias prefix: "@/", "~/", etc.
+    #[serde(default)]
+    pub import_alias: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
+// UserStack — user-local overrides (user-stack.json, not committed)
+// ---------------------------------------------------------------------------
+
+/// User-local stack overrides stored at `<project-root>/user-stack.json`.
+/// This file is gitignored by convention — it captures per-developer preferences
+/// on top of the shared `.tsx/stack.json`.
+///
+/// Merge resolution order (lowest → highest priority):
+///   built-in defaults → framework registry.json → .tsx/stack.json
+///   → user-stack.json → --path / --overwrite flags at call time
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct UserStack {
+    /// Framework slug to extend (e.g. "tanstack-start")
+    #[serde(default)]
+    pub extends: Option<String>,
+    /// Per-generator output path templates.
+    /// Keys: "schema", "route", "server-fn", "component", "query-hook", etc.
+    /// Values: path templates supporting {{name}}, {{feature}}, {{PascalName}},
+    ///         {{kebab-name}}, {{snake_name}} placeholders.
+    #[serde(default)]
+    pub paths: HashMap<String, String>,
+    /// Code-pattern preferences
+    #[serde(default)]
+    pub patterns: PatternConfig,
+    /// Style overrides merged on top of .tsx/stack.json style
+    #[serde(default)]
+    pub style: UserStyleOverride,
+    /// Template file overrides — key is generator id, value is path to custom .forge file
+    #[serde(default)]
+    pub templates: HashMap<String, String>,
+    /// Slot content overrides — key is slot name, value is content or file path
+    #[serde(default)]
+    pub slots: HashMap<String, String>,
+}
+
+/// Partial style overrides from user-stack.json (all fields optional).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct UserStyleOverride {
+    #[serde(default)]
+    pub quotes: Option<String>,
+    #[serde(default)]
+    pub indent: Option<u8>,
+    #[serde(default)]
+    pub semicolons: Option<bool>,
+    #[serde(default)]
+    pub css: Option<String>,
+    #[serde(default)]
+    pub components: Option<String>,
+    #[serde(default)]
+    pub forms: Option<String>,
+    #[serde(default)]
+    pub icons: Option<String>,
+    #[serde(default)]
+    pub toast: Option<String>,
+}
+
+impl UserStack {
+    /// Load from `<dir>/user-stack.json`. Returns `None` if the file doesn't exist.
+    pub fn load(dir: &Path) -> Option<Self> {
+        let content = std::fs::read_to_string(dir.join("user-stack.json")).ok()?;
+        serde_json::from_str(&content).ok()
+    }
+
+    /// Resolve a named path template (e.g. "schema") substituting `name` and `feature`.
+    ///
+    /// Supported placeholders: `{{name}}`, `{{feature}}`, `{{PascalName}}`,
+    /// `{{kebab-name}}`, `{{snake_name}}`
+    pub fn resolve_path(&self, key: &str, name: &str, feature: &str) -> Option<String> {
+        use heck::{ToKebabCase, ToPascalCase, ToSnakeCase};
+        let template = self.paths.get(key)?;
+        let result = template
+            .replace("{{name}}", name)
+            .replace("{{feature}}", feature)
+            .replace("{{PascalName}}", &name.to_pascal_case())
+            .replace("{{kebab-name}}", &name.to_kebab_case())
+            .replace("{{snake_name}}", &name.to_snake_case());
+        Some(result)
+    }
+
+    /// Return the effective style by merging stack.json style with user-stack overrides.
+    pub fn effective_style<'a>(&'a self, base: &'a StyleConfig) -> EffectiveStyle {
+        EffectiveStyle {
+            quotes: self.style.quotes.as_deref().unwrap_or(&base.quotes).to_string(),
+            indent: self.style.indent.unwrap_or(base.indent),
+            semicolons: self.style.semicolons.unwrap_or(base.semicolons),
+            css: self.style.css.clone()
+                .or_else(|| base.css.clone())
+                .unwrap_or_default(),
+            components: self.style.components.clone()
+                .or_else(|| base.components.clone())
+                .unwrap_or_default(),
+            forms: self.style.forms.clone()
+                .or_else(|| base.forms.clone())
+                .unwrap_or_default(),
+            icons: self.style.icons.clone()
+                .or_else(|| base.icons.clone())
+                .unwrap_or_default(),
+            toast: self.style.toast.clone()
+                .or_else(|| base.toast.clone())
+                .unwrap_or_default(),
+        }
+    }
+}
+
+/// Resolved style configuration — all fields filled in after merging stack + user-stack.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct EffectiveStyle {
+    pub quotes: String,
+    pub indent: u8,
+    pub semicolons: bool,
+    pub css: String,
+    pub components: String,
+    pub forms: String,
+    pub icons: String,
+    pub toast: String,
 }
 
 impl Default for StackProfile {

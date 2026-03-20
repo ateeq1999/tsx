@@ -209,6 +209,11 @@ enum Command {
     },
     /// Run diagnostic checks on the current project and environment
     Doctor,
+    /// Generate TypeScript interfaces and Zod schemas from Rust/OpenAPI/Drizzle sources
+    Codegen {
+        #[command(subcommand)]
+        target: CodegenCmd,
+    },
     /// Run any installed framework generator by id or command name
     Run {
         /// Generator id (e.g. `add-schema`) or command name (e.g. `add:schema`).
@@ -515,6 +520,33 @@ enum PkgCmd {
         #[arg(long)]
         dry_run: bool,
     },
+}
+
+#[derive(Subcommand)]
+enum CodegenCmd {
+    /// Parse Rust structs/enums and emit TypeScript interfaces + Zod schemas
+    RustToTs {
+        /// Path to the Rust source file (default: crates/shared/src/lib.rs)
+        #[arg(long, value_name = "FILE")]
+        input: Option<String>,
+        /// Output TypeScript file (default: generated/<stem>.ts)
+        #[arg(long, value_name = "FILE")]
+        out: Option<String>,
+        /// Watch the input file and regenerate on change
+        #[arg(long)]
+        watch: bool,
+    },
+    /// Convert an OpenAPI spec to Zod schemas
+    OpenapiToZod {
+        /// URL or path to the OpenAPI spec
+        #[arg(long, value_name = "SPEC")]
+        spec: String,
+        /// Output TypeScript file
+        #[arg(long, value_name = "FILE")]
+        out: Option<String>,
+    },
+    /// Auto-run drizzle-zod across all schema files
+    DrizzleToZod,
 }
 
 /// Parse a `--json` argument, printing a structured error and returning `None` on failure.
@@ -937,6 +969,20 @@ fn main() {
             use tsx::commands::manage::doctor;
             doctor::doctor().print();
         }
+        Command::Codegen { target } => match target {
+            CodegenCmd::RustToTs { input, out, watch } => {
+                use tsx::commands::codegen;
+                codegen::codegen_rust_to_ts(input, out, watch, cli.verbose).print();
+            }
+            CodegenCmd::OpenapiToZod { spec, out } => {
+                use tsx::commands::codegen;
+                codegen::codegen_openapi_to_zod(spec, out, cli.verbose).print();
+            }
+            CodegenCmd::DrizzleToZod => {
+                use tsx::commands::codegen;
+                codegen::codegen_drizzle_to_zod(cli.verbose).print();
+            }
+        },
         Command::Run { id, fw, json, list } => {
             use tsx::commands::run;
             if list || id.is_none() {

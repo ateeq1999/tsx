@@ -115,7 +115,7 @@ mod tests {
         let mut env = build_engine(Path::new("templates"));
         env.add_template(
             "query_key",
-            include_str!("../../templates/atoms/query/query_key.jinja"),
+            include_str!("../../../../templates/atoms/query/query_key.jinja"),
         )
         .unwrap();
         let template = env.get_template("query_key").unwrap();
@@ -148,7 +148,7 @@ mod tests {
         let mut env = build_engine(Path::new("templates"));
         env.add_template(
             "field_switch",
-            include_str!("../../templates/atoms/form/field_switch.jinja"),
+            include_str!("../../../../templates/atoms/form/field_switch.jinja"),
         )
         .unwrap();
         let template = env.get_template("field_switch").unwrap();
@@ -171,7 +171,7 @@ mod tests {
         let mut env = build_engine(Path::new("templates"));
         env.add_template(
             "query_key",
-            include_str!("../../templates/atoms/query/query_key.jinja"),
+            include_str!("../../../../templates/atoms/query/query_key.jinja"),
         )
         .unwrap();
         let template = env.get_template("query_key").unwrap();
@@ -205,7 +205,7 @@ mod tests {
         let mut env = build_engine(Path::new("templates"));
         env.add_template(
             "column",
-            include_str!("../../templates/atoms/drizzle/column.jinja"),
+            include_str!("../../../../templates/atoms/drizzle/column.jinja"),
         )
         .unwrap();
         let template = env.get_template("column").unwrap();
@@ -248,7 +248,7 @@ mod tests {
         let mut env = build_engine(Path::new("templates"));
         env.add_template(
             "column",
-            include_str!("../../templates/atoms/drizzle/column.jinja"),
+            include_str!("../../../../templates/atoms/drizzle/column.jinja"),
         )
         .unwrap();
         let template = env.get_template("column").unwrap();
@@ -276,7 +276,7 @@ mod tests {
         let mut env = build_engine(Path::new("templates"));
         env.add_template(
             "timestamp_cols",
-            include_str!("../../templates/atoms/drizzle/timestamp_cols.jinja"),
+            include_str!("../../../../templates/atoms/drizzle/timestamp_cols.jinja"),
         )
         .unwrap();
         let template = env.get_template("timestamp_cols").unwrap();
@@ -296,7 +296,7 @@ mod tests {
         let mut env = build_engine(Path::new("templates"));
         env.add_template(
             "soft_delete",
-            include_str!("../../templates/atoms/drizzle/soft_delete_col.jinja"),
+            include_str!("../../../../templates/atoms/drizzle/soft_delete_col.jinja"),
         )
         .unwrap();
         let template = env.get_template("soft_delete").unwrap();
@@ -315,17 +315,17 @@ mod tests {
         let mut env = build_engine(Path::new("templates"));
         env.add_template(
             "table_body",
-            include_str!("../../templates/molecules/drizzle/table_body.jinja"),
+            include_str!("../../../../templates/molecules/drizzle/table_body.jinja"),
         )
         .unwrap();
         env.add_template(
             "atoms/drizzle/column",
-            include_str!("../../templates/atoms/drizzle/column.jinja"),
+            include_str!("../../../../templates/atoms/drizzle/column.jinja"),
         )
         .unwrap();
         env.add_template(
             "atoms/drizzle/timestamp_cols",
-            include_str!("../../templates/atoms/drizzle/timestamp_cols.jinja"),
+            include_str!("../../../../templates/atoms/drizzle/timestamp_cols.jinja"),
         )
         .unwrap();
         let template = env.get_template("table_body").unwrap();
@@ -358,7 +358,7 @@ mod tests {
         let mut env = build_engine(Path::new("templates"));
         env.add_template(
             "field_rule",
-            include_str!("../../templates/atoms/zod/field_rule.jinja"),
+            include_str!("../../../../templates/atoms/zod/field_rule.jinja"),
         )
         .unwrap();
         let template = env.get_template("field_rule").unwrap();
@@ -385,7 +385,7 @@ mod tests {
         let mut env = build_engine(Path::new("templates"));
         env.add_template(
             "field_rule",
-            include_str!("../../templates/atoms/zod/field_rule.jinja"),
+            include_str!("../../../../templates/atoms/zod/field_rule.jinja"),
         )
         .unwrap();
         let template = env.get_template("field_rule").unwrap();
@@ -410,7 +410,7 @@ mod tests {
         let mut env = build_engine(Path::new("templates"));
         env.add_template(
             "field_input",
-            include_str!("../../templates/atoms/form/field_input.jinja"),
+            include_str!("../../../../templates/atoms/form/field_input.jinja"),
         )
         .unwrap();
         let template = env.get_template("field_input").unwrap();

@@ -34,7 +34,7 @@ pub fn upgrade(check_only: bool, verbose: bool) -> CommandResult {
     let start = Instant::now();
 
     // Load the bundled metadata to get the current atom versions.
-    let metadata_str = include_str!("../../../templates/metadata.json");
+    let metadata_str = include_str!("../../../../../templates/metadata.json");
     let metadata: serde_json::Value = match serde_json::from_str(metadata_str) {
         Ok(v) => v,
         Err(e) => {

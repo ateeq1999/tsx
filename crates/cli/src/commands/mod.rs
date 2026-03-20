@@ -27,6 +27,7 @@ pub use manage::self_update;
 pub use manage::upgrade;
 
 pub use ops::batch;
+pub use ops::codegen;
 pub use ops::context;
 pub use ops::generate as fw_generate;
 pub use ops::inspect;

@@ -5,7 +5,7 @@ use std::path::Path;
 use tera::Tera;
 use walkdir::WalkDir;
 
-use crate::{collector, context::ForgeContext, error::ForgeError, filters, provide, slots, tier::Tier};
+use crate::{collector, context::ForgeContext, error::ForgeError, filters, preprocessor, provide, slots, tier::Tier};
 
 /// The forge rendering engine.
 ///
@@ -42,8 +42,14 @@ impl Engine {
                         .map_err(|e| ForgeError::LoadError(e.to_string()))?
                         .to_string_lossy()
                         .replace('\\', "/");
-                    let content = std::fs::read_to_string(path)
+                    let raw = std::fs::read_to_string(path)
                         .map_err(|e| ForgeError::LoadError(e.to_string()))?;
+                    // Run @-directive preprocessor for .forge files
+                    let content = if ext == "forge" {
+                        preprocessor::preprocess(&raw)
+                    } else {
+                        raw
+                    };
                     self.tera
                         .add_raw_template(&name, &content)
                         .map_err(|e| ForgeError::LoadError(e.to_string()))?;
@@ -64,7 +70,15 @@ impl Engine {
     }
 
     /// Add a single raw template by name and content string.
+    /// If `name` ends in `.forge`, the `@`-directive preprocessor is applied first.
     pub fn add_raw(&mut self, name: &str, content: &str) -> Result<(), ForgeError> {
+        let processed;
+        let content = if name.ends_with(".forge") {
+            processed = preprocessor::preprocess(content);
+            &processed
+        } else {
+            content
+        };
         self.tera
             .add_raw_template(name, content)
             .map_err(|e| ForgeError::LoadError(e.to_string()))?;

@@ -61,7 +61,7 @@ struct KnowledgeEntry {
     changelog: Vec<ChangelogEntry>,
 }
 
-static EXPLAIN_JSON: &str = include_str!("../../../data/explain.json");
+static EXPLAIN_JSON: &str = include_str!("../../../../../data/explain.json");
 
 fn load_knowledge_base() -> Vec<KnowledgeEntry> {
     serde_json::from_str(EXPLAIN_JSON).unwrap_or_default()

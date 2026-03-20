@@ -1,4 +1,5 @@
 pub mod batch;
+pub mod codegen;
 pub mod context;
 pub mod generate;
 pub mod inspect;
