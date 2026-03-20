@@ -25,6 +25,7 @@
 //! assert_eq!(out, "Hello World!");
 //! ```
 
+pub mod ast;
 pub mod collector;
 pub mod context;
 pub mod engine;
@@ -36,6 +37,12 @@ pub mod provide;
 pub mod slots;
 pub mod tier;
 
+pub use ast::{
+    ForgeFile, StyleConfig, QuoteStyle, Render,
+    BodyNode, TableNode, TableKind, ColumnNode, ImportNode, RawNode,
+    pg_table, sqlite_table, uuid_pk, text_col, int_col, bool_col,
+    timestamp_col, real_col, raw, to_snake_case, to_pascal_case,
+};
 pub use context::ForgeContext;
 pub use engine::Engine;
 pub use error::ForgeError;
