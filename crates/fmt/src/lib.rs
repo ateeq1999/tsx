@@ -71,4 +71,43 @@ export const foo = 1;
         assert!(out.contains("{{- name -}}"));
         assert!(out.contains("{% if x %}"));
     }
+
+    #[test]
+    fn idempotent_twice_on_dirty_input() {
+        let input = "hello   \n\n\n\n\nworld  ";
+        let config = FmtConfig::default();
+        let first = format_str(input, &config).formatted;
+        let second = format_str(&first, &config).formatted;
+        assert_eq!(first, second, "formatter must be idempotent on dirty input");
+    }
+
+    #[test]
+    fn single_quote_config_normalises_imports() {
+        let input = r#"@import("react")"#;
+        let config = FmtConfig { quotes: QuoteStyle::Single, ..Default::default() };
+        let out = format_str(input, &config).formatted;
+        assert!(out.contains("'react'"), "should use single quotes");
+    }
+
+    #[test]
+    fn double_quote_config_normalises_imports() {
+        let input = "@import('react')";
+        let config = FmtConfig { quotes: QuoteStyle::Double, ..Default::default() };
+        let out = format_str(input, &config).formatted;
+        assert!(out.contains("\"react\""), "should use double quotes");
+    }
+
+    #[test]
+    fn empty_input_returns_empty_or_newline() {
+        let out = format_str("", &FmtConfig::default()).formatted;
+        assert!(out.is_empty() || out == "\n");
+    }
+
+    #[test]
+    fn format_result_changed_flag() {
+        let dirty = "hello   \n";
+        let clean = "hello\n";
+        assert!(format_str(dirty, &FmtConfig::default()).changed);
+        assert!(!format_str(clean, &FmtConfig::default()).changed);
+    }
 }

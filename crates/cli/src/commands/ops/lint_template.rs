@@ -9,7 +9,7 @@
 //! - Dead `@variant(...)` blocks (variant flag never set in fixtures)
 //! - Import shadowing (same package imported twice with different aliases)
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};

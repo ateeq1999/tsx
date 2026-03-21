@@ -33,9 +33,7 @@ pub fn collapse_blank_lines(src: &str, max: usize) -> String {
             let indent = &line[..line.len() - line.trim_start().len()];
             // Rebuild: indent + trimmed content
             out = {
-                let mut new = String::with_capacity(src.len());
-                // We need to redo — simplify: just emit stripped line
-                drop(new);
+                // simplify: just keep the accumulated output
                 out
             };
             let _ = indent; // unused - we'll fix in formatter layer

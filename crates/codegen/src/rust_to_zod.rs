@@ -1,6 +1,6 @@
 //! Rust structs/enums → Zod schemas + TypeScript type aliases.
 
-use crate::types::{CodegenError, CodegenInput, CodegenOutput, rust_type_to_zod, rust_type_to_ts};
+use crate::types::{CodegenError, CodegenInput, CodegenOutput, rust_type_to_zod};
 
 /// Configuration for the rust→zod pipeline.
 #[derive(Debug, Clone)]

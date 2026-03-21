@@ -167,7 +167,7 @@ trait WithData {
 }
 
 impl WithData for ResponseEnvelope {
-    fn with_data(mut self, _data: serde_json::Value) -> Self {
+    fn with_data(self, _data: serde_json::Value) -> Self {
         // Attach extra data via next_steps since result is Null in error envelopes
         self
     }

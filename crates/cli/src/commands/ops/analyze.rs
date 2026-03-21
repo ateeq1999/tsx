@@ -13,7 +13,6 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
-use crate::json::error::{ErrorCode, ErrorResponse};
 use crate::json::response::ResponseEnvelope;
 
 // ---------------------------------------------------------------------------

@@ -620,7 +620,7 @@ pub fn registry_list(verbose: bool) -> CommandResult {
 }
 
 /// Check all installed packages for newer versions on npm and reinstall if available.
-pub fn registry_update(verbose: bool) -> CommandResult {
+pub fn registry_update(_verbose: bool) -> CommandResult {
     let start = Instant::now();
 
     let root = match find_project_root() {

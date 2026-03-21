@@ -345,7 +345,7 @@ fn run_snapshots(root: &Path, filter_gen: Option<&str>, diff_mode: bool, _verbos
 
 /// Run a generator by invoking the in-process `run` command with the fixture JSON.
 /// Returns a map of relative_file_path → content.
-fn run_generator(root: &Path, gen_id: &str, input_json: &str) -> HashMap<String, String> {
+fn run_generator(_root: &Path, gen_id: &str, input_json: &str) -> HashMap<String, String> {
     // Invoke the run command's dry-run path to capture output without writing files.
     // We call crate::commands::run::run() directly.
     use crate::commands::run;

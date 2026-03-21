@@ -152,3 +152,160 @@ pub(crate) fn split_two(s: &str) -> Option<(&str, &str)> {
     }
     None
 }
+
+// ---------------------------------------------------------------------------
+// Tests — rust_type_to_zod and rust_type_to_ts mappings
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── Zod primitives ────────────────────────────────────────────────────
+
+    #[test] fn zod_string()      { assert_eq!(rust_type_to_zod("String"),   "z.string()"); }
+    #[test] fn zod_str_ref()     { assert_eq!(rust_type_to_zod("&str"),     "z.string()"); }
+    #[test] fn zod_i32()         { assert_eq!(rust_type_to_zod("i32"),      "z.number().int()"); }
+    #[test] fn zod_i64()         { assert_eq!(rust_type_to_zod("i64"),      "z.number().int()"); }
+    #[test] fn zod_u32()         { assert_eq!(rust_type_to_zod("u32"),      "z.number().int()"); }
+    #[test] fn zod_u64()         { assert_eq!(rust_type_to_zod("u64"),      "z.number().int()"); }
+    #[test] fn zod_usize()       { assert_eq!(rust_type_to_zod("usize"),    "z.number().int()"); }
+    #[test] fn zod_f32()         { assert_eq!(rust_type_to_zod("f32"),      "z.number()"); }
+    #[test] fn zod_f64()         { assert_eq!(rust_type_to_zod("f64"),      "z.number()"); }
+    #[test] fn zod_bool()        { assert_eq!(rust_type_to_zod("bool"),     "z.boolean()"); }
+    #[test] fn zod_unit()        { assert_eq!(rust_type_to_zod("()"),       "z.void()"); }
+    #[test] fn zod_json_value()  { assert_eq!(rust_type_to_zod("serde_json::Value"), "z.unknown()"); }
+    #[test] fn zod_value_short() { assert_eq!(rust_type_to_zod("Value"),    "z.unknown()"); }
+    #[test] fn zod_datetime()    { assert_eq!(rust_type_to_zod("chrono::DateTime<Utc>"), "z.string().datetime()"); }
+    #[test] fn zod_datetime_short() { assert_eq!(rust_type_to_zod("DateTime<Utc>"), "z.string().datetime()"); }
+    #[test] fn zod_naive_dt()    { assert_eq!(rust_type_to_zod("NaiveDateTime"), "z.string().datetime()"); }
+    #[test] fn zod_uuid()        { assert_eq!(rust_type_to_zod("Uuid"),     "z.string().uuid()"); }
+    #[test] fn zod_uuid_full()   { assert_eq!(rust_type_to_zod("uuid::Uuid"), "z.string().uuid()"); }
+
+    // ── Zod generics ─────────────────────────────────────────────────────
+
+    #[test]
+    fn zod_option_string() {
+        assert_eq!(rust_type_to_zod("Option<String>"), "z.string().nullable()");
+    }
+
+    #[test]
+    fn zod_option_i32() {
+        assert_eq!(rust_type_to_zod("Option<i32>"), "z.number().int().nullable()");
+    }
+
+    #[test]
+    fn zod_vec_string() {
+        assert_eq!(rust_type_to_zod("Vec<String>"), "z.array(z.string())");
+    }
+
+    #[test]
+    fn zod_vec_i64() {
+        assert_eq!(rust_type_to_zod("Vec<i64>"), "z.array(z.number().int())");
+    }
+
+    #[test]
+    fn zod_vec_option() {
+        assert_eq!(rust_type_to_zod("Vec<Option<String>>"), "z.array(z.string().nullable())");
+    }
+
+    #[test]
+    fn zod_hashmap_string_i32() {
+        assert_eq!(
+            rust_type_to_zod("HashMap<String, i32>"),
+            "z.record(z.string(), z.number().int())"
+        );
+    }
+
+    #[test]
+    fn zod_btreemap() {
+        assert_eq!(
+            rust_type_to_zod("BTreeMap<String, bool>"),
+            "z.record(z.string(), z.boolean())"
+        );
+    }
+
+    #[test]
+    fn zod_unknown_named_type() {
+        // Unknown type → assume a named schema exists
+        assert_eq!(rust_type_to_zod("MyType"), "MyTypeSchema");
+    }
+
+    // ── TypeScript primitives ─────────────────────────────────────────────
+
+    #[test] fn ts_string()     { assert_eq!(rust_type_to_ts("String"), "string"); }
+    #[test] fn ts_str_ref()    { assert_eq!(rust_type_to_ts("&str"),   "string"); }
+    #[test] fn ts_i32()        { assert_eq!(rust_type_to_ts("i32"),    "number"); }
+    #[test] fn ts_i64()        { assert_eq!(rust_type_to_ts("i64"),    "number"); }
+    #[test] fn ts_f64()        { assert_eq!(rust_type_to_ts("f64"),    "number"); }
+    #[test] fn ts_bool()       { assert_eq!(rust_type_to_ts("bool"),   "boolean"); }
+    #[test] fn ts_unit()       { assert_eq!(rust_type_to_ts("()"),     "void"); }
+    #[test] fn ts_json_value() { assert_eq!(rust_type_to_ts("serde_json::Value"), "unknown"); }
+    #[test] fn ts_datetime()   { assert_eq!(rust_type_to_ts("chrono::DateTime<Utc>"), "string"); }
+    #[test] fn ts_uuid()       { assert_eq!(rust_type_to_ts("Uuid"), "string"); }
+
+    // ── TypeScript generics ───────────────────────────────────────────────
+
+    #[test]
+    fn ts_option_string() {
+        assert_eq!(rust_type_to_ts("Option<String>"), "string | undefined");
+    }
+
+    #[test]
+    fn ts_vec_string() {
+        assert_eq!(rust_type_to_ts("Vec<String>"), "string[]");
+    }
+
+    #[test]
+    fn ts_vec_i32() {
+        assert_eq!(rust_type_to_ts("Vec<i32>"), "number[]");
+    }
+
+    #[test]
+    fn ts_hashmap() {
+        assert_eq!(
+            rust_type_to_ts("HashMap<String, bool>"),
+            "Record<string, boolean>"
+        );
+    }
+
+    #[test]
+    fn ts_btreemap() {
+        assert_eq!(
+            rust_type_to_ts("BTreeMap<String, i64>"),
+            "Record<string, number>"
+        );
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn strip_wrapper_option() {
+        assert_eq!(strip_wrapper("Option<String>", "Option"), Some("String"));
+    }
+
+    #[test]
+    fn strip_wrapper_nested() {
+        assert_eq!(strip_wrapper("Vec<Option<i32>>", "Vec"), Some("Option<i32>"));
+    }
+
+    #[test]
+    fn strip_wrapper_no_match() {
+        assert_eq!(strip_wrapper("String", "Option"), None);
+    }
+
+    #[test]
+    fn split_two_simple() {
+        assert_eq!(split_two("String, i32"), Some(("String", "i32")));
+    }
+
+    #[test]
+    fn split_two_nested() {
+        assert_eq!(split_two("String, Vec<i32>"), Some(("String", "Vec<i32>")));
+    }
+
+    #[test]
+    fn split_two_no_comma() {
+        assert_eq!(split_two("String"), None);
+    }
+}

@@ -10,6 +10,7 @@ use crate::utils::paths::get_frameworks_dir;
 struct GeneratorSpec {
     id: String,
     command: String,
+    #[allow(dead_code)]
     description: String,
     #[allow(dead_code)]
     token_estimate: Option<u32>,

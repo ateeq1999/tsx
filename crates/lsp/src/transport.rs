@@ -53,3 +53,82 @@ pub fn write_message(writer: &mut impl Write, msg: &serde_json::Value) -> io::Re
     writer.write_all(body.as_bytes())?;
     writer.flush()
 }
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::BufReader;
+
+    fn roundtrip(msg: &serde_json::Value) -> Option<serde_json::Value> {
+        let mut buf = Vec::new();
+        write_message(&mut buf, msg).unwrap();
+        let mut reader = BufReader::new(buf.as_slice());
+        read_message(&mut reader)
+    }
+
+    #[test]
+    fn write_emits_content_length_header() {
+        let msg = serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": "test"});
+        let mut buf = Vec::new();
+        write_message(&mut buf, &msg).unwrap();
+        let s = String::from_utf8(buf).unwrap();
+        assert!(s.starts_with("Content-Length: "));
+        assert!(s.contains("\r\n\r\n"));
+    }
+
+    #[test]
+    fn roundtrip_simple_message() {
+        let msg = serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": "initialize"});
+        let result = roundtrip(&msg).unwrap();
+        assert_eq!(result["method"], "initialize");
+        assert_eq!(result["id"], 1);
+    }
+
+    #[test]
+    fn roundtrip_preserves_nested_params() {
+        let msg = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 42,
+            "method": "textDocument/completion",
+            "params": { "textDocument": { "uri": "file:///test.forge" } }
+        });
+        let result = roundtrip(&msg).unwrap();
+        assert_eq!(result["params"]["textDocument"]["uri"], "file:///test.forge");
+    }
+
+    #[test]
+    fn roundtrip_unicode_content() {
+        let msg = serde_json::json!({"text": "こんにちは 🦀"});
+        let result = roundtrip(&msg).unwrap();
+        assert_eq!(result["text"], "こんにちは 🦀");
+    }
+
+    #[test]
+    fn read_on_eof_returns_none() {
+        let empty: &[u8] = &[];
+        let mut reader = BufReader::new(empty);
+        assert!(read_message(&mut reader).is_none());
+    }
+
+    #[test]
+    fn write_then_read_multiple_messages() {
+        let mut buf = Vec::new();
+        let msgs = [
+            serde_json::json!({"id": 1, "method": "a"}),
+            serde_json::json!({"id": 2, "method": "b"}),
+            serde_json::json!({"id": 3, "method": "c"}),
+        ];
+        for m in &msgs {
+            write_message(&mut buf, m).unwrap();
+        }
+        let mut reader = BufReader::new(buf.as_slice());
+        for expected_id in 1..=3i64 {
+            let got = read_message(&mut reader).unwrap();
+            assert_eq!(got["id"], expected_id);
+        }
+    }
+}

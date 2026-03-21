@@ -1,6 +1,6 @@
 //! Documentation topic discovery — scans .tsx/knowledge/ and framework docs.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

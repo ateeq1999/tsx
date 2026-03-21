@@ -1,6 +1,5 @@
 //! OpenAPI 3.x JSON → Zod schemas.
 
-use std::collections::HashMap;
 use crate::types::{CodegenError, CodegenInput, CodegenOutput};
 
 pub fn convert(input: CodegenInput, out_filename: Option<&str>) -> Result<CodegenOutput, CodegenError> {

@@ -211,7 +211,7 @@ fn manifest_to_registry(
     info: &FrameworkInfo,
 ) -> FrameworkRegistry {
     use crate::framework::registry::{
-        Conventions, FrameworkRegistry, NamingConvention, ProjectStructure, Question,
+        Conventions, FrameworkRegistry, NamingConvention, ProjectStructure,
     };
     use crate::framework::knowledge::load_section;
 

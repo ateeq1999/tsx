@@ -62,7 +62,10 @@ pub struct GeneratorPlan {
 
 impl GeneratorPlan {
     pub fn new(generator_id: impl Into<String>) -> Self {
-        Self { generator_id: generator_id.into(), outputs: Vec::new() }
+        Self {
+            generator_id: generator_id.into(),
+            outputs: Vec::new(),
+        }
     }
 
     /// Declare a required output file.
@@ -109,11 +112,7 @@ impl GeneratorPlan {
 
     /// Check for conflicts before writing anything.
     /// Returns `Err` listing paths that would be overwritten under `OverwritePolicy::Fail`.
-    pub fn check_conflicts(
-        &self,
-        root: &Path,
-        policy: &OverwritePolicy,
-    ) -> Result<(), PlanError> {
+    pub fn check_conflicts(&self, root: &Path, policy: &OverwritePolicy) -> Result<(), PlanError> {
         if *policy != OverwritePolicy::Fail {
             return Ok(());
         }
@@ -138,11 +137,7 @@ impl GeneratorPlan {
 
     /// Compute a unified diff for each output without writing any files.
     /// Returns a map of `path → diff_string`.
-    pub fn diff(
-        &self,
-        root: &Path,
-        outputs: &[(&str, &str)],
-    ) -> HashMap<String, String> {
+    pub fn diff(&self, root: &Path, outputs: &[(&str, &str)]) -> HashMap<String, String> {
         let content_map: HashMap<&str, &str> = outputs.iter().copied().collect();
         let mut result = HashMap::new();
 
@@ -178,7 +173,7 @@ impl GeneratorPlan {
         let content_map: HashMap<&str, &str> = outputs.iter().copied().collect();
         let mut written: Vec<PathBuf> = Vec::new();
         let mut skipped: Vec<String> = Vec::new();
-        let mut warnings: Vec<String> = Vec::new();
+        let warnings: Vec<String> = Vec::new();
 
         for planned in &self.outputs {
             let new_content = match content_map.get(planned.path.as_str()) {
@@ -231,7 +226,10 @@ impl GeneratorPlan {
 
         Ok(PlanResult {
             generator_id: self.generator_id.clone(),
-            written: written.iter().map(|p| p.to_string_lossy().to_string()).collect(),
+            written: written
+                .iter()
+                .map(|p| p.to_string_lossy().to_string())
+                .collect(),
             skipped,
             warnings,
         })
@@ -302,18 +300,36 @@ pub fn unified_diff(path: &str, old: &str, new: &str) -> String {
         let nl = new_lines.get(i).copied();
         if ol != nl {
             chunk_start.get_or_insert(i + 1);
-            if let Some(l) = ol { chunk.push(format!("-{}", l)); }
-            if let Some(l) = nl { chunk.push(format!("+{}", l)); }
+            if let Some(l) = ol {
+                chunk.push(format!("-{}", l));
+            }
+            if let Some(l) = nl {
+                chunk.push(format!("+{}", l));
+            }
         } else if !chunk.is_empty() {
-            out.push_str(&format!("@@ -{} +{} @@\n", chunk_start.unwrap_or(1), chunk_start.unwrap_or(1)));
-            for line in &chunk { out.push_str(line); out.push('\n'); }
+            out.push_str(&format!(
+                "@@ -{} +{} @@\n",
+                chunk_start.unwrap_or(1),
+                chunk_start.unwrap_or(1)
+            ));
+            for line in &chunk {
+                out.push_str(line);
+                out.push('\n');
+            }
             chunk.clear();
             chunk_start = None;
         }
     }
     if !chunk.is_empty() {
-        out.push_str(&format!("@@ -{} +{} @@\n", chunk_start.unwrap_or(1), chunk_start.unwrap_or(1)));
-        for line in &chunk { out.push_str(line); out.push('\n'); }
+        out.push_str(&format!(
+            "@@ -{} +{} @@\n",
+            chunk_start.unwrap_or(1),
+            chunk_start.unwrap_or(1)
+        ));
+        for line in &chunk {
+            out.push_str(line);
+            out.push('\n');
+        }
     }
     out
 }
@@ -330,12 +346,12 @@ mod tests {
     #[test]
     fn writes_all_files_atomically() {
         let dir = TempDir::new().unwrap();
-        let plan = GeneratorPlan::new("test-gen")
-            .writes("a.ts")
-            .writes("b.ts");
+        let plan = GeneratorPlan::new("test-gen").writes("a.ts").writes("b.ts");
 
         let outputs = [("a.ts", "const a = 1;"), ("b.ts", "const b = 2;")];
-        let result = plan.execute(dir.path(), &outputs, OverwritePolicy::Skip).unwrap();
+        let result = plan
+            .execute(dir.path(), &outputs, OverwritePolicy::Skip)
+            .unwrap();
 
         assert_eq!(result.written.len(), 2);
         assert!(dir.path().join("a.ts").exists());
@@ -349,10 +365,15 @@ mod tests {
 
         let plan = GeneratorPlan::new("test-gen").writes("a.ts");
         let outputs = [("a.ts", "new content")];
-        let result = plan.execute(dir.path(), &outputs, OverwritePolicy::Skip).unwrap();
+        let result = plan
+            .execute(dir.path(), &outputs, OverwritePolicy::Skip)
+            .unwrap();
 
         assert_eq!(result.skipped.len(), 1);
-        assert_eq!(std::fs::read_to_string(dir.path().join("a.ts")).unwrap(), "existing");
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("a.ts")).unwrap(),
+            "existing"
+        );
     }
 
     #[test]
@@ -362,9 +383,13 @@ mod tests {
 
         let plan = GeneratorPlan::new("test-gen").writes("a.ts");
         let outputs = [("a.ts", "new")];
-        plan.execute(dir.path(), &outputs, OverwritePolicy::Overwrite).unwrap();
+        plan.execute(dir.path(), &outputs, OverwritePolicy::Overwrite)
+            .unwrap();
 
-        assert_eq!(std::fs::read_to_string(dir.path().join("a.ts")).unwrap(), "new");
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("a.ts")).unwrap(),
+            "new"
+        );
     }
 
     #[test]
@@ -389,5 +414,75 @@ mod tests {
         let diffs = plan.diff(dir.path(), &[("a.ts", "new line")]);
         assert!(diffs["a.ts"].contains("+new line"));
         assert!(diffs["a.ts"].contains("-old line"));
+    }
+
+    #[test]
+    fn diff_no_change_shows_no_changes() {
+        let dir = TempDir::new().unwrap();
+        std::fs::write(dir.path().join("a.ts"), "same content").unwrap();
+
+        let plan = GeneratorPlan::new("test-gen").writes("a.ts");
+        let diffs = plan.diff(dir.path(), &[("a.ts", "same content")]);
+        assert!(diffs["a.ts"].contains("no changes"));
+    }
+
+    #[test]
+    fn diff_new_file_shows_all_added_lines() {
+        let dir = TempDir::new().unwrap();
+        // File does not exist yet — old content is empty
+        let plan = GeneratorPlan::new("test-gen").writes("new.ts");
+        let diffs = plan.diff(dir.path(), &[("new.ts", "const x = 1;")]);
+        assert!(diffs["new.ts"].contains("+const x = 1;"));
+    }
+
+    #[test]
+    fn missing_required_output_returns_error() {
+        let dir = TempDir::new().unwrap();
+        let plan = GeneratorPlan::new("test-gen").writes("required.ts");
+        // Provide no outputs at all
+        let result = plan.execute(dir.path(), &[], OverwritePolicy::Skip);
+        assert!(matches!(result, Err(PlanError::MissingOutput(_))));
+    }
+
+    #[test]
+    fn optional_output_missing_is_not_an_error() {
+        let dir = TempDir::new().unwrap();
+        let plan = GeneratorPlan::new("test-gen").writes_optional("optional.ts");
+        // Don't provide content for the optional file
+        let result = plan.execute(dir.path(), &[], OverwritePolicy::Skip);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn check_conflicts_ok_under_skip_policy() {
+        let dir = TempDir::new().unwrap();
+        std::fs::write(dir.path().join("a.ts"), "existing").unwrap();
+        let plan = GeneratorPlan::new("test-gen")
+            .writes("a.ts")
+            .conflicts_if_exists("a.ts");
+        // Skip policy never conflicts
+        assert!(plan.check_conflicts(dir.path(), &OverwritePolicy::Skip).is_ok());
+    }
+
+    #[test]
+    fn creates_parent_directories() {
+        let dir = TempDir::new().unwrap();
+        let plan = GeneratorPlan::new("test-gen").writes("deep/nested/dir/a.ts");
+        let outputs = [("deep/nested/dir/a.ts", "content")];
+        plan.execute(dir.path(), &outputs, OverwritePolicy::Skip).unwrap();
+        assert!(dir.path().join("deep/nested/dir/a.ts").exists());
+    }
+
+    #[test]
+    fn unified_diff_identical() {
+        let d = unified_diff("f.ts", "x", "x");
+        assert!(d.contains("no changes"));
+    }
+
+    #[test]
+    fn unified_diff_shows_removal_and_addition() {
+        let d = unified_diff("f.ts", "old\n", "new\n");
+        assert!(d.contains("-old"));
+        assert!(d.contains("+new"));
     }
 }

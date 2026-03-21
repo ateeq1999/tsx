@@ -65,4 +65,34 @@ mod tests {
         let batch = d.flush().unwrap();
         assert_eq!(batch.len(), 2);
     }
+
+    #[test]
+    fn flush_clears_pending() {
+        let mut d = Debouncer::new(Duration::from_millis(1));
+        d.add(PathBuf::from("a.ts"));
+        std::thread::sleep(Duration::from_millis(5));
+        d.flush().unwrap();
+        // second flush should return None — nothing pending
+        assert!(d.flush().is_none(), "pending should be empty after flush");
+    }
+
+    #[test]
+    fn empty_debouncer_flush_returns_none() {
+        let mut d = Debouncer::new(Duration::from_millis(1));
+        std::thread::sleep(Duration::from_millis(5));
+        assert!(d.flush().is_none(), "flush with nothing added should return None");
+    }
+
+    #[test]
+    fn many_rapid_events_produce_one_batch() {
+        let mut d = Debouncer::new(Duration::from_millis(50));
+        for i in 0..20 {
+            d.add(PathBuf::from(format!("file{}.ts", i)));
+        }
+        // Window has not elapsed — should still be pending
+        assert!(d.flush().is_none(), "should not flush before window");
+        std::thread::sleep(Duration::from_millis(60));
+        let batch = d.flush().unwrap();
+        assert_eq!(batch.len(), 20, "all 20 unique files should flush as one batch");
+    }
 }

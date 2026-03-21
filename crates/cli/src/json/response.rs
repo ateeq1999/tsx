@@ -39,7 +39,7 @@ fn chrono_lite_timestamp(secs: u64) -> String {
     const SECS_PER_DAY: u64 = 24 * 60 * 60;
 
     let mut remaining = secs;
-    let years = remaining / SECS_PER_YEAR;
+    let _years = remaining / SECS_PER_YEAR;
     remaining %= SECS_PER_YEAR;
     let days = remaining / SECS_PER_DAY;
     remaining %= SECS_PER_DAY;
