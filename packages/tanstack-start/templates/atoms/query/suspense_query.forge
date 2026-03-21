@@ -1,0 +1,4 @@
+export const {{ name }}QueryOptions = createQueryOptions({
+  queryKey: {{ name }}QueryKey,
+  queryFn: {{ server_fn }},
+});

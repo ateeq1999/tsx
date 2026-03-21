@@ -1,0 +1,27 @@
+{{ "import { betterAuth } from 'better-auth'" | collect_import }}
+
+export const auth = betterAuth({
+  {% if providers and providers.length > 0 %}
+  socialProviders: {
+    {% for provider in providers %}
+    {{ provider }}: {
+      clientId: process.env.{{ provider | upper }}_CLIENT_ID,
+      clientSecret: process.env.{{ provider | upper }}_CLIENT_SECRET,
+    },
+    {% endfor %}
+  },
+  {% endif %}
+  {% if session_fields and session_fields.length > 0 %}
+  session: {
+    expiresIn: 60 * 60 * 24 * 7,
+    updateAge: 60 * 60 * 24,
+  },
+  {% endif %}
+  {% if email_verification %}
+  emailAndPassword: {
+    requireEmailVerification: true,
+  },
+  {% endif %}
+});
+
+export type Session = typeof auth.$Infer.Session;

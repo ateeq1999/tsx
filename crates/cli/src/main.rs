@@ -989,100 +989,44 @@ fn main() {
             let result = dev::dev(json_events, watch, ws_port);
             result.print();
         }
-        Command::Generate { generator } => match generator {
-            Generate::Feature { json } => {
-                use tsx::commands::add_feature;
-                use tsx::schemas::AddFeatureArgs;
-                let ji = json_input.as_deref();
-                if let Some(args) = parse_json_input::<AddFeatureArgs>(json, ji, "generate feature") {
-                    add_feature::add_feature(args, cli.overwrite, cli.dry_run, cli.diff).print();
+        Command::Generate { generator } => {
+            // All generate subcommands delegate to the universal `tsx run` dispatcher.
+            use tsx::commands::run;
+            let (cmd_id, json) = match generator {
+                Generate::Feature { json }   => ("add:feature",   json),
+                Generate::Schema { json }    => ("add:schema",    json),
+                Generate::ServerFn { json }  => ("add:server-fn", json),
+                Generate::Query { json }     => ("add:query",     json),
+                Generate::Form { json }      => ("add:form",      json),
+                Generate::Table { json }     => ("add:table",     json),
+                Generate::Page { json }      => ("add:page",      json),
+                Generate::Seed { json }      => ("add:seed",      json),
+                Generate::Fw { id, fw, json } => {
+                    let merged = json.or_else(|| json_input.clone());
+                    run::run(id, fw, merged, cli.overwrite, cli.dry_run, cli.verbose).print();
+                    return;
+                }
+            };
+            let merged = json.or_else(|| json_input.clone());
+            run::run(cmd_id.to_string(), None, merged, cli.overwrite, cli.dry_run, cli.verbose).print();
+        }
+        Command::Add { integration } => {
+            use tsx::commands::run;
+            match integration {
+                Add::Auth { json } => {
+                    let merged = json.or_else(|| json_input.clone());
+                    run::run("add:auth".to_string(), None, merged, cli.overwrite, cli.dry_run, cli.verbose).print();
+                }
+                Add::AuthGuard { json } => {
+                    let merged = json.or_else(|| json_input.clone());
+                    run::run("add:auth-guard".to_string(), None, merged, cli.overwrite, cli.dry_run, cli.verbose).print();
+                }
+                Add::Migration => {
+                    use tsx::commands::add_migration;
+                    add_migration::add_migration().print();
                 }
             }
-            Generate::Schema { json } => {
-                use tsx::commands::add_schema;
-                use tsx::schemas::AddSchemaArgs;
-                let ji = json_input.as_deref();
-                if let Some(args) = parse_json_input::<AddSchemaArgs>(json, ji, "generate schema") {
-                    add_schema::add_schema(args, cli.overwrite, cli.dry_run, cli.diff).print();
-                }
-            }
-            Generate::ServerFn { json } => {
-                use tsx::commands::add_server_fn;
-                use tsx::schemas::AddServerFnArgs;
-                let ji = json_input.as_deref();
-                if let Some(args) = parse_json_input::<AddServerFnArgs>(json, ji, "generate server-fn") {
-                    add_server_fn::add_server_fn(args, cli.overwrite, cli.dry_run, cli.diff).print();
-                }
-            }
-            Generate::Query { json } => {
-                use tsx::commands::add_query;
-                use tsx::schemas::AddQueryArgs;
-                let ji = json_input.as_deref();
-                if let Some(args) = parse_json_input::<AddQueryArgs>(json, ji, "generate query") {
-                    add_query::add_query(args, cli.overwrite, cli.dry_run, cli.diff).print();
-                }
-            }
-            Generate::Form { json } => {
-                use tsx::commands::add_form;
-                use tsx::schemas::AddFormArgs;
-                let ji = json_input.as_deref();
-                if let Some(args) = parse_json_input::<AddFormArgs>(json, ji, "generate form") {
-                    add_form::add_form(args, cli.overwrite, cli.dry_run, cli.diff).print();
-                }
-            }
-            Generate::Table { json } => {
-                use tsx::commands::add_table;
-                use tsx::schemas::AddTableArgs;
-                let ji = json_input.as_deref();
-                if let Some(args) = parse_json_input::<AddTableArgs>(json, ji, "generate table") {
-                    add_table::add_table(args, cli.overwrite, cli.dry_run, cli.diff).print();
-                }
-            }
-            Generate::Page { json } => {
-                use tsx::commands::add_page;
-                use tsx::schemas::AddPageArgs;
-                let ji = json_input.as_deref();
-                if let Some(args) = parse_json_input::<AddPageArgs>(json, ji, "generate page") {
-                    add_page::add_page(args, cli.overwrite, cli.dry_run, cli.diff).print();
-                }
-            }
-            Generate::Seed { json } => {
-                use tsx::commands::add_seed;
-                use tsx::schemas::AddSeedArgs;
-                let ji = json_input.as_deref();
-                if let Some(args) = parse_json_input::<AddSeedArgs>(json, ji, "generate seed") {
-                    add_seed::add_seed(args, cli.overwrite, cli.dry_run, cli.diff).print();
-                }
-            }
-            Generate::Fw { id, fw, json } => {
-                // Delegate to the universal `run` dispatcher.
-                use tsx::commands::run;
-                let merged_json = json.or_else(|| json_input.clone());
-                run::run(id, fw, merged_json, cli.overwrite, cli.dry_run, cli.verbose).print();
-            }
-        },
-        Command::Add { integration } => match integration {
-            Add::Auth { json } => {
-                use tsx::commands::add_auth;
-                use tsx::schemas::AddAuthArgs;
-                let ji = json_input.as_deref();
-                if let Some(args) = parse_json_input::<AddAuthArgs>(json, ji, "add auth") {
-                    add_auth::add_auth(args, cli.overwrite, cli.dry_run, cli.diff).print();
-                }
-            }
-            Add::AuthGuard { json } => {
-                use tsx::commands::add_auth_guard;
-                use tsx::schemas::AddAuthGuardArgs;
-                let ji = json_input.as_deref();
-                if let Some(args) = parse_json_input::<AddAuthGuardArgs>(json, ji, "add auth-guard") {
-                    add_auth_guard::add_auth_guard(args, cli.overwrite, cli.dry_run, cli.diff).print();
-                }
-            }
-            Add::Migration => {
-                use tsx::commands::add_migration;
-                add_migration::add_migration().print();
-            }
-        },
+        }
         Command::List { kind } => {
             use tsx::commands::list;
             let result = list::list(kind, cli.verbose);
@@ -1562,13 +1506,20 @@ fn main() {
         Command::Tui { view } => {
             use tsx_tui::{run, TuiView, BrowserItem};
             let tui_view = TuiView::from_str(&view);
-            // Provide a minimal set of items if no registry data is available
-            let items = vec![
-                BrowserItem::new("tanstack-start", "Full-stack React framework with SSR and file-based routing"),
-                BrowserItem::new("drizzle-pg", "PostgreSQL schema and query generator for Drizzle ORM"),
-                BrowserItem::new("better-auth", "Authentication integration for TanStack Start"),
-                BrowserItem::new("shadcn", "shadcn/ui component generator"),
-            ];
+            // Load items from all installed packages via PackageStore.
+            let store = tsx::packages::PackageStore::default();
+            let mut items: Vec<BrowserItem> = store
+                .list()
+                .into_iter()
+                .map(|p| BrowserItem::new(&p.id, &p.description))
+                .collect();
+            // Fallback: if no packages are installed, show placeholder guidance.
+            if items.is_empty() {
+                items.push(BrowserItem::new(
+                    "No packages installed",
+                    "Run `tsx registry install <pkg>` or `tsx package install <id>` to get started",
+                ));
+            }
             if let Err(e) = run(tui_view, items) {
                 eprintln!("TUI error: {}", e);
                 std::process::exit(1);

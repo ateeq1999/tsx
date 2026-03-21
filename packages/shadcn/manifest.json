@@ -1,0 +1,34 @@
+{
+  "id": "shadcn",
+  "name": "shadcn/ui",
+  "description": "shadcn/ui component patterns for React projects.",
+  "category": "ui",
+  "author": "shadcn",
+  "license": "MIT",
+  "docs": "https://ui.shadcn.com",
+  "github": "https://github.com/shadcn-ui/ui",
+  "npm_packages": [
+    "shadcn-ui",
+    "@shadcn/ui"
+  ],
+  "commands": [
+    {
+      "id": "add:component",
+      "description": "Generate a shadcn/ui component",
+      "template": "component.jinja"
+    }
+  ],
+  "peer_packages": [
+    "tailwindcss",
+    "lucide-react"
+  ],
+  "tags": [
+    "ui",
+    "components",
+    "react"
+  ],
+  "version": "1.0.0",
+  "stacks": {},
+  "template_format": "jinja",
+  "tsx_min": "0.1.0"
+}

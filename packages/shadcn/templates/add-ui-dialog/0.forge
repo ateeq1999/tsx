@@ -1,0 +1,55 @@
+{# forge:tier feature #}
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "~/components/ui/dialog";
+import { Button } from "~/components/ui/button";
+{% if with_form %}
+import { useState } from "react";
+{% endif %}
+
+interface {{ name | pascal_case }}DialogProps {
+  trigger: React.ReactNode;
+  onConfirm?: () => void | Promise<void>;
+}
+
+export function {{ name | pascal_case }}Dialog({ trigger, onConfirm }: {{ name | pascal_case }}DialogProps) {
+{% if with_form %}
+  const [open, setOpen] = useState(false);
+{% endif %}
+
+  return (
+    <Dialog{% if with_form %} open={open} onOpenChange={setOpen}{% endif %}>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{{ name | pascal_case }}</DialogTitle>
+          <DialogDescription>
+            {/* TODO: add a description */}
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* TODO: add dialog body content */}
+
+        <DialogFooter>
+          <Button
+            {% if destructive %}variant="destructive"{% endif %}
+            onClick={async () => {
+              await onConfirm?.();
+{% if with_form %}
+              setOpen(false);
+{% endif %}
+            }}
+          >
+            Confirm
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

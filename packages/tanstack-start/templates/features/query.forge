@@ -1,0 +1,6 @@
+{% extends "layouts/base.forge" %}
+{% block body %}
+{% with name=name, operations=operations %}
+{% include "molecules/query/hooks_block.forge" %}
+{% endwith %}
+{% endblock %}

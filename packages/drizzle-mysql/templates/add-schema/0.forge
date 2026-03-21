@@ -1,0 +1,39 @@
+{# forge:tier feature #}
+import { mysqlTable, serial, varchar, text, boolean, int, datetime, json } from "drizzle-orm/mysql-core";
+{% if slot_auth_fields is defined %}
+import { usersTable } from "~/db/schema/users";
+{% endif %}
+
+export const {{ name }}Table = mysqlTable("{{ name | snake_case }}", {
+  id: serial("id").primaryKey().autoincrement(),
+{% for field in fields %}
+{% if field.type == "string" %}
+  {{ field.name | snake_case }}: varchar("{{ field.name | snake_case }}", { length: 255 }){% if field.required %}.notNull(){% endif %}{% if field.unique %}.unique(){% endif %}{% if field.reference %}.references(() => {{ field.reference }}){% endif %},
+{% elif field.type == "text" %}
+  {{ field.name | snake_case }}: text("{{ field.name | snake_case }}"){% if field.required %}.notNull(){% endif %},
+{% elif field.type == "number" %}
+  {{ field.name | snake_case }}: int("{{ field.name | snake_case }}"){% if field.required %}.notNull(){% endif %}{% if field.unique %}.unique(){% endif %},
+{% elif field.type == "boolean" %}
+  {{ field.name | snake_case }}: boolean("{{ field.name | snake_case }}").default(false){% if field.required %}.notNull(){% endif %},
+{% elif field.type == "date" %}
+  {{ field.name | snake_case }}: datetime("{{ field.name | snake_case }}"){% if field.required %}.notNull(){% endif %},
+{% elif field.type == "uuid" %}
+  {{ field.name | snake_case }}: varchar("{{ field.name | snake_case }}", { length: 36 }).default("(UUID())"){% if field.required %}.notNull(){% endif %}{% if field.unique %}.unique(){% endif %},
+{% elif field.type == "json" %}
+  {{ field.name | snake_case }}: json("{{ field.name | snake_case }}"),
+{% endif %}
+{% endfor %}
+{% if slot_auth_fields is defined %}
+  {{ slot_auth_fields | trim }},
+{% endif %}
+{% if timestamps %}
+  createdAt: datetime("created_at").notNull().$defaultFn(() => new Date()),
+  updatedAt: datetime("updated_at").notNull().$defaultFn(() => new Date()),
+{% endif %}
+{% if soft_delete %}
+  deletedAt: datetime("deleted_at"),
+{% endif %}
+});
+
+export type {{ name | pascal_case }} = typeof {{ name }}Table.$inferSelect;
+export type New{{ name | pascal_case }} = typeof {{ name }}Table.$inferInsert;

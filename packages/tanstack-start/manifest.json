@@ -1,0 +1,70 @@
+{
+  "id": "tanstack-start",
+  "name": "TanStack Start",
+  "description": "Full-stack React meta-framework with file-based routing, server functions, and TanStack Query integration.",
+  "category": "framework",
+  "author": "tanstack",
+  "license": "MIT",
+  "docs": "https://tanstack.com/start",
+  "github": "https://github.com/TanStack/start",
+  "npm_packages": [
+    "@tanstack/start",
+    "@tanstack/react-start"
+  ],
+  "commands": [
+    {
+      "id": "add:feature",
+      "description": "Scaffold a full CRUD feature module",
+      "template": "features/feature.jinja"
+    },
+    {
+      "id": "add:schema",
+      "description": "Generate a Drizzle schema file",
+      "template": "features/schema.jinja"
+    },
+    {
+      "id": "add:server-fn",
+      "description": "Generate a typed server function",
+      "template": "features/server_fn.jinja"
+    },
+    {
+      "id": "add:query",
+      "description": "Generate a TanStack Query hook",
+      "template": "features/query.jinja"
+    },
+    {
+      "id": "add:form",
+      "description": "Generate a TanStack Form component",
+      "template": "features/form.jinja"
+    },
+    {
+      "id": "add:table",
+      "description": "Generate a TanStack Table component",
+      "template": "features/table.jinja"
+    },
+    {
+      "id": "add:page",
+      "description": "Generate a route page",
+      "template": "features/page.jinja"
+    },
+    {
+      "id": "add:seed",
+      "description": "Generate a database seed file",
+      "template": "features/seed.jinja"
+    }
+  ],
+  "peer_packages": [
+    "drizzle-orm",
+    "better-auth"
+  ],
+  "tags": [
+    "fullstack",
+    "react",
+    "ssr",
+    "typescript"
+  ],
+  "version": "1.0.0",
+  "stacks": {},
+  "template_format": "jinja",
+  "tsx_min": "0.1.0"
+}

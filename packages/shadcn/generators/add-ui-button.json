@@ -1,0 +1,28 @@
+{
+  "id": "add-ui-button",
+  "command": "add:ui-button",
+  "description": "Add a shadcn/ui Button component to your project",
+  "token_estimate": 15,
+  "output_paths": [
+    "components/ui/button.tsx"
+  ],
+  "next_steps": [
+    "Import and use the Button component in your forms",
+    "Customize variants in components/ui/button.tsx"
+  ],
+  "schema": {
+    "type": "object",
+    "properties": {
+      "variant": {
+        "type": "string",
+        "enum": ["default", "destructive", "outline", "secondary", "ghost", "link"],
+        "default": "default"
+      },
+      "size": {
+        "type": "string", 
+        "enum": ["default", "sm", "lg", "icon"],
+        "default": "default"
+      }
+    }
+  }
+}

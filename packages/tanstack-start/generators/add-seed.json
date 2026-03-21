@@ -1,0 +1,18 @@
+{
+  "id": "add-seed",
+  "command": "add:seed",
+  "description": "Generate a Drizzle database seed file",
+  "token_estimate": 20,
+  "output_paths": ["db/seed/{{name}}.ts"],
+  "next_steps": [
+    "Run `npx tsx db/seed/{{name}}.ts` to populate your database with test data"
+  ],
+  "schema": {
+    "type": "object",
+    "required": ["name"],
+    "properties": {
+      "name": { "type": "string", "description": "Table/entity name to seed" },
+      "count": { "type": "number", "default": 10, "description": "Number of records to seed" }
+    }
+  }
+}

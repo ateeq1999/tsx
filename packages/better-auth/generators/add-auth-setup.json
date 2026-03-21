@@ -1,0 +1,46 @@
+{
+  "id": "add-auth-setup",
+  "command": "add:auth-setup",
+  "description": "Configure Better Auth with your chosen OAuth providers, session storage, and database adapter",
+  "token_estimate": 45,
+  "output_paths": [
+    "lib/auth.ts",
+    "lib/auth-client.ts",
+    "db/schema/auth.ts"
+  ],
+  "next_steps": [
+    "Set `BETTER_AUTH_SECRET` in your `.env` file",
+    "Add provider credentials to `.env` (e.g. `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`)",
+    "Run `tsx run add:migration --json '{\"name\":\"add-auth-tables\"}'` to create auth tables",
+    "Mount the auth handler: `app.use('/api/auth/*', auth.handler)`"
+  ],
+  "schema": {
+    "type": "object",
+    "properties": {
+      "providers": {
+        "type": "array",
+        "description": "OAuth providers to configure",
+        "default": ["github"],
+        "items": {
+          "type": "string",
+          "enum": ["github", "google", "discord", "twitter", "apple", "microsoft", "spotify"]
+        }
+      },
+      "session_table": {
+        "type": "boolean",
+        "default": true,
+        "description": "Generate a Drizzle session table schema"
+      },
+      "user_table": {
+        "type": "boolean",
+        "default": true,
+        "description": "Generate a Drizzle user table schema"
+      },
+      "two_factor": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable two-factor authentication plugin"
+      }
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "id": "drizzle-sqlite",
+  "name": "Drizzle ORM (SQLite)",
+  "description": "Drizzle ORM code patterns for SQLite and Turso/libSQL.",
+  "category": "orm",
+  "author": "drizzle-team",
+  "license": "Apache-2.0",
+  "docs": "https://orm.drizzle.team",
+  "github": "https://github.com/drizzle-team/drizzle-orm",
+  "npm_packages": [
+    "drizzle-orm",
+    "better-sqlite3",
+    "@libsql/client"
+  ],
+  "commands": [
+    {
+      "id": "add:schema",
+      "description": "Generate a Drizzle SQLite schema table",
+      "template": "schema.jinja"
+    },
+    {
+      "id": "add:migration",
+      "description": "Run drizzle-kit generate+push",
+      "template": ""
+    }
+  ],
+  "peer_packages": [
+    "drizzle-kit"
+  ],
+  "tags": [
+    "database",
+    "orm",
+    "sqlite"
+  ],
+  "version": "1.0.0",
+  "stacks": {},
+  "template_format": "jinja",
+  "tsx_min": "0.1.0"
+}

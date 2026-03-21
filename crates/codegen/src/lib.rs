@@ -15,4 +15,4 @@ pub mod rust_to_ts;
 pub mod rust_to_zod;
 pub mod types;
 
-pub use types::{CodegenInput, CodegenOutput, CodegenError};
+pub use types::{CodegenError, CodegenInput, CodegenOutput};

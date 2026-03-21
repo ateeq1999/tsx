@@ -1,0 +1,22 @@
+{
+  "id": "add-ui-dialog",
+  "command": "add:ui-dialog",
+  "description": "Add a shadcn/ui Dialog (modal) component with trigger and content slots",
+  "token_estimate": 25,
+  "output_paths": [
+    "components/{{name}}Dialog.tsx"
+  ],
+  "next_steps": [
+    "Import {{name}}Dialog and add a trigger button",
+    "Customize the dialog content and footer actions"
+  ],
+  "schema": {
+    "type": "object",
+    "required": ["name"],
+    "properties": {
+      "name": { "type": "string", "description": "Dialog name (e.g. 'DeleteConfirm', 'EditUser')" },
+      "with_form": { "type": "boolean", "default": false, "description": "Include a form inside the dialog" },
+      "destructive": { "type": "boolean", "default": false, "description": "Style the confirm button as destructive (red)" }
+    }
+  }
+}

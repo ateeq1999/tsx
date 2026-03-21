@@ -1,0 +1,16 @@
+<div class="grid gap-2">
+  <Label for="{{ field.name }}">{{ field.name | pascal_case }}</Label>
+  <Input
+    id="{{ field.name }}"
+    name="{{ field.name }}"
+    type="{% if field.type == 'number' %}number{% elif field.type == 'email' %}email{% elif field.type == 'url' %}url{% elif field.type == 'password' %}password{% else %}text{% endif %}"
+    {% if field.required %}required{% endif %}
+    {% if field.field_type in ['email', 'url', 'password'] %}
+    {% if field.required %}required{% endif %}
+    {% endif %}
+    {...form.register("{{ field.name }}")}
+  />
+  {% if field.type == 'email' %}
+  <FormMessage />
+  {% endif %}
+</div>

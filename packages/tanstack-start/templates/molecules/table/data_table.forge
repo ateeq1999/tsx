@@ -1,0 +1,35 @@
+{{ "import { createColumnHelper } from '@tanstack/react-table'" | collect_import }}
+{{ "import { use{{ name | pascal_case }}Query } from '@/queries/{{ name }}'" | collect_import }}
+{{ "import { DataTable } from '@/components/ui/data-table'" | collect_import }}
+
+const columnHelper = createColumnHelper<any>();
+
+const columns = [
+  {% for field in fields %}
+  columnHelper.accessor('{{ field.name }}', {
+    header: '{{ field.name | pascal_case }}',
+  }),
+  {% endfor %}
+  columnHelper.display({
+    id: 'actions',
+    header: 'Actions',
+    cell: ({ row }) => (
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm">Edit</Button>
+        <Button variant="destructive" size="sm">Delete</Button>
+      </div>
+    ),
+  }),
+];
+
+export function {{ name | pascal_case }}Table() {
+  const { data, isLoading } = use{{ name | pascal_case }}Query();
+
+  return (
+    <DataTable
+      columns={columns}
+      data={data || []}
+      isLoading={isLoading}
+    />
+  );
+}

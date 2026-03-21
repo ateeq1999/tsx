@@ -1,0 +1,54 @@
+{
+  "id": "add-schema",
+  "command": "add:schema",
+  "description": "Create a Drizzle ORM mysqlTable schema definition with optional timestamps and soft-delete",
+  "token_estimate": 30,
+  "output_paths": [
+    "db/schema/{{name}}.ts"
+  ],
+  "next_steps": [
+    "Run `tsx run add:migration --json '{\"name\":\"add-{{name}}\"}'` to generate a migration",
+    "Export the new table from `db/schema/index.ts`"
+  ],
+  "schema": {
+    "type": "object",
+    "required": ["name"],
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "Table/entity name in snake_case (e.g. 'user', 'blog_post')"
+      },
+      "fields": {
+        "type": "array",
+        "description": "Column definitions",
+        "items": {
+          "type": "object",
+          "required": ["name", "type"],
+          "properties": {
+            "name": { "type": "string" },
+            "type": {
+              "type": "string",
+              "enum": ["string", "number", "boolean", "date", "uuid", "json", "text"]
+            },
+            "required": { "type": "boolean", "default": false },
+            "unique": { "type": "boolean", "default": false },
+            "reference": {
+              "type": "string",
+              "description": "References another table (e.g. 'users.id')"
+            }
+          }
+        }
+      },
+      "timestamps": {
+        "type": "boolean",
+        "default": true,
+        "description": "Add createdAt and updatedAt timestamp columns"
+      },
+      "soft_delete": {
+        "type": "boolean",
+        "default": false,
+        "description": "Add deletedAt column for soft-delete pattern"
+      }
+    }
+  }
+}

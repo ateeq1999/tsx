@@ -1,0 +1,38 @@
+{
+  "id": "drizzle-mysql",
+  "name": "Drizzle ORM (MySQL)",
+  "description": "Drizzle ORM code patterns for MySQL/PlanetScale.",
+  "category": "orm",
+  "author": "drizzle-team",
+  "license": "Apache-2.0",
+  "docs": "https://orm.drizzle.team",
+  "github": "https://github.com/drizzle-team/drizzle-orm",
+  "npm_packages": [
+    "drizzle-orm",
+    "mysql2"
+  ],
+  "commands": [
+    {
+      "id": "add:schema",
+      "description": "Generate a Drizzle MySQL schema table",
+      "template": "schema.jinja"
+    },
+    {
+      "id": "add:migration",
+      "description": "Run drizzle-kit generate+push",
+      "template": ""
+    }
+  ],
+  "peer_packages": [
+    "drizzle-kit"
+  ],
+  "tags": [
+    "database",
+    "orm",
+    "mysql"
+  ],
+  "version": "1.0.0",
+  "stacks": {},
+  "template_format": "jinja",
+  "tsx_min": "0.1.0"
+}
