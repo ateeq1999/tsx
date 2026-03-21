@@ -3396,12 +3396,24 @@ dependencies = [
  "tar",
  "tempfile",
  "tokio",
+ "tsx-docs",
  "tsx-fmt",
  "tsx-forge",
  "tsx-shared",
  "tsx-tui",
  "tsx-watcher",
  "tungstenite",
+ "walkdir",
+]
+
+[[package]]
+name = "tsx-docs"
+version = "0.1.0"
+dependencies = [
+ "crossterm",
+ "ratatui",
+ "serde",
+ "serde_json",
  "walkdir",
 ]
 

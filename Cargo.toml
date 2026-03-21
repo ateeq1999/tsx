@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/cli",
+    "crates/docs",
     "crates/fmt",
     "crates/forge",
     "crates/registry-server",

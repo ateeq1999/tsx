@@ -1,0 +1,16 @@
+[package]
+name    = "tsx-docs"
+version = "0.1.0"
+edition = "2021"
+description = "Offline documentation viewer for the tsx CLI (ratatui; iocraft migration planned)"
+
+[dependencies]
+# Using ratatui for the initial implementation.
+# Migration to iocraft (React-like async component model) is planned
+# once the component tree is stable — iocraft's built-in async suits
+# streaming markdown rendering (see new-todo.md Section F benchmark).
+ratatui   = "0.29"
+crossterm = "0.28"
+serde      = { workspace = true }
+serde_json = { workspace = true }
+walkdir    = { workspace = true }
