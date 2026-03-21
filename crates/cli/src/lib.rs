@@ -2,6 +2,7 @@ pub mod commands;
 pub mod framework;
 pub mod json;
 pub mod output;
+pub mod packages;
 pub mod plugin;
 pub mod render;
 pub mod schemas;

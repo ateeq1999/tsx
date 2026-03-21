@@ -43,53 +43,48 @@ pub fn build_engine_with_plugins(
     templates_dir: &Path,
     plugin_dirs: &[std::path::PathBuf],
 ) -> minijinja::Environment<'static> {
+    // Collect all template search dirs in priority order:
+    // 1. plugin_dirs (user overrides)
+    // 2. explicit templates_dir
+    // 3. PackageStore template dirs (installed packages)
+    // 4. Embedded fallback
+    let store = crate::packages::PackageStore::default();
+    let pkg_template_dirs = store.template_dirs();
+
+    let mut all_dirs: Vec<std::path::PathBuf> = plugin_dirs.to_vec();
+    if templates_dir.exists() {
+        all_dirs.push(templates_dir.to_path_buf());
+    }
+    all_dirs.extend(pkg_template_dirs);
+
+    build_engine_from_dirs(all_dirs)
+}
+
+/// Build a MiniJinja engine that searches `search_dirs` in order,
+/// then falls back to embedded templates.
+pub fn build_engine_from_dirs(
+    search_dirs: Vec<std::path::PathBuf>,
+) -> minijinja::Environment<'static> {
     let mut env = minijinja::Environment::new();
 
     let embedded_templates = crate::render::embedded::get_embedded_templates();
-    let plugin_dirs: Vec<std::path::PathBuf> = plugin_dirs.to_vec();
 
-    if templates_dir.exists() {
-        let templates_dir = templates_dir.to_path_buf();
-        env.set_loader(move |name| {
-            use minijinja::Error;
-            // Plugin overrides take priority over everything else
-            for plugin_dir in &plugin_dirs {
-                let path = plugin_dir.join(name);
-                if path.exists() {
-                    return std::fs::read_to_string(&path).map(Some).map_err(|e| {
-                        Error::new(minijinja::ErrorKind::InvalidOperation, format!("{}", e))
-                    });
-                }
-            }
-            let path = templates_dir.join(name);
+    env.set_loader(move |name| {
+        use minijinja::Error;
+        for dir in &search_dirs {
+            let path = dir.join(name);
             if path.exists() {
-                std::fs::read_to_string(&path).map(Some).map_err(|e| {
+                return std::fs::read_to_string(&path).map(Some).map_err(|e| {
                     Error::new(minijinja::ErrorKind::InvalidOperation, format!("{}", e))
-                })
-            } else if let Some(content) = embedded_templates.get(name) {
-                Ok(Some(content.to_string()))
-            } else {
-                Ok(None)
+                });
             }
-        });
-    } else {
-        env.set_loader(move |name| {
-            use minijinja::Error;
-            for plugin_dir in &plugin_dirs {
-                let path = plugin_dir.join(name);
-                if path.exists() {
-                    return std::fs::read_to_string(&path).map(Some).map_err(|e| {
-                        Error::new(minijinja::ErrorKind::InvalidOperation, format!("{}", e))
-                    });
-                }
-            }
-            if let Some(content) = embedded_templates.get(name) {
-                Ok(Some(content.to_string()))
-            } else {
-                Ok(None)
-            }
-        });
-    }
+        }
+        if let Some(content) = embedded_templates.get(name) {
+            Ok(Some(content.to_string()))
+        } else {
+            Ok(None)
+        }
+    });
 
     env.add_filter("snake_case", |v: &str| v.to_snake_case());
     env.add_filter("pascal_case", |v: &str| v.to_pascal_case());

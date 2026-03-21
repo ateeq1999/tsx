@@ -28,14 +28,30 @@
     "add-page",
     "add-seed"
   ],
-  "starters": ["basic", "with-auth", "saas"],
-  "integrations": ["better-auth", "drizzle-orm", "shadcn-ui", "react-query", "react-router"],
+  "starters": [
+    "basic",
+    "with-auth",
+    "saas"
+  ],
+  "integrations": [
+    "better-auth",
+    "drizzle-orm",
+    "shadcn-ui",
+    "react-query",
+    "react-router"
+  ],
   "templates_dir": "templates",
   "template_format": "forge",
   "fpf_version": "1.1",
   "tsx_pkg_name": "@tsx-pkg/tanstack-start",
-  "lang": ["typescript"],
-  "runtime": ["node", "bun", "deno"],
+  "lang": [
+    "typescript"
+  ],
+  "runtime": [
+    "node",
+    "bun",
+    "deno"
+  ],
   "tsx_min": "0.1.0",
   "provides": [
     "add:feature",
@@ -72,5 +88,9 @@
       "slot": "style_classes",
       "description": "Adds Tailwind utility classes to generated components"
     }
-  }
+  },
+  "npm_packages": [
+    "@tanstack/start",
+    "@tanstack/react-start"
+  ]
 }

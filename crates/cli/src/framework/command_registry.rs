@@ -31,28 +31,23 @@ pub struct CommandRegistry {
 }
 
 impl CommandRegistry {
-    /// Load all generators from the builtin frameworks directory and any user-installed ones.
+    /// Load all generators from the PackageStore and legacy frameworks directory.
     pub fn load_all() -> Self {
         let mut registry = Self {
             commands: HashMap::new(),
         };
 
-        // Builtin frameworks shipped with the binary
+        // Primary: scan all locations via PackageStore (project-local → global cache → exe-dir → frameworks/)
+        let store = crate::packages::PackageStore::default();
+        for summary in store.list() {
+            let pkg_path = std::path::PathBuf::from(&summary.install_path);
+            registry.load_framework_generators(&pkg_path, &summary.id);
+        }
+
+        // Legacy fallback: builtin frameworks shipped with the binary (in case not yet migrated)
         let builtin = get_frameworks_dir();
-        registry.scan_dir(&builtin);
-
-        if let Ok(cwd) = std::env::current_dir() {
-            // Legacy: user-installed frameworks under .tsx/frameworks/
-            let user_fw = cwd.join(".tsx").join("frameworks");
-            if user_fw.is_dir() {
-                registry.scan_dir(&user_fw);
-            }
-
-            // New: packages installed via `tsx registry install` under .tsx/packages/
-            let user_pkgs = cwd.join(".tsx").join("packages");
-            if user_pkgs.is_dir() {
-                registry.scan_dir(&user_pkgs);
-            }
+        if builtin.exists() {
+            registry.scan_dir(&builtin);
         }
 
         registry

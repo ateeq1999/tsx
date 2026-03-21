@@ -2,6 +2,7 @@
 pub mod generate;
 pub mod manage;
 pub mod ops;
+pub mod package;
 pub mod query;
 
 // --- Re-exports at flat paths (used by main.rs and batch.rs) ---

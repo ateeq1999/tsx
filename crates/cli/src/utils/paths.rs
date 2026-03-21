@@ -1,6 +1,27 @@
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 
+// ---------------------------------------------------------------------------
+// Global package cache
+// ---------------------------------------------------------------------------
+
+/// Returns `~/.tsx/packages/` — the global tsx package cache directory.
+/// Creates it if it does not exist.
+pub fn get_global_packages_dir() -> PathBuf {
+    let base = home_dir().unwrap_or_else(|| PathBuf::from("."));
+    let dir = base.join(".tsx").join("packages");
+    let _ = std::fs::create_dir_all(&dir);
+    dir
+}
+
+/// Best-effort home directory: $HOME (Unix) or $USERPROFILE (Windows).
+fn home_dir() -> Option<PathBuf> {
+    std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .map(PathBuf::from)
+        .ok()
+}
+
 /// Resolves the templates directory using this priority order:
 /// 1. `<exe_dir>/templates` — templates shipped next to the binary
 /// 2. `<root>/.tsx/templates` — project-local copies written by `tsx upgrade`

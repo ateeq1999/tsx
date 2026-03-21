@@ -6,6 +6,7 @@
 //! |--------|-----------------------------------------------|--------------------------------|
 //! | GET    | /health                                       | Health check                   |
 //! | GET    | /v1/stats                                     | Aggregate stats                |
+//! | GET    | /v1/discovery?npm=@tanstack/start,drizzle-orm | npm → tsx package mapping      |
 //! | GET    | /v1/search?q=&lang=&sort=&page=&size=         | Search packages (paginated)    |
 //! | GET    | /v1/packages?sort=recent&limit=N              | Recent packages                |
 //! | GET    | /v1/packages/{name}                           | Package metadata               |
@@ -257,6 +258,8 @@ async fn main() {
         .route("/health", get(routes::health::health))
         // Stats
         .route("/v1/stats", get(routes::stats::get_stats))
+        // Discovery
+        .route("/v1/discovery", get(routes::discovery::discovery))
         // Search
         .route("/v1/search", get(routes::search::search))
         // Packages

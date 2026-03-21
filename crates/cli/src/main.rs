@@ -377,6 +377,11 @@ enum Command {
         #[arg(long)]
         list: bool,
     },
+    /// Author tools for creating and publishing registry packages
+    Package {
+        #[command(subcommand)]
+        action: PackageCmd,
+    },
 }
 
 #[derive(Subcommand)]
@@ -842,6 +847,55 @@ enum AtomsCmd {
         /// Atom id (e.g. drizzle/column, form/field_input)
         #[arg(value_name = "ID")]
         id: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum PackageCmd {
+    /// Scaffold a new registry package directory
+    New {
+        /// Package id/slug (e.g. my-framework)
+        #[arg(value_name = "ID")]
+        id: String,
+        /// Output directory (default: <id>)
+        #[arg(long, value_name = "DIR")]
+        out: Option<String>,
+    },
+    /// Validate manifest.json and template references
+    Validate {
+        /// Path to the package directory (default: current directory)
+        #[arg(value_name = "DIR")]
+        dir: Option<String>,
+    },
+    /// Create a .tgz tarball from the package directory
+    Pack {
+        /// Path to the package directory (default: current directory)
+        #[arg(value_name = "DIR")]
+        dir: Option<String>,
+        /// Output tarball path (default: <id>-<version>.tgz)
+        #[arg(long, value_name = "FILE")]
+        out: Option<String>,
+    },
+    /// Publish the package to the tsx registry
+    Publish {
+        /// Path to the package directory (default: current directory)
+        #[arg(value_name = "DIR")]
+        dir: Option<String>,
+        /// Registry URL (default: $TSX_REGISTRY_URL or https://registry.tsx.dev)
+        #[arg(long)]
+        registry: Option<String>,
+        /// Bearer token (default: $TSX_TOKEN)
+        #[arg(long)]
+        token: Option<String>,
+    },
+    /// Install a package from the registry
+    Install {
+        /// Package id
+        #[arg(value_name = "ID")]
+        id: String,
+        /// Registry URL (default: $TSX_REGISTRY_URL or https://registry.tsx.dev)
+        #[arg(long)]
+        registry: Option<String>,
     },
 }
 
@@ -1587,6 +1641,20 @@ fn main() {
             if let Err(e) = tsx_lsp::run_lsp_server() {
                 eprintln!("tsx-lsp: fatal error: {}", e);
                 std::process::exit(1);
+            }
+        }
+        Command::Package { action } => {
+            use tsx::commands::package;
+            match action {
+                PackageCmd::New { id, out } => package::package_new(id, out).print(),
+                PackageCmd::Validate { dir } => package::package_validate(dir).print(),
+                PackageCmd::Pack { dir, out } => package::package_pack(dir, out).print(),
+                PackageCmd::Publish { dir, registry, token } => {
+                    package::package_publish(dir, registry, token).print()
+                }
+                PackageCmd::Install { id, registry } => {
+                    package::package_install(id, registry).print()
+                }
             }
         }
     }

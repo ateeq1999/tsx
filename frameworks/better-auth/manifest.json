@@ -11,8 +11,14 @@
   },
   "fpf_version": "1.1",
   "tsx_pkg_name": "@tsx-pkg/better-auth",
-  "lang": ["typescript"],
-  "runtime": ["node", "bun", "deno"],
+  "lang": [
+    "typescript"
+  ],
+  "runtime": [
+    "node",
+    "bun",
+    "deno"
+  ],
   "tsx_min": "0.1.0",
   "provides": [
     "add:auth-setup",
@@ -33,6 +39,13 @@
       "description": "Adds auth middleware to TanStack Start server entry"
     }
   },
-  "generators": ["add-auth-setup", "add-auth-guard", "add-session"],
-  "template_format": "forge"
+  "generators": [
+    "add-auth-setup",
+    "add-auth-guard",
+    "add-session"
+  ],
+  "template_format": "forge",
+  "npm_packages": [
+    "better-auth"
+  ]
 }

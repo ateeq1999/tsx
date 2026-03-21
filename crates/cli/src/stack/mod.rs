@@ -13,7 +13,7 @@ pub struct StackProfile {
     /// Runtime environment: "node", "bun", "deno", "python", "go"
     #[serde(default)]
     pub runtime: Option<String>,
-    /// Active tsx packages (e.g. "tanstack-start@1.2", "drizzle-pg")
+    /// Active packages stored as npm names (e.g. "@tanstack/start@1.2", "drizzle-orm")
     #[serde(default)]
     pub packages: Vec<String>,
     #[serde(default)]
@@ -39,31 +39,30 @@ pub struct StyleConfig {
     #[serde(default = "default_semicolons")]
     pub semicolons: bool,
     /// CSS framework: "tailwind", "css-modules", "styled-components"
-    #[serde(default)]
-    pub css: Option<String>,
+    #[serde(default = "default_css")]
+    pub css: String,
     /// Component library: "shadcn", "radix", "headlessui", "none"
-    #[serde(default)]
-    pub components: Option<String>,
+    #[serde(default = "default_components_style")]
+    pub components: String,
     /// Form library: "tanstack-form", "react-hook-form", "none"
-    #[serde(default)]
-    pub forms: Option<String>,
+    #[serde(default = "default_forms")]
+    pub forms: String,
     /// Icon library: "lucide-react", "heroicons", "none"
-    #[serde(default)]
-    pub icons: Option<String>,
+    #[serde(default = "default_icons")]
+    pub icons: String,
     /// Toast/notification library: "sonner", "react-hot-toast", "none"
-    #[serde(default)]
-    pub toast: Option<String>,
+    #[serde(default = "default_toast")]
+    pub toast: String,
 }
 
-fn default_quotes() -> String {
-    "double".to_string()
-}
-fn default_indent() -> u8 {
-    2
-}
-fn default_semicolons() -> bool {
-    false
-}
+fn default_quotes() -> String { "double".to_string() }
+fn default_indent() -> u8 { 2 }
+fn default_semicolons() -> bool { false }
+fn default_css() -> String { "tailwind".to_string() }
+fn default_components_style() -> String { "shadcn".to_string() }
+fn default_forms() -> String { "tanstack-form".to_string() }
+fn default_icons() -> String { "lucide-react".to_string() }
+fn default_toast() -> String { "sonner".to_string() }
 
 impl Default for StyleConfig {
     fn default() -> Self {
@@ -71,28 +70,46 @@ impl Default for StyleConfig {
             quotes: default_quotes(),
             indent: default_indent(),
             semicolons: default_semicolons(),
-            css: None,
-            components: None,
-            forms: None,
-            icons: None,
-            toast: None,
+            css: default_css(),
+            components: default_components_style(),
+            forms: default_forms(),
+            icons: default_icons(),
+            toast: default_toast(),
         }
     }
 }
 
 /// Output path overrides — values are relative to the project root.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PathConfig {
-    #[serde(default)]
-    pub components: Option<String>,
-    #[serde(default)]
-    pub routes: Option<String>,
-    #[serde(default)]
-    pub db: Option<String>,
-    #[serde(default)]
-    pub server_fns: Option<String>,
-    #[serde(default)]
-    pub hooks: Option<String>,
+    #[serde(default = "default_path_components")]
+    pub components: String,
+    #[serde(default = "default_path_routes")]
+    pub routes: String,
+    #[serde(default = "default_path_db")]
+    pub db: String,
+    #[serde(default = "default_path_server_fns")]
+    pub server_fns: String,
+    #[serde(default = "default_path_hooks")]
+    pub hooks: String,
+}
+
+fn default_path_components() -> String { "app/components".to_string() }
+fn default_path_routes() -> String { "app/routes".to_string() }
+fn default_path_db() -> String { "app/db".to_string() }
+fn default_path_server_fns() -> String { "app/server".to_string() }
+fn default_path_hooks() -> String { "app/hooks".to_string() }
+
+impl Default for PathConfig {
+    fn default() -> Self {
+        Self {
+            components: default_path_components(),
+            routes: default_path_routes(),
+            db: default_path_db(),
+            server_fns: default_path_server_fns(),
+            hooks: default_path_hooks(),
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -199,21 +216,11 @@ impl UserStack {
             quotes: self.style.quotes.as_deref().unwrap_or(&base.quotes).to_string(),
             indent: self.style.indent.unwrap_or(base.indent),
             semicolons: self.style.semicolons.unwrap_or(base.semicolons),
-            css: self.style.css.clone()
-                .or_else(|| base.css.clone())
-                .unwrap_or_default(),
-            components: self.style.components.clone()
-                .or_else(|| base.components.clone())
-                .unwrap_or_default(),
-            forms: self.style.forms.clone()
-                .or_else(|| base.forms.clone())
-                .unwrap_or_default(),
-            icons: self.style.icons.clone()
-                .or_else(|| base.icons.clone())
-                .unwrap_or_default(),
-            toast: self.style.toast.clone()
-                .or_else(|| base.toast.clone())
-                .unwrap_or_default(),
+            css: self.style.css.clone().unwrap_or_else(|| base.css.clone()),
+            components: self.style.components.clone().unwrap_or_else(|| base.components.clone()),
+            forms: self.style.forms.clone().unwrap_or_else(|| base.forms.clone()),
+            icons: self.style.icons.clone().unwrap_or_else(|| base.icons.clone()),
+            toast: self.style.toast.clone().unwrap_or_else(|| base.toast.clone()),
         }
     }
 }
@@ -299,7 +306,16 @@ impl StackProfile {
 }
 
 fn base_name(pkg: &str) -> &str {
-    pkg.split('@').next().unwrap_or(pkg)
+    if let Some(rest) = pkg.strip_prefix('@') {
+        // Scoped package: @scope/name@version → @scope/name
+        if let Some(at_idx) = rest.find('@') {
+            &pkg[..at_idx + 1] // +1 for the leading '@'
+        } else {
+            pkg // no version suffix
+        }
+    } else {
+        pkg.split('@').next().unwrap_or(pkg)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -330,59 +346,41 @@ fn detect_js(dir: &Path, pkg_json: &Path, d: &mut DetectedStack) {
         }
     }
 
-    // npm package → @tsx-pkg suggestion
+    // npm package name in package.json → canonical npm name to store in stack.json
+    // Use the canonical name (second column) for deduplication so aliases collapse.
     let mappings: &[(&str, &str)] = &[
-        ("@tanstack/start", "tanstack-start"),
-        ("@tanstack/react-start", "tanstack-start"),
-        ("next", "nextjs"),
-        ("drizzle-orm", "drizzle-pg"), // dialect refined below
-        ("better-auth", "better-auth"),
-        ("@clerk/nextjs", "clerk"),
-        ("@tanstack/react-form", "tanstack-form"),
-        ("@tanstack/react-table", "tanstack-table"),
-        ("@tanstack/react-query", "tanstack-query"),
-        ("tailwindcss", "tailwindcss"),
-        ("prisma", "prisma"),
-        ("@prisma/client", "prisma"),
-        ("kysely", "kysely"),
-        ("jotai", "jotai"),
-        ("svelte", "svelte"),
-        ("solid-js", "solid"),
-        ("stripe", "stripe"),
+        ("@tanstack/start",       "@tanstack/start"),
+        ("@tanstack/react-start", "@tanstack/start"),   // alias
+        ("next",                  "next"),
+        ("drizzle-orm",           "drizzle-orm"),
+        ("better-auth",           "better-auth"),
+        ("@clerk/nextjs",         "@clerk/nextjs"),
+        ("@tanstack/react-form",  "@tanstack/react-form"),
+        ("@tanstack/react-table", "@tanstack/react-table"),
+        ("@tanstack/react-query", "@tanstack/react-query"),
+        ("tailwindcss",           "tailwindcss"),
+        ("prisma",                "prisma"),
+        ("@prisma/client",        "prisma"),            // alias
+        ("kysely",                "kysely"),
+        ("jotai",                 "jotai"),
+        ("svelte",                "svelte"),
+        ("solid-js",              "solid-js"),
+        ("stripe",                "stripe"),
     ];
 
-    for (npm_pkg, tsx_pkg) in mappings {
+    for (npm_pkg, canonical) in mappings {
         if all_deps.contains_key(*npm_pkg) {
             let ver = all_deps[*npm_pkg]
                 .trim_start_matches('^')
                 .trim_start_matches('~')
                 .to_string();
-            let suggestion = if ver.is_empty() {
-                tsx_pkg.to_string()
+            let entry = if ver.is_empty() {
+                canonical.to_string()
             } else {
-                format!("{}@{}", tsx_pkg, ver)
+                format!("{}@{}", canonical, ver)
             };
-            if !d.packages.iter().any(|p| base_name(p) == *tsx_pkg) {
-                d.packages.push(suggestion);
-            }
-        }
-    }
-
-    // Refine drizzle dialect
-    if all_deps.contains_key("drizzle-orm") {
-        let drizzle_idx = d.packages.iter().position(|p| base_name(p) == "drizzle-pg");
-        let dialect = if all_deps.contains_key("mysql2") {
-            Some("drizzle-mysql")
-        } else if all_deps.contains_key("better-sqlite3") || all_deps.contains_key("@libsql/client") {
-            Some("drizzle-sqlite")
-        } else {
-            None // keep drizzle-pg as default for postgres/pg
-        };
-        if let Some(d_pkg) = dialect {
-            if let Some(i) = drizzle_idx {
-                d.packages[i] = d_pkg.to_string();
-            } else {
-                d.packages.push(d_pkg.to_string());
+            if !d.packages.iter().any(|p| base_name(p) == *canonical) {
+                d.packages.push(entry);
             }
         }
     }
@@ -456,19 +454,41 @@ mod tests {
     fn save_and_load_round_trip() {
         let dir = TempDir::new().unwrap();
         let mut profile = StackProfile::default();
-        profile.packages.push("tanstack-start".to_string());
+        profile.packages.push("@tanstack/start".to_string());
         profile.save(dir.path()).unwrap();
         let loaded = StackProfile::load(dir.path()).unwrap();
-        assert_eq!(loaded.packages, vec!["tanstack-start"]);
+        assert_eq!(loaded.packages, vec!["@tanstack/start"]);
+    }
+
+    #[test]
+    fn save_includes_style_and_path_defaults() {
+        let dir = TempDir::new().unwrap();
+        let profile = StackProfile::default();
+        profile.save(dir.path()).unwrap();
+        let json = std::fs::read_to_string(StackProfile::stack_file(dir.path())).unwrap();
+        assert!(json.contains("\"css\""), "css field should be present");
+        assert!(json.contains("\"tailwind\""), "css default should be tailwind");
+        assert!(json.contains("\"components\""), "components field should be present");
+        assert!(json.contains("\"app/routes\""), "routes path default should be present");
+        assert!(json.contains("\"app/db\""), "db path default should be present");
     }
 
     #[test]
     fn add_package_deduplicates_by_base_name() {
         let mut p = StackProfile::default();
-        p.add_package("drizzle-pg@0.36");
-        p.add_package("drizzle-pg@0.37");
+        p.add_package("drizzle-orm@0.36");
+        p.add_package("drizzle-orm@0.37");
         assert_eq!(p.packages.len(), 1);
-        assert_eq!(p.packages[0], "drizzle-pg@0.37");
+        assert_eq!(p.packages[0], "drizzle-orm@0.37");
+    }
+
+    #[test]
+    fn add_package_deduplicates_scoped() {
+        let mut p = StackProfile::default();
+        p.add_package("@tanstack/start@1.2");
+        p.add_package("@tanstack/start@1.3");
+        assert_eq!(p.packages.len(), 1);
+        assert_eq!(p.packages[0], "@tanstack/start@1.3");
     }
 
     #[test]
@@ -481,8 +501,22 @@ mod tests {
         .unwrap();
         let d = StackProfile::detect(dir.path());
         assert_eq!(d.lang, "typescript");
-        assert!(d.packages.iter().any(|p| p.starts_with("tanstack-start")));
-        assert!(d.packages.iter().any(|p| p.starts_with("drizzle-pg")));
-        assert!(d.packages.iter().any(|p| p.starts_with("better-auth")));
+        assert!(d.packages.iter().any(|p| p.starts_with("@tanstack/start")), "should detect @tanstack/start");
+        assert!(d.packages.iter().any(|p| p.starts_with("drizzle-orm")), "should detect drizzle-orm");
+        assert!(d.packages.iter().any(|p| p.starts_with("better-auth")), "should detect better-auth");
+    }
+
+    #[test]
+    fn detect_js_aliases_collapse() {
+        let dir = TempDir::new().unwrap();
+        // Both @tanstack/start and @tanstack/react-start map to @tanstack/start
+        std::fs::write(
+            dir.path().join("package.json"),
+            r#"{"dependencies":{"@tanstack/start":"^1.0","@tanstack/react-start":"^1.0"}}"#,
+        )
+        .unwrap();
+        let d = StackProfile::detect(dir.path());
+        let tanstack_count = d.packages.iter().filter(|p| base_name(p) == "@tanstack/start").count();
+        assert_eq!(tanstack_count, 1, "aliases should collapse to one entry");
     }
 }

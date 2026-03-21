@@ -12,8 +12,14 @@
   },
   "fpf_version": "1.1",
   "tsx_pkg_name": "@tsx-pkg/shadcn",
-  "lang": ["typescript"],
-  "runtime": ["node", "bun", "deno"],
+  "lang": [
+    "typescript"
+  ],
+  "runtime": [
+    "node",
+    "bun",
+    "deno"
+  ],
   "tsx_min": "0.1.0",
   "provides": [
     "add:ui-button",
@@ -32,6 +38,16 @@
       "description": "Uses shadcn/ui Table components for generated table templates"
     }
   },
-  "generators": ["add-ui-button", "add-ui-input", "add-ui-form", "add-ui-data-table", "add-ui-dialog"],
-  "template_format": "forge"
+  "generators": [
+    "add-ui-button",
+    "add-ui-input",
+    "add-ui-form",
+    "add-ui-data-table",
+    "add-ui-dialog"
+  ],
+  "template_format": "forge",
+  "npm_packages": [
+    "shadcn-ui",
+    "@shadcn/ui"
+  ]
 }

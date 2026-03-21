@@ -13,8 +13,14 @@
   },
   "fpf_version": "1.1",
   "tsx_pkg_name": "@tsx-pkg/drizzle-sqlite",
-  "lang": ["typescript"],
-  "runtime": ["node", "bun", "deno"],
+  "lang": [
+    "typescript"
+  ],
+  "runtime": [
+    "node",
+    "bun",
+    "deno"
+  ],
   "tsx_min": "0.1.0",
   "provides": [
     "add:schema",
@@ -27,6 +33,15 @@
       "description": "Adds userId foreign key and createdAt/updatedAt timestamp fields to generated schemas"
     }
   },
-  "generators": ["add-schema", "add-migration", "add-seed"],
-  "template_format": "forge"
+  "generators": [
+    "add-schema",
+    "add-migration",
+    "add-seed"
+  ],
+  "template_format": "forge",
+  "npm_packages": [
+    "drizzle-orm",
+    "better-sqlite3",
+    "@libsql/client"
+  ]
 }

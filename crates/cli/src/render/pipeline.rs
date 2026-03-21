@@ -28,11 +28,11 @@ fn inject_style(ctx: minijinja::Value, root: &PathBuf) -> minijinja::Value {
             quotes:     base_style.quotes.clone(),
             indent:     base_style.indent,
             semicolons: base_style.semicolons,
-            css:        base_style.css.clone().unwrap_or_default(),
-            components: base_style.components.clone().unwrap_or_default(),
-            forms:      base_style.forms.clone().unwrap_or_default(),
-            icons:      base_style.icons.clone().unwrap_or_default(),
-            toast:      base_style.toast.clone().unwrap_or_default(),
+            css:        base_style.css.clone(),
+            components: base_style.components.clone(),
+            forms:      base_style.forms.clone(),
+            icons:      base_style.icons.clone(),
+            toast:      base_style.toast.clone(),
         });
 
     // Merge via JSON: convert ctx → JSON object, add style, convert back

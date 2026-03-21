@@ -1,5 +1,6 @@
 pub mod admin;
 pub mod auth_route;
+pub mod discovery;
 pub mod feed;
 pub mod health;
 pub mod packages;

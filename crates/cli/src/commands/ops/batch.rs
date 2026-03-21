@@ -308,11 +308,11 @@ fn expand_plan_path(
     // Apply path prefix overrides first
     let expanded = if let Some(cfg) = paths {
         let overrides: &[(&str, Option<&str>)] = &[
-            ("components/", cfg.components.as_deref()),
-            ("routes/", cfg.routes.as_deref()),
-            ("db/", cfg.db.as_deref()),
-            ("server-functions/", cfg.server_fns.as_deref()),
-            ("hooks/", cfg.hooks.as_deref()),
+            ("components/", Some(cfg.components.as_str())),
+            ("routes/", Some(cfg.routes.as_str())),
+            ("db/", Some(cfg.db.as_str())),
+            ("server-functions/", Some(cfg.server_fns.as_str())),
+            ("hooks/", Some(cfg.hooks.as_str())),
         ];
         let mut t = template.to_string();
         for (prefix, override_dir) in overrides {

@@ -404,11 +404,11 @@ fn expand_path_template(
 /// `"src/components/Foo.tsx"`.
 fn apply_path_prefix(template: &str, cfg: &crate::stack::PathConfig) -> String {
     let overrides: &[(&str, Option<&str>)] = &[
-        ("components/", cfg.components.as_deref()),
-        ("routes/", cfg.routes.as_deref()),
-        ("db/", cfg.db.as_deref()),
-        ("server-functions/", cfg.server_fns.as_deref()),
-        ("hooks/", cfg.hooks.as_deref()),
+        ("components/", Some(cfg.components.as_str())),
+        ("routes/", Some(cfg.routes.as_str())),
+        ("db/", Some(cfg.db.as_str())),
+        ("server-functions/", Some(cfg.server_fns.as_str())),
+        ("hooks/", Some(cfg.hooks.as_str())),
     ];
     for (default_prefix, override_dir) in overrides {
         if let Some(dir) = override_dir {
@@ -453,7 +453,7 @@ mod tests {
     #[test]
     fn path_prefix_override_applied() {
         let cfg = PathConfig {
-            components: Some("src/components".to_string()),
+            components: "src/components".to_string(),
             ..Default::default()
         };
         let input = serde_json::json!({ "name": "Todo" });
@@ -462,11 +462,12 @@ mod tests {
     }
 
     #[test]
-    fn path_prefix_no_override_when_none() {
+    fn path_prefix_applies_default() {
+        // PathConfig::default() has components = "app/components", so prefix is rewritten
         let cfg = PathConfig::default();
         let input = serde_json::json!({ "name": "Todo" });
         let result = expand_path_template("components/{{name}}Form.tsx", &input, Some(&cfg));
-        assert_eq!(result, "components/TodoForm.tsx");
+        assert_eq!(result, "app/components/TodoForm.tsx");
     }
 
     #[test]
