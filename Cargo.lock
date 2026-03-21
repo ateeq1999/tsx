@@ -3435,6 +3435,7 @@ dependencies = [
  "minijinja",
  "serde",
  "serde_json",
+ "tempfile",
  "tera",
  "walkdir",
 ]

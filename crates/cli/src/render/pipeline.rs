@@ -6,6 +6,49 @@ use crate::render::engine::{build_engine_with_plugins, reset_import_collector};
 use crate::utils::paths::{find_project_root, get_plugin_template_dirs, get_templates_dir};
 use crate::utils::write::{write_file, WriteOutcome};
 
+// ---------------------------------------------------------------------------
+// C2: style context injection
+// ---------------------------------------------------------------------------
+
+/// Load the effective style from `.tsx/stack.json` + `user-stack.json` and
+/// merge it into the incoming minijinja context as the `style` variable.
+///
+/// This lets templates branch on `style.forms`, `style.css`, etc. without
+/// each generator having to load the stack manually.
+fn inject_style(ctx: minijinja::Value, root: &PathBuf) -> minijinja::Value {
+    use crate::stack::{StackProfile, UserStack};
+
+    let base_style = StackProfile::load(root)
+        .map(|s| s.style)
+        .unwrap_or_default();
+
+    let effective = UserStack::load(root)
+        .map(|u| u.effective_style(&base_style))
+        .unwrap_or_else(|| crate::stack::EffectiveStyle {
+            quotes:     base_style.quotes.clone(),
+            indent:     base_style.indent,
+            semicolons: base_style.semicolons,
+            css:        base_style.css.clone().unwrap_or_default(),
+            components: base_style.components.clone().unwrap_or_default(),
+            forms:      base_style.forms.clone().unwrap_or_default(),
+            icons:      base_style.icons.clone().unwrap_or_default(),
+            toast:      base_style.toast.clone().unwrap_or_default(),
+        });
+
+    // Merge via JSON: convert ctx → JSON object, add style, convert back
+    let mut json: serde_json::Map<String, serde_json::Value> =
+        serde_json::to_value(&ctx)
+            .ok()
+            .and_then(|v| v.as_object().cloned())
+            .unwrap_or_default();
+
+    if let Ok(style_json) = serde_json::to_value(&effective) {
+        json.insert("style".to_string(), style_json);
+    }
+
+    minijinja::Value::from_serialize(&json)
+}
+
 /// Shared render-and-write pipeline for all single-file generate commands.
 ///
 /// 1. Finds the project root via `package.json` walk.
@@ -42,6 +85,9 @@ where
     let engine = build_engine_with_plugins(&templates_dir, &plugin_dirs);
 
     reset_import_collector();
+
+    // C2: inject effective style so templates can branch on style.forms etc.
+    let ctx = inject_style(ctx, &root);
 
     let template = match engine.get_template(template_name) {
         Ok(t) => t,

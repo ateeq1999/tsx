@@ -19,6 +19,7 @@ walkdir = { workspace = true }
 [dev-dependencies]
 criterion = { workspace = true }
 minijinja = "2"
+tempfile  = "3"
 
 [[bench]]
 name = "render_bench"

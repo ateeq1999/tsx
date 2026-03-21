@@ -27,6 +27,7 @@
 
 pub mod ast;
 pub mod collector;
+pub mod plan;
 pub mod context;
 pub mod engine;
 pub mod error;
@@ -43,6 +44,7 @@ pub use ast::{
     pg_table, sqlite_table, uuid_pk, text_col, int_col, bool_col,
     timestamp_col, real_col, raw, to_snake_case, to_pascal_case,
 };
+pub use plan::{GeneratorPlan, OverwritePolicy, PlanResult, PlanError};
 pub use context::ForgeContext;
 pub use engine::Engine;
 pub use error::ForgeError;

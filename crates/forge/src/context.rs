@@ -79,6 +79,27 @@ impl ForgeContext {
             .and_then(|v| v.as_object().cloned())
     }
 
+    /// Inject a `style` object so templates can branch on `style.forms`, etc. (C2).
+    ///
+    /// Call this after constructing the context:
+    /// ```rust
+    /// let ctx = ForgeContext::new()
+    ///     .insert("name", "users")
+    ///     .with_style(style_map);
+    /// ```
+    /// Inside templates:
+    /// ```jinja
+    /// {% if style.forms == "tanstack-form" %}
+    ///   import { useForm } from "@tanstack/react-form"
+    /// {% elif style.forms == "react-hook-form" %}
+    ///   import { useForm } from "react-hook-form"
+    /// {% endif %}
+    /// ```
+    pub fn with_style<T: Serialize>(mut self, style: &T) -> Self {
+        self.inner.insert("style", style);
+        self
+    }
+
     /// Build a context from a serializable struct.
     pub fn from_serialize<T: Serialize>(data: &T) -> anyhow::Result<Self> {
         let inner = tera::Context::from_serialize(data)
