@@ -1,0 +1,12 @@
+[package]
+name    = "tsx-codegen"
+version = "0.1.0"
+edition = "2021"
+description = "Standalone codegen library: Rust→Zod, Rust→TS, OpenAPI→Zod, Drizzle→Zod"
+
+[dependencies]
+serde      = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
