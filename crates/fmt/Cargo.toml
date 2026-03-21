@@ -1,0 +1,9 @@
+[package]
+name    = "tsx-fmt"
+version = "0.1.0"
+edition = "2021"
+description = "Formatter for .forge / .jinja template files"
+
+[dependencies]
+serde      = { workspace = true }
+serde_json = { workspace = true }

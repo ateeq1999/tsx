@@ -234,6 +234,39 @@ enum Command {
         #[command(subcommand)]
         target: CodegenCmd,
     },
+    /// Format .forge / .jinja template files (normalise indent, quotes, spacing)
+    Fmt {
+        /// Paths to format — files or directories (default: current directory)
+        #[arg(value_name = "PATH", num_args = 0..)]
+        paths: Vec<String>,
+        /// Check only — exit 1 if any file needs formatting, don't write
+        #[arg(long)]
+        check: bool,
+        /// Spaces per indent level (default: 2)
+        #[arg(long, default_value = "2")]
+        indent: usize,
+        /// Quote style: double or single (default: double)
+        #[arg(long, default_value = "double")]
+        quotes: String,
+    },
+    /// Watch files and re-run generators on change
+    Watch {
+        /// Root directories or files to watch (default: current directory)
+        #[arg(value_name = "PATH", num_args = 0..)]
+        paths: Vec<String>,
+        /// File extensions to watch (default: ts tsx js rs forge jinja)
+        #[arg(long, value_name = "EXT", num_args = 0.., value_delimiter = ',')]
+        ext: Vec<String>,
+        /// Debounce window in milliseconds (default: 300)
+        #[arg(long, default_value = "300")]
+        debounce: u64,
+        /// Command to run on change (default: print changed files)
+        #[arg(long, value_name = "CMD")]
+        run: Option<String>,
+        /// Emit structured JSON events
+        #[arg(long)]
+        json: bool,
+    },
     /// Launch the ratatui terminal dashboard (registry browser, doctor, stack editor)
     Tui {
         /// Which view to open: browser (default), doctor, stack
@@ -1339,6 +1372,90 @@ fn main() {
                 )
                 .print();
             }
+        }
+        Command::Fmt { paths, check, indent, quotes } => {
+            use tsx_fmt::{FmtConfig, QuoteStyle, format_file};
+            use walkdir::WalkDir;
+
+            let quote_style = if quotes == "single" { QuoteStyle::Single } else { QuoteStyle::Double };
+            let config = FmtConfig { indent, quotes: quote_style, ..FmtConfig::default() };
+
+            let roots: Vec<std::path::PathBuf> = if paths.is_empty() {
+                vec![std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))]
+            } else {
+                paths.iter().map(|p| std::path::PathBuf::from(p)).collect()
+            };
+
+            let mut total = 0usize;
+            let mut changed = 0usize;
+
+            for root in &roots {
+                let walker = WalkDir::new(root).into_iter().filter_map(|e| e.ok());
+                for entry in walker {
+                    let path = entry.path();
+                    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+                    if !matches!(ext, "forge" | "jinja" | "jinja2" | "j2") { continue; }
+                    total += 1;
+                    match format_file(path, &config, check) {
+                        Ok(r) if r.changed => {
+                            changed += 1;
+                            if check {
+                                eprintln!("  would reformat: {}", path.display());
+                            } else {
+                                println!("  formatted: {}", path.display());
+                            }
+                        }
+                        Ok(_) => {}
+                        Err(e) => eprintln!("  error: {}: {}", path.display(), e),
+                    }
+                }
+            }
+
+            println!("{} file(s) checked, {} reformatted.", total, changed);
+            if check && changed > 0 {
+                std::process::exit(1);
+            }
+        }
+        Command::Watch { paths, ext, debounce, run: run_cmd, json } => {
+            use tsx_watcher::{Watcher, WatchConfig};
+            use std::time::Duration;
+
+            let roots = if paths.is_empty() {
+                vec![".".to_string()]
+            } else {
+                paths
+            };
+            let extensions = if ext.is_empty() {
+                vec!["ts".into(), "tsx".into(), "js".into(), "rs".into(), "forge".into(), "jinja".into()]
+            } else {
+                ext
+            };
+            let config = WatchConfig {
+                roots,
+                extensions,
+                debounce: Duration::from_millis(debounce),
+                json_events: json,
+            };
+
+            let watcher = Watcher::new(config);
+            eprintln!("Watching for changes... (Ctrl-C to stop)");
+
+            let _ = watcher.start(|changed| {
+                for path in &changed {
+                    println!("changed: {}", path.display());
+                }
+                if let Some(cmd) = &run_cmd {
+                    let status = std::process::Command::new("sh")
+                        .args(["-c", cmd])
+                        .status();
+                    match status {
+                        Ok(s) if !s.success() => eprintln!("Command exited with {}", s),
+                        Err(e) => eprintln!("Failed to run command: {}", e),
+                        _ => {}
+                    }
+                }
+                true // keep watching
+            });
         }
         Command::Tui { view } => {
             use tsx_tui::{run, TuiView, BrowserItem};

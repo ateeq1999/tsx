@@ -3396,11 +3396,21 @@ dependencies = [
  "tar",
  "tempfile",
  "tokio",
+ "tsx-fmt",
  "tsx-forge",
  "tsx-shared",
  "tsx-tui",
+ "tsx-watcher",
  "tungstenite",
  "walkdir",
+]
+
+[[package]]
+name = "tsx-fmt"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -3462,6 +3472,17 @@ dependencies = [
  "ratatui",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "tsx-watcher"
+version = "0.1.0"
+dependencies = [
+ "notify",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "walkdir",
 ]
 
 [[package]]

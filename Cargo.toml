@@ -1,10 +1,12 @@
 [workspace]
 members = [
     "crates/cli",
+    "crates/fmt",
     "crates/forge",
     "crates/registry-server",
     "crates/shared",
     "crates/tui",
+    "crates/watcher",
 ]
 resolver = "2"
 
