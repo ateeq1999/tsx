@@ -359,6 +359,8 @@ enum Command {
         #[command(subcommand)]
         action: ReplayCmd,
     },
+    /// Start the Language Server (LSP) for .tsx/ config and .forge template files
+    Lsp,
     /// Run any installed framework generator by id or command name
     Run {
         /// Generator id (e.g. `add-schema`) or command name (e.g. `add:schema`).
@@ -1579,6 +1581,12 @@ fn main() {
                     replay::replay_run(file, dry_run, cli.verbose).print();
                 }
                 ReplayCmd::List => replay::replay_list(cli.verbose).print(),
+            }
+        }
+        Command::Lsp => {
+            if let Err(e) = tsx_lsp::run_lsp_server() {
+                eprintln!("tsx-lsp: fatal error: {}", e);
+                std::process::exit(1);
             }
         }
     }

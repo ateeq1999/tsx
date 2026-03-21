@@ -5,6 +5,7 @@ members = [
     "crates/docs",
     "crates/fmt",
     "crates/forge",
+    "crates/lsp",
     "crates/registry-server",
     "crates/shared",
     "crates/tui",

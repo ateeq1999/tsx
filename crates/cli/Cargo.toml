@@ -20,6 +20,7 @@ tsx-tui    = { package = "tsx-tui",     path = "../tui",     version = "0.1.0" }
 tsx-docs   = { package = "tsx-docs",    path = "../docs",    version = "0.1.0" }
 tsx-fmt     = { package = "tsx-fmt",     path = "../fmt",     version = "0.1.0" }
 tsx-watcher = { package = "tsx-watcher", path = "../watcher", version = "0.1.0" }
+tsx-lsp     = { package = "tsx-lsp",     path = "../lsp",     version = "0.1.0" }
 clap          = { version = "4", features = ["derive"] }
 clap_complete = "4"
 minijinja = { version = "2", features = ["loader"] }
