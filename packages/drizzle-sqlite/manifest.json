@@ -1,39 +1,47 @@
 {
   "id": "drizzle-sqlite",
   "name": "Drizzle ORM (SQLite)",
-  "description": "Drizzle ORM code patterns for SQLite and Turso/libSQL.",
+  "version": "1.0.0",
   "category": "orm",
-  "author": "drizzle-team",
-  "license": "Apache-2.0",
-  "docs": "https://orm.drizzle.team",
+  "description": "Drizzle ORM code patterns for SQLite — schema, migrations, and seed files. Works with libsql, Turso, and Bun SQLite.",
+  "docs": "https://orm.drizzle.team/docs/get-started-sqlite",
   "github": "https://github.com/drizzle-team/drizzle-orm",
+  "peer_dependencies": {
+    "drizzle-orm": "^0.36",
+    "drizzle-kit": "^0.27",
+    "@libsql/client": "^0.6"
+  },
+  "fpf_version": "1.1",
+  "tsx_pkg_name": "@tsx-pkg/drizzle-sqlite",
+  "lang": [
+    "typescript"
+  ],
+  "runtime": [
+    "node",
+    "bun",
+    "deno"
+  ],
+  "tsx_min": "0.1.0",
+  "provides": [
+    "add:schema",
+    "add:migration",
+    "add:seed"
+  ],
+  "integrates_with": {
+    "better-auth": {
+      "slot": "auth_fields",
+      "description": "Adds userId foreign key and createdAt/updatedAt timestamp fields to generated schemas"
+    }
+  },
+  "generators": [
+    "add-schema",
+    "add-migration",
+    "add-seed"
+  ],
+  "template_format": "forge",
   "npm_packages": [
     "drizzle-orm",
     "better-sqlite3",
     "@libsql/client"
-  ],
-  "commands": [
-    {
-      "id": "add:schema",
-      "description": "Generate a Drizzle SQLite schema table",
-      "template": "schema.jinja"
-    },
-    {
-      "id": "add:migration",
-      "description": "Run drizzle-kit generate+push",
-      "template": ""
-    }
-  ],
-  "peer_packages": [
-    "drizzle-kit"
-  ],
-  "tags": [
-    "database",
-    "orm",
-    "sqlite"
-  ],
-  "version": "1.0.0",
-  "stacks": {},
-  "template_format": "jinja",
-  "tsx_min": "0.1.0"
+  ]
 }

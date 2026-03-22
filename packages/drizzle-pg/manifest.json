@@ -1,43 +1,48 @@
 {
   "id": "drizzle-pg",
   "name": "Drizzle ORM (PostgreSQL)",
-  "description": "Drizzle ORM code patterns for PostgreSQL — schema, migrations, and seed files.",
+  "version": "1.0.0",
   "category": "orm",
-  "author": "drizzle-team",
-  "license": "Apache-2.0",
+  "description": "Drizzle ORM code patterns for PostgreSQL — schema, migrations, and seed files.",
   "docs": "https://orm.drizzle.team",
   "github": "https://github.com/drizzle-team/drizzle-orm",
+  "peer_dependencies": {
+    "drizzle-orm": "^0.36",
+    "drizzle-kit": "^0.27"
+  },
+  "fpf_version": "1.1",
+  "tsx_pkg_name": "@tsx-pkg/drizzle-pg",
+  "lang": [
+    "typescript"
+  ],
+  "runtime": [
+    "node",
+    "bun",
+    "deno"
+  ],
+  "tsx_min": "0.1.0",
+  "provides": [
+    "add:schema",
+    "add:migration",
+    "add:seed"
+  ],
+  "integrates_with": {
+    "better-auth": {
+      "slot": "auth_fields",
+      "description": "Adds userId foreign key and createdAt/updatedAt timestamp fields to generated schemas"
+    },
+    "tanstack-start": {
+      "slot": "server_fn_imports",
+      "description": "Adds db client import and table import to generated server functions"
+    }
+  },
+  "generators": [
+    "add-schema",
+    "add-migration",
+    "add-seed"
+  ],
+  "template_format": "forge",
   "npm_packages": [
     "drizzle-orm"
-  ],
-  "commands": [
-    {
-      "id": "add:schema",
-      "description": "Generate a Drizzle PG schema table",
-      "template": "schema.jinja"
-    },
-    {
-      "id": "add:migration",
-      "description": "Run drizzle-kit generate+push",
-      "template": ""
-    },
-    {
-      "id": "add:seed",
-      "description": "Generate a seed file",
-      "template": "seed.jinja"
-    }
-  ],
-  "peer_packages": [
-    "drizzle-kit",
-    "pg"
-  ],
-  "tags": [
-    "database",
-    "orm",
-    "postgresql"
-  ],
-  "version": "1.0.0",
-  "stacks": {},
-  "template_format": "jinja",
-  "tsx_min": "0.1.0"
+  ]
 }

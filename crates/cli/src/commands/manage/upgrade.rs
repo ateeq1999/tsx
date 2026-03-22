@@ -34,7 +34,7 @@ pub fn upgrade(check_only: bool, verbose: bool) -> CommandResult {
     let start = Instant::now();
 
     // Load the bundled metadata to get the current atom versions.
-    let metadata_str = include_str!("../../../../../templates/metadata.json");
+    let metadata_str = include_str!("../../metadata.json");
     let metadata: serde_json::Value = match serde_json::from_str(metadata_str) {
         Ok(v) => v,
         Err(e) => {
@@ -68,7 +68,9 @@ pub fn upgrade(check_only: bool, verbose: bool) -> CommandResult {
             entries
                 .iter()
                 .map(|(name, info)| {
-                    let current_ver = project_pinned.clone().unwrap_or_else(|| atoms_version.clone());
+                    let current_ver = project_pinned
+                        .clone()
+                        .unwrap_or_else(|| atoms_version.clone());
                     let latest_ver = info
                         .get("version")
                         .and_then(|v| v.as_str())
@@ -105,7 +107,7 @@ pub fn upgrade(check_only: bool, verbose: bool) -> CommandResult {
 
     let migration_guide = if has_breaking {
         Some(
-            "Breaking changes detected. Review the changelog in templates/metadata.json and update generated files manually before upgrading.".to_string()
+            "Breaking changes detected. Review the changelog and update generated files manually before upgrading.".to_string()
         )
     } else {
         None
@@ -178,16 +180,13 @@ pub fn upgrade(check_only: bool, verbose: bool) -> CommandResult {
 
     let mut cmd_result = CommandResult::ok("upgrade", vec![]);
     if check_only {
-        cmd_result.next_steps = vec![
-            "Run 'tsx upgrade' (without --check) to pin the current version.".to_string(),
-        ];
+        cmd_result.next_steps =
+            vec!["Run 'tsx upgrade' (without --check) to pin the current version.".to_string()];
     } else {
-        cmd_result.next_steps = vec![
-            format!(
-                "Atoms pinned to {} in package.json and templates written to .tsx/templates/.",
-                atoms_version
-            ),
-        ];
+        cmd_result.next_steps = vec![format!(
+            "Atoms pinned to {} in package.json and templates written to .tsx/templates/.",
+            atoms_version
+        )];
     }
     cmd_result
 }

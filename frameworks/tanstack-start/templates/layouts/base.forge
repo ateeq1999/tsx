@@ -1,3 +1,0 @@
-{{ render_imports() }}
-
-{% block body %}{% endblock %}

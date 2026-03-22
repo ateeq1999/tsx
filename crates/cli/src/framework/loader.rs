@@ -32,11 +32,13 @@ impl FrameworkLoader {
         // Scan builtin path
         frameworks.extend(self.scan_dir(self.builtin_path.clone()));
 
-        // Also scan user-installed frameworks dir if set or auto-detected
+        // Also scan user-installed packages dir (.tsx/packages/) or legacy .tsx/frameworks/
         let user_dir = self.user_path.clone().or_else(|| {
-            std::env::current_dir()
-                .ok()
-                .map(|d| d.join(".tsx").join("frameworks"))
+            std::env::current_dir().ok().and_then(|d| {
+                let pkgs = d.join(".tsx").join("packages");
+                let fws = d.join(".tsx").join("frameworks");
+                if pkgs.exists() { Some(pkgs) } else if fws.exists() { Some(fws) } else { None }
+            })
         });
         if let Some(dir) = user_dir {
             if dir.exists() {
@@ -306,9 +308,15 @@ impl Default for FrameworkLoader {
             .and_then(|p| p.parent().map(|p| p.to_path_buf()));
 
         let builtin_path = exe_dir
-            .map(|d| d.join("frameworks"))
-            .filter(|p| p.exists())
-            .unwrap_or_else(|| PathBuf::from("frameworks"));
+            .and_then(|d| {
+                let pkgs = d.join("packages");
+                let fws = d.join("frameworks");
+                if pkgs.exists() { Some(pkgs) } else if fws.exists() { Some(fws) } else { None }
+            })
+            .unwrap_or_else(|| {
+                if PathBuf::from("packages").exists() { PathBuf::from("packages") }
+                else { PathBuf::from("frameworks") }
+            });
 
         // Auto-detect user-installed frameworks in the project's .tsx/frameworks/ dir
         let user_path = std::env::current_dir()

@@ -1,38 +1,45 @@
 {
   "id": "drizzle-mysql",
   "name": "Drizzle ORM (MySQL)",
-  "description": "Drizzle ORM code patterns for MySQL/PlanetScale.",
+  "version": "1.0.0",
   "category": "orm",
-  "author": "drizzle-team",
-  "license": "Apache-2.0",
-  "docs": "https://orm.drizzle.team",
+  "description": "Drizzle ORM code patterns for MySQL — schema, migrations, and seed files.",
+  "docs": "https://orm.drizzle.team/docs/get-started-mysql",
   "github": "https://github.com/drizzle-team/drizzle-orm",
+  "peer_dependencies": {
+    "drizzle-orm": "^0.36",
+    "drizzle-kit": "^0.27",
+    "mysql2": "^3.0"
+  },
+  "fpf_version": "1.1",
+  "tsx_pkg_name": "@tsx-pkg/drizzle-mysql",
+  "lang": [
+    "typescript"
+  ],
+  "runtime": [
+    "node",
+    "bun"
+  ],
+  "tsx_min": "0.1.0",
+  "provides": [
+    "add:schema",
+    "add:migration",
+    "add:seed"
+  ],
+  "integrates_with": {
+    "better-auth": {
+      "slot": "auth_fields",
+      "description": "Adds userId foreign key and createdAt/updatedAt timestamp fields to generated schemas"
+    }
+  },
+  "generators": [
+    "add-schema",
+    "add-migration",
+    "add-seed"
+  ],
+  "template_format": "forge",
   "npm_packages": [
     "drizzle-orm",
     "mysql2"
-  ],
-  "commands": [
-    {
-      "id": "add:schema",
-      "description": "Generate a Drizzle MySQL schema table",
-      "template": "schema.jinja"
-    },
-    {
-      "id": "add:migration",
-      "description": "Run drizzle-kit generate+push",
-      "template": ""
-    }
-  ],
-  "peer_packages": [
-    "drizzle-kit"
-  ],
-  "tags": [
-    "database",
-    "orm",
-    "mysql"
-  ],
-  "version": "1.0.0",
-  "stacks": {},
-  "template_format": "jinja",
-  "tsx_min": "0.1.0"
+  ]
 }

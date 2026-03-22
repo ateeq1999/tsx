@@ -1,29 +1,5 @@
 {
   "version": "1.0",
-  "templates": [
-    {
-      "id": "default",
-      "name": "Full Stack",
-      "description": "Complete TanStack Start app with auth, DB, and routing",
-      "path": "templates/default",
-      "files": [
-        "src/main.tsx",
-        "routes/",
-        "components/",
-        "lib/"
-      ]
-    },
-    {
-      "id": "minimal",
-      "name": "Minimal",
-      "description": "Minimal boilerplate to get started",
-      "path": "templates/minimal",
-      "files": [
-        "src/main.tsx",
-        "routes/index.tsx"
-      ]
-    }
-  ],
   "atoms": {
     "version": "1.0.0",
     "changelog": [
@@ -119,42 +95,6 @@
       "options": {
         "providers": { "type": "array", "default": ["github", "google"] }
       }
-    }
-  ],
-  "components": [
-    {
-      "name": "button",
-      "category": "inputs",
-      "description": "Interactive button with multiple variants",
-      "props": {
-        "variant": { "type": "enum", "values": ["primary", "secondary", "ghost", "destructive"], "default": "primary" },
-        "size": { "type": "enum", "values": ["sm", "md", "lg"], "default": "md" },
-        "disabled": { "type": "bool", "default": false },
-        "onclick": { "type": "callback" }
-      },
-      "file": "components/ui/button.tsx"
-    },
-    {
-      "name": "input",
-      "category": "inputs",
-      "description": "Text input field with validation support",
-      "props": {
-        "type": { "type": "enum", "values": ["text", "email", "password", "number"], "default": "text" },
-        "placeholder": { "type": "string" },
-        "value": { "type": "string" },
-        "onchange": { "type": "callback" }
-      },
-      "file": "components/ui/input.tsx"
-    },
-    {
-      "name": "card",
-      "category": "layout",
-      "description": "Container component with header, content, and footer",
-      "props": {
-        "class": { "type": "string" },
-        "children": { "type": "node" }
-      },
-      "file": "components/ui/card.tsx"
     }
   ]
 }

@@ -1,6 +1,0 @@
-{% extends "layouts/base.forge" %}
-{% block body %}
-{% with providers=providers, session_fields=session_fields, email_verification=email_verification %}
-{% include "molecules/auth/config_block.forge" %}
-{% endwith %}
-{% endblock %}

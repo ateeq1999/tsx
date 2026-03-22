@@ -768,8 +768,13 @@ pub fn registry_website(output_dir: String, verbose: bool) -> CommandResult {
     let mut loader = FrameworkLoader::default();
     loader.load_builtin_frameworks();
 
-    // Also scan frameworks/ directory directly for full registry data
-    let frameworks_dir = std::path::Path::new("frameworks");
+    // Also scan packages/ (or legacy frameworks/) directory directly for full registry data
+    let frameworks_dir = if std::path::Path::new("packages").exists() {
+        std::path::PathBuf::from("packages")
+    } else {
+        std::path::PathBuf::from("frameworks")
+    };
+    let frameworks_dir = frameworks_dir.as_path();
     let mut registries: Vec<FrameworkRegistry> = Vec::new();
 
     if let Ok(entries) = std::fs::read_dir(frameworks_dir) {

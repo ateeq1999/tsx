@@ -1,5 +1,0 @@
-{% if params %}
-export const {{ name }}QueryKey = ['{{ name }}', {% for p in params %}"{{ p }}"{% if not loop.last %}, {% endif %}{% endfor %}] as const;
-{% else %}
-export const {{ name }}QueryKey = ['{{ name }}'] as const;
-{% endif %}

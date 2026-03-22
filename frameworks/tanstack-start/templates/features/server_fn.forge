@@ -1,8 +1,0 @@
-{% extends "layouts/base.forge" %}
-{% block body %}
-{% for operation in operations %}
-{% with name=name, table=table, operation=operation, auth=auth, input=input %}
-{% include "molecules/server_fn/handler.forge" %}
-{% endwith %}
-{% endfor %}
-{% endblock %}

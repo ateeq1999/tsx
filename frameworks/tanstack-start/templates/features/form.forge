@@ -1,6 +1,0 @@
-{% extends "layouts/component.forge" %}
-{% block body %}
-{% with name=name, fields=fields %}
-{% include "molecules/form/form_component.forge" %}
-{% endwith %}
-{% endblock %}

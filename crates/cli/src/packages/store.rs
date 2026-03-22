@@ -41,14 +41,12 @@ impl PackageStore {
             }
         }
 
-        // 4. Fallback: `frameworks/` next to binary or in cwd (legacy support)
-        if let Ok(exe) = std::env::current_exe() {
-            if let Some(dir) = exe.parent() {
-                roots.push(dir.join("frameworks"));
-            }
-        }
+        // 4. Fallback: `packages/` or legacy `frameworks/` in cwd (dev/source tree)
         if let Ok(cwd) = std::env::current_dir() {
-            roots.push(cwd.join("frameworks"));
+            let pkgs = cwd.join("packages");
+            let fws = cwd.join("frameworks");
+            if pkgs.exists() { roots.push(pkgs); }
+            else if fws.exists() { roots.push(fws); }
         }
 
         let mut store = Self { roots, cache: HashMap::new() };
