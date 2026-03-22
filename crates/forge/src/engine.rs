@@ -138,13 +138,31 @@ impl Default for Engine {
 }
 
 fn register_extensions(tera: &mut Tera) {
+    // Case conversion
     tera.register_filter("snake_case", filters::snake_case);
     tera.register_filter("pascal_case", filters::pascal_case);
     tera.register_filter("camel_case", filters::camel_case);
     tera.register_filter("kebab_case", filters::kebab_case);
+    // Import hoisting
     tera.register_filter("collect_import", filters::collect_import);
     tera.register_filter("collect_import_priority", filters::collect_import_priority);
     tera.register_function("render_imports", filters::render_imports_fn);
+    // String utilities
+    tera.register_filter("slugify", filters::slugify);
+    tera.register_filter("truncate_str", filters::truncate);
+    tera.register_filter("indent", filters::indent);
+    // JSON utilities
+    tera.register_filter("json_encode", filters::json_encode);
+    tera.register_filter("json_decode", filters::json_decode);
+    tera.register_filter("debug", filters::debug_filter);
+    // Inflection
+    tera.register_filter("plural", filters::plural);
+    tera.register_filter("singular", filters::singular);
+    // System
+    tera.register_filter("env", filters::env_filter);
+    // Generation
+    tera.register_function("random_id", filters::random_id_fn);
+    // Slots and provides
     tera.register_function("slot", slots::make_slot_fn());
     tera.register_function("inject", provide::make_inject_fn());
 }

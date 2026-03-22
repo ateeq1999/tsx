@@ -27,16 +27,19 @@
 
 pub mod ast;
 pub mod collector;
-pub mod plan;
+pub mod compose;
 pub mod context;
 pub mod engine;
 pub mod error;
 pub mod filters;
+pub mod manifest;
 pub mod metadata;
+pub mod plan;
 pub mod preprocessor;
 pub mod provide;
 pub mod slots;
 pub mod tier;
+pub mod validate;
 
 pub use ast::{
     ForgeFile, StyleConfig, QuoteStyle, Render,
@@ -44,10 +47,18 @@ pub use ast::{
     pg_table, sqlite_table, uuid_pk, text_col, int_col, bool_col,
     timestamp_col, real_col, raw, to_snake_case, to_pascal_case,
 };
-pub use plan::{GeneratorPlan, OverwritePolicy, PlanResult, PlanError};
+pub use compose::{ExtendsGraph, check_extends_cycle, extract_extends_path};
 pub use context::ForgeContext;
 pub use engine::Engine;
 pub use error::ForgeError;
+pub use manifest::{
+    GeneratedFile, ManifestDependencies, MultiOutput, OutputPath,
+    TemplateManifest, interpolate_path, load_manifest, render_multi,
+};
 pub use metadata::{parse as parse_frontmatter, FrontMatter};
+pub use plan::{GeneratorPlan, OverwritePolicy, PlanResult, PlanError};
 pub use preprocessor::preprocess;
 pub use tier::Tier;
+pub use validate::{
+    ValidationResult, extract_schema, validate_input, validate_template_input,
+};

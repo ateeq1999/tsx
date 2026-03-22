@@ -22,6 +22,10 @@
 //! | `@variant("name")` | `{% if ctx.variant == 'name' %}` |
 //! | `@ctx.name.pascal()` | `{{ ctx.name \| pascal_case }}` |
 //! | `@ctx.name.kebab().upper()` | `{{ ctx.name \| kebab_case \| upper }}` |
+//! | `@extends("base.forge")` | `{% extends "base.forge" %}` |
+//! | `@slot("x") … @end` (in extends child) | `{% block x %} … {% endblock x %}` |
+//! | `@schema({...})` | stripped (metadata only, used by `validate.rs`) |
+//! | `@feature("name") … @end` | `{% if features and 'name' in features %} … {% endif %}` |
 
 /// Preprocess a `.forge` template source, translating `@`-directives to Tera syntax.
 ///
@@ -29,6 +33,12 @@
 /// the output is identical to the input (zero-copy is not guaranteed but the content
 /// is identical).
 pub fn preprocess(src: &str) -> String {
+    // Quick scan: determine if this template uses @extends (child template).
+    // In extends-mode, @slot("name") ... @end becomes {% block name %} ... {% endblock name %}.
+    let extends_mode = src
+        .lines()
+        .any(|l| l.trim_start().starts_with("@extends("));
+
     let mut out = String::with_capacity(src.len() + 64);
     // Stack tracking open block types so @end knows which closing tag to emit.
     let mut block_stack: Vec<BlockKind> = Vec::new();
@@ -38,7 +48,13 @@ pub fn preprocess(src: &str) -> String {
 
         if let Some(rest) = trimmed.strip_prefix('@') {
             let indent = &line[..line.len() - trimmed.len()];
-            if let Some(transformed) = transform_directive(rest, &mut block_stack) {
+            if let Some(transformed) =
+                transform_directive(rest, &mut block_stack, extends_mode)
+            {
+                // @schema lines produce None (stripped) — skip if empty marker
+                if transformed == "__STRIP__" {
+                    continue;
+                }
                 out.push_str(indent);
                 out.push_str(&transformed);
                 out.push('\n');
@@ -66,26 +82,49 @@ pub fn preprocess(src: &str) -> String {
     out
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum BlockKind {
     If,
     For,
+    /// An `@slot("name") ... @end` block inside an `@extends` child template,
+    /// which maps to Tera's `{% block name %} ... {% endblock name %}`.
+    ExtendSlot(String),
+    /// An `@feature("name") ... @end` conditional block.
+    Feature,
 }
 
 /// Try to transform a single `@`-directive (the `@` has already been stripped).
 /// Returns `Some(tera_string)` on success, `None` if not a known directive.
-fn transform_directive(rest: &str, stack: &mut Vec<BlockKind>) -> Option<String> {
+/// Returns `Some("__STRIP__")` for directives that should be silently removed (e.g. `@schema`).
+fn transform_directive(
+    rest: &str,
+    stack: &mut Vec<BlockKind>,
+    extends_mode: bool,
+) -> Option<String> {
     // Strip optional trailing whitespace / inline comments
     let rest = rest.trim_end();
 
     // ── @end ──────────────────────────────────────────────────────────────────
     if rest == "end" {
         let tag = match stack.pop() {
-            Some(BlockKind::If) => "{% endif %}",
-            Some(BlockKind::For) => "{% endfor %}",
-            None => "{% endif %}", // fallback
+            Some(BlockKind::If)                  => "{% endif %}".to_string(),
+            Some(BlockKind::For)                 => "{% endfor %}".to_string(),
+            Some(BlockKind::Feature)             => "{% endif %}".to_string(),
+            Some(BlockKind::ExtendSlot(name))    => format!("{{% endblock {name} %}}"),
+            None                                 => "{% endif %}".to_string(), // fallback
         };
-        return Some(tag.to_string());
+        return Some(tag);
+    }
+
+    // ── @extends("path") ──────────────────────────────────────────────────────
+    if let Some(args) = strip_call(rest, "extends") {
+        let path = args.trim().trim_matches(|c| c == '"' || c == '\'');
+        return Some(format!("{{% extends \"{path}\" %}}"));
+    }
+
+    // ── @schema({...}) ─ metadata only, stripped from output ─────────────────
+    if rest.starts_with("schema(") {
+        return Some("__STRIP__".to_string());
     }
 
     // ── @import(...) ──────────────────────────────────────────────────────────
@@ -96,19 +135,18 @@ fn transform_directive(rest: &str, stack: &mut Vec<BlockKind>) -> Option<String>
     // ── @if(cond) ─────────────────────────────────────────────────────────────
     if let Some(cond) = strip_call(rest, "if") {
         stack.push(BlockKind::If);
-        return Some(format!("{{% if {} %}}", cond));
+        return Some(format!("{{% if {cond} %}}"));
     }
 
     // ── @unless(cond) ─────────────────────────────────────────────────────────
     if let Some(cond) = strip_call(rest, "unless") {
         stack.push(BlockKind::If);
-        return Some(format!("{{% if not {} %}}", cond));
+        return Some(format!("{{% if not {cond} %}}"));
     }
 
     // ── @each(items as item) ──────────────────────────────────────────────────
     if let Some(expr) = strip_call(rest, "each") {
         stack.push(BlockKind::For);
-        // "items as item" → "item in items"
         if let Some((collection, var)) = split_as(&expr) {
             return Some(format!("{{% for {} in {} %}}", var.trim(), collection.trim()));
         }
@@ -117,31 +155,46 @@ fn transform_directive(rest: &str, stack: &mut Vec<BlockKind>) -> Option<String>
 
     // ── @set(x = expr) ────────────────────────────────────────────────────────
     if let Some(assignment) = strip_call(rest, "set") {
-        return Some(format!("{{% set {} %}}", assignment));
+        return Some(format!("{{% set {assignment} %}}"));
     }
 
     // ── @slot("name") / @slot("name", default="fallback") ────────────────────
+    // In extends-mode this opens a Tera block override; otherwise it's a slot call.
     if let Some(args) = strip_call(rest, "slot") {
+        if extends_mode {
+            let (name, _rest) = parse_quoted_string(args.trim());
+            stack.push(BlockKind::ExtendSlot(name.clone()));
+            return Some(format!("{{% block {name} %}}"));
+        }
         return Some(transform_slot(&args));
     }
 
     // ── @inject("key") ────────────────────────────────────────────────────────
     if let Some(args) = strip_call(rest, "inject") {
         let key = args.trim().trim_matches(|c| c == '"' || c == '\'');
-        return Some(format!("{{{{ inject(key='{}') }}}}", key));
+        return Some(format!("{{{{ inject(key='{key}') }}}}"));
     }
 
     // ── @include("path") ──────────────────────────────────────────────────────
     if let Some(args) = strip_call(rest, "include") {
         let path = args.trim().trim_matches(|c| c == '"' || c == '\'');
-        return Some(format!("{{% include \"{}\" %}}", path));
+        return Some(format!("{{% include \"{path}\" %}}"));
     }
 
     // ── @variant("name") ──────────────────────────────────────────────────────
     if let Some(args) = strip_call(rest, "variant") {
         stack.push(BlockKind::If);
         let name = args.trim().trim_matches(|c| c == '"' || c == '\'');
-        return Some(format!("{{% if ctx.variant == '{}' %}}", name));
+        return Some(format!("{{% if ctx.variant == '{name}' %}}"));
+    }
+
+    // ── @feature("name") ──────────────────────────────────────────────────────
+    if let Some(args) = strip_call(rest, "feature") {
+        stack.push(BlockKind::Feature);
+        let name = args.trim().trim_matches(|c| c == '"' || c == '\'');
+        return Some(format!(
+            "{{% if features is defined and '{name}' in features %}}"
+        ));
     }
 
     None
@@ -455,6 +508,40 @@ mod tests {
         assert!(out.contains("{% if ctx.auth %}"), "got: {}", out);
         assert!(out.contains("{% for f in ctx.fields %}"), "got: {}", out);
         assert!(out.contains("{% endfor %}"), "got: {}", out);
+        assert!(out.contains("{% endif %}"), "got: {}", out);
+    }
+
+    #[test]
+    fn extends_translates() {
+        let src = "@extends(\"layouts/base.forge\")\n@slot(\"content\")\nhello\n@end";
+        let out = preprocess(src);
+        assert!(out.contains("{% extends \"layouts/base.forge\" %}"), "got: {}", out);
+        assert!(out.contains("{% block content %}"), "got: {}", out);
+        assert!(out.contains("{% endblock content %}"), "got: {}", out);
+    }
+
+    #[test]
+    fn slot_without_extends_stays_as_slot_call() {
+        let out = preprocess("@slot(\"sidebar\")");
+        assert!(out.contains("slot(name='sidebar')"), "got: {}", out);
+        assert!(!out.contains("block"), "got: {}", out);
+    }
+
+    #[test]
+    fn schema_directive_is_stripped() {
+        let src = "@schema({ \"name\": { \"type\": \"string\" } })\nhello";
+        let out = preprocess(src);
+        assert!(!out.contains("@schema"), "got: {}", out);
+        assert!(!out.contains("__STRIP__"), "got: {}", out);
+        assert!(out.contains("hello"), "got: {}", out);
+    }
+
+    #[test]
+    fn feature_directive() {
+        let src = "@feature(\"auth\")\nhello\n@end";
+        let out = preprocess(src);
+        assert!(out.contains("features is defined"), "got: {}", out);
+        assert!(out.contains("'auth' in features"), "got: {}", out);
         assert!(out.contains("{% endif %}"), "got: {}", out);
     }
 }
