@@ -9,12 +9,16 @@ keywords = ["codegen", "template", "tera", "framework"]
 categories = ["template-engine", "development-tools"]
 
 [dependencies]
-tera = { workspace = true }
-serde = { workspace = true }
+tera       = { workspace = true }
+serde      = { workspace = true }
 serde_json = { workspace = true }
-anyhow = { workspace = true }
-heck = { workspace = true }
-walkdir = { workspace = true }
+anyhow     = { workspace = true }
+heck       = { workspace = true }
+walkdir    = { workspace = true }
+notify     = { version = "6", optional = true }
+
+[features]
+watch = ["notify"]
 
 [dev-dependencies]
 criterion = { workspace = true }

@@ -30,6 +30,7 @@ pub mod cache;
 pub mod collector;
 pub mod compose;
 pub mod config;
+pub mod watch;
 pub mod context;
 pub mod engine;
 pub mod error;
@@ -75,7 +76,8 @@ pub use registry::{
     TemplateInfo, TemplateSource,
     discover_templates, discover_from_source, find_template,
     global_templates_dir, project_templates_dir,
-    install_from_dir, uninstall, init_template, template_schema,
+    install_from_dir, install_from_npm, install_from_url, install_from_github,
+    uninstall, init_template, template_schema,
 };
 pub use tier::Tier;
 pub use validate::{

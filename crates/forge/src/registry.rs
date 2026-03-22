@@ -258,6 +258,168 @@ pub fn init_template(name: &str, dest: &Path) -> Result<(), ForgeError> {
     Ok(())
 }
 
+/// Install a template bundle from an npm package into `~/.tsx/templates/`.
+///
+/// Shells out to `npm pack <package>` to download and extract the tarball, then
+/// delegates to [`install_from_dir`].  Requires `npm` and `tar` on `PATH`.
+pub fn install_from_npm(package: &str) -> Result<TemplateInfo, ForgeError> {
+    use std::process::Command;
+
+    let tmp = std::env::temp_dir().join(format!("tsx-npm-{}", std::process::id()));
+    std::fs::create_dir_all(&tmp)
+        .map_err(|e| ForgeError::LoadError(format!("Cannot create temp dir: {e}")))?;
+
+    let pack = Command::new("npm")
+        .args(["pack", package, "--pack-destination", &tmp.to_string_lossy(), "--json"])
+        .output()
+        .map_err(|e| {
+            let _ = std::fs::remove_dir_all(&tmp);
+            ForgeError::LoadError(format!("npm not found: {e}"))
+        })?;
+
+    if !pack.status.success() {
+        let _ = std::fs::remove_dir_all(&tmp);
+        return Err(ForgeError::LoadError(format!(
+            "npm pack failed: {}",
+            String::from_utf8_lossy(&pack.stderr)
+        )));
+    }
+
+    let tgz = std::fs::read_dir(&tmp)
+        .map_err(|e| ForgeError::LoadError(e.to_string()))?
+        .filter_map(|e| e.ok())
+        .find(|e| e.path().extension().and_then(|x| x.to_str()) == Some("tgz"))
+        .map(|e| e.path())
+        .ok_or_else(|| ForgeError::LoadError("npm pack produced no .tgz".into()))?;
+
+    let extract_dir = tmp.join("extracted");
+    std::fs::create_dir_all(&extract_dir)
+        .map_err(|e| ForgeError::LoadError(e.to_string()))?;
+
+    let tar_out = Command::new("tar")
+        .args(["xzf", &tgz.to_string_lossy(), "-C", &extract_dir.to_string_lossy()])
+        .output()
+        .map_err(|e| {
+            let _ = std::fs::remove_dir_all(&tmp);
+            ForgeError::LoadError(format!("tar not found: {e}"))
+        })?;
+
+    if !tar_out.status.success() {
+        let _ = std::fs::remove_dir_all(&tmp);
+        return Err(ForgeError::LoadError(format!(
+            "tar failed: {}",
+            String::from_utf8_lossy(&tar_out.stderr)
+        )));
+    }
+
+    // npm pack always creates a `package/` subdirectory inside the archive
+    let src = extract_dir.join("package");
+    if !src.is_dir() {
+        let _ = std::fs::remove_dir_all(&tmp);
+        return Err(ForgeError::LoadError(
+            "Unexpected npm pack layout: no 'package/' directory".into(),
+        ));
+    }
+
+    let result = install_from_dir(&src);
+    let _ = std::fs::remove_dir_all(&tmp);
+    result
+}
+
+/// Install a template bundle from a `.tar.gz` / `.tgz` URL into `~/.tsx/templates/`.
+///
+/// Downloads via `curl -fsSL` then extracts with `tar`.
+/// Requires `curl` and `tar` on `PATH`.
+pub fn install_from_url(url: &str) -> Result<TemplateInfo, ForgeError> {
+    use std::process::Command;
+
+    let tmp = std::env::temp_dir().join(format!("tsx-url-{}", std::process::id()));
+    std::fs::create_dir_all(&tmp)
+        .map_err(|e| ForgeError::LoadError(format!("Cannot create temp dir: {e}")))?;
+
+    let tgz = tmp.join("template.tar.gz");
+
+    let dl = Command::new("curl")
+        .args(["-fsSL", url, "-o", &tgz.to_string_lossy()])
+        .output()
+        .map_err(|e| {
+            let _ = std::fs::remove_dir_all(&tmp);
+            ForgeError::LoadError(format!("curl not found: {e}"))
+        })?;
+
+    if !dl.status.success() {
+        let _ = std::fs::remove_dir_all(&tmp);
+        return Err(ForgeError::LoadError(format!(
+            "Download failed: {}",
+            String::from_utf8_lossy(&dl.stderr)
+        )));
+    }
+
+    let extract_dir = tmp.join("extracted");
+    std::fs::create_dir_all(&extract_dir)
+        .map_err(|e| ForgeError::LoadError(e.to_string()))?;
+
+    let tar_out = Command::new("tar")
+        .args(["xzf", &tgz.to_string_lossy(), "-C", &extract_dir.to_string_lossy()])
+        .output()
+        .map_err(|e| {
+            let _ = std::fs::remove_dir_all(&tmp);
+            ForgeError::LoadError(format!("tar not found: {e}"))
+        })?;
+
+    if !tar_out.status.success() {
+        let _ = std::fs::remove_dir_all(&tmp);
+        return Err(ForgeError::LoadError(format!(
+            "tar failed: {}",
+            String::from_utf8_lossy(&tar_out.stderr)
+        )));
+    }
+
+    // If the archive has a single top-level directory, use it; otherwise install the extract dir.
+    let entries: Vec<_> = std::fs::read_dir(&extract_dir)
+        .map_err(|e| ForgeError::LoadError(e.to_string()))?
+        .filter_map(|e| e.ok())
+        .collect();
+
+    let src = if entries.len() == 1 && entries[0].path().is_dir() {
+        entries[0].path()
+    } else {
+        extract_dir.clone()
+    };
+
+    let result = install_from_dir(&src);
+    let _ = std::fs::remove_dir_all(&tmp);
+    result
+}
+
+/// Install a template bundle from a GitHub repository (`<user>/<repo>`).
+///
+/// Clones the repo with `git clone --depth=1` then delegates to [`install_from_dir`].
+/// Requires `git` on `PATH`.
+pub fn install_from_github(repo: &str) -> Result<TemplateInfo, ForgeError> {
+    use std::process::Command;
+
+    let tmp = std::env::temp_dir().join(format!("tsx-gh-{}", std::process::id()));
+    let url = format!("https://github.com/{repo}.git");
+
+    let clone = Command::new("git")
+        .args(["clone", "--depth=1", &url, &tmp.to_string_lossy()])
+        .output()
+        .map_err(|e| ForgeError::LoadError(format!("git not found: {e}")))?;
+
+    if !clone.status.success() {
+        let _ = std::fs::remove_dir_all(&tmp);
+        return Err(ForgeError::LoadError(format!(
+            "git clone failed: {}",
+            String::from_utf8_lossy(&clone.stderr)
+        )));
+    }
+
+    let result = install_from_dir(&tmp);
+    let _ = std::fs::remove_dir_all(&tmp);
+    result
+}
+
 fn copy_dir_all(src: &Path, dst: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(dst)?;
     for entry in std::fs::read_dir(src)? {

@@ -991,6 +991,29 @@ enum TemplateCmd {
         #[command(subcommand)]
         action: TemplateConfigCmd,
     },
+    /// Log in to the forge template registry
+    Login {
+        /// API key from the registry dashboard
+        #[arg(long)]
+        token: String,
+        /// Registry URL (default: https://registry.tsx.dev)
+        #[arg(long)]
+        registry: Option<String>,
+    },
+    /// Log out and remove stored registry credentials
+    Logout,
+    /// Publish a template bundle to the forge registry
+    Publish {
+        /// Template id to publish
+        #[arg(long, value_name = "NAME")]
+        name: String,
+        /// Version to publish (e.g. 1.2.0)
+        #[arg(long, value_name = "VERSION")]
+        version: String,
+        /// Path to the template directory (default: current directory)
+        #[arg(long, value_name = "DIR")]
+        path: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -1738,6 +1761,15 @@ fn main() {
                         template::template_config_init(overwrite, cli.verbose).print();
                     }
                 },
+                TemplateCmd::Login { token, registry } => {
+                    template::template_login(token, registry, cli.verbose).print();
+                }
+                TemplateCmd::Logout => {
+                    template::template_logout(cli.verbose).print();
+                }
+                TemplateCmd::Publish { name, version, path } => {
+                    template::template_publish(name, version, path, cli.verbose).print();
+                }
             }
         }
     }

@@ -5,18 +5,32 @@ use std::path::Path;
 use tera::Tera;
 use walkdir::WalkDir;
 
-use crate::{cache::TemplateCache, collector, context::ForgeContext, error::ForgeError, filters, preprocessor, provide, slots, tier::Tier};
+use crate::{
+    cache::TemplateCache,
+    collector,
+    compose::{self, ExtendsGraph},
+    context::ForgeContext,
+    error::ForgeError,
+    filters,
+    preprocessor,
+    provide,
+    slots,
+    tier::Tier,
+};
 
 /// The forge rendering engine.
 ///
-/// Wrap Tera with:
+/// Wraps Tera with:
 /// - Custom filters: `snake_case`, `pascal_case`, `camel_case`, `kebab_case`
 /// - Import hoisting filters: `collect_import`, `collect_import_priority`
 /// - Import drain function: `render_imports()`
 /// - Tier-aware template registry
+/// - Circular `@extends` dependency detection (fails fast on load)
 /// - Optional LRU source cache to skip redundant preprocessing on repeated `add_raw` calls
 pub struct Engine {
     tera: Tera,
+    /// Tracks `child → parent` `@extends` relationships for cycle detection.
+    extends_graph: ExtendsGraph,
     /// Optional source-level cache. When set, `add_raw` skips reprocessing
     /// templates whose preprocessed source is already cached.
     cache: Option<TemplateCache>,
@@ -27,7 +41,7 @@ impl Engine {
     pub fn new() -> Self {
         let mut tera = Tera::default();
         register_extensions(&mut tera);
-        Engine { tera, cache: None }
+        Engine { tera, extends_graph: ExtendsGraph::new(), cache: None }
     }
 
     /// Attach a [`TemplateCache`] to this engine.
@@ -99,6 +113,15 @@ impl Engine {
         let processed;
         let final_content = if name.ends_with(".forge") {
             processed = preprocessor::preprocess(content);
+            // Detect circular @extends before registering this template.
+            if let Some(parent) = compose::extract_extends_path(&processed) {
+                if compose::would_cycle(&self.extends_graph, name, &parent) {
+                    return Err(ForgeError::CircularDependency(format!(
+                        "{name} → {parent} (would create a cycle)"
+                    )));
+                }
+                self.extends_graph.add(name, parent);
+            }
             // Store in cache if one is attached
             if let Some(cache) = &self.cache {
                 cache.put(name, &processed);
@@ -156,6 +179,27 @@ impl Engine {
     /// Check whether a template with this name is loaded.
     pub fn has_template(&self, name: &str) -> bool {
         self.tera.get_template_names().any(|n| n == name)
+    }
+
+    /// Return the current `@extends` dependency graph (useful for tooling).
+    pub fn extends_graph(&self) -> &ExtendsGraph {
+        &self.extends_graph
+    }
+
+    /// Start watching `dir` for template changes and call `on_change(path)` on each.
+    ///
+    /// Requires the `watch` feature: `tsx-forge = { features = ["watch"] }`.
+    /// Returns the watcher handle; dropping it stops the watch.
+    #[cfg(feature = "watch")]
+    pub fn watch_dir<F>(
+        &self,
+        dir: &std::path::Path,
+        on_change: F,
+    ) -> Result<notify::RecommendedWatcher, String>
+    where
+        F: Fn(std::path::PathBuf) + Send + 'static,
+    {
+        crate::watch::watch_dir(dir, on_change)
     }
 }
 

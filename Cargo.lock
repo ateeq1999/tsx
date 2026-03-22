@@ -3479,6 +3479,7 @@ dependencies = [
  "criterion",
  "heck",
  "minijinja",
+ "notify",
  "serde",
  "serde_json",
  "tempfile",

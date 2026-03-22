@@ -13,6 +13,7 @@ pub enum ErrorCode {
     TemplateNotFound,
     ProjectNotFound,
     InternalError,
+    Unauthorized,
 }
 
 impl ErrorCode {
@@ -28,6 +29,7 @@ impl ErrorCode {
             ErrorCode::TemplateNotFound => "TEMPLATE_NOT_FOUND",
             ErrorCode::ProjectNotFound => "PROJECT_NOT_FOUND",
             ErrorCode::InternalError => "INTERNAL_ERROR",
+            ErrorCode::Unauthorized => "UNAUTHORIZED",
         }
     }
 }

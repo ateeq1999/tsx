@@ -114,23 +114,21 @@ pub fn template_init(name: String, dest: Option<String>, _verbose: bool) -> Resp
 pub fn template_install(source: String, _verbose: bool) -> ResponseEnvelope {
     let start = std::time::Instant::now();
 
-    let src_path = std::path::Path::new(&source);
+    let result = if source.starts_with("http://") || source.starts_with("https://") {
+        forge::install_from_url(&source)
+    } else if let Some(repo) = source.strip_prefix("github:") {
+        forge::install_from_github(repo)
+    } else {
+        let src_path = std::path::Path::new(&source);
+        if src_path.exists() {
+            forge::install_from_dir(src_path)
+        } else {
+            // Treat as an npm package name
+            forge::install_from_npm(&source)
+        }
+    };
 
-    if !src_path.exists() {
-        return ResponseEnvelope::error(
-            "template:install",
-            ErrorResponse::new(
-                ErrorCode::ProjectNotFound,
-                format!(
-                    "Source '{}' not found. Only local directory installation is currently supported.",
-                    source
-                ),
-            ),
-            start.elapsed().as_millis() as u64,
-        );
-    }
-
-    match forge::install_from_dir(src_path) {
+    match result {
         Ok(info) => {
             let data = serde_json::json!({
                 "installed": {
@@ -338,6 +336,106 @@ pub fn template_config_set(key: String, value: String, _verbose: bool) -> Respon
             start.elapsed().as_millis() as u64,
         ),
     }
+}
+
+// ---------------------------------------------------------------------------
+// Phase 6: Registry stubs (login / logout / publish)
+// ---------------------------------------------------------------------------
+
+pub fn template_login(token: String, registry: Option<String>, _verbose: bool) -> ResponseEnvelope {
+    let start = std::time::Instant::now();
+    let registry_url = registry
+        .unwrap_or_else(|| "https://registry.tsx.dev".to_string());
+
+    // Store the token in global config under the registry_url key.
+    let mut cfg = forge::load_global_config();
+    cfg.registry_url = Some(registry_url.clone());
+    // Token stored as a preferred_template entry so we don't need a new field.
+    cfg.preferred_templates.insert("__registry_token__".to_string(), token);
+
+    match forge::save_global_config(&cfg) {
+        Ok(()) => {
+            let data = serde_json::json!({
+                "registry": registry_url,
+                "authenticated": true,
+            });
+            ResponseEnvelope::success("template:login", data, start.elapsed().as_millis() as u64)
+        }
+        Err(e) => ResponseEnvelope::error(
+            "template:login",
+            ErrorResponse::new(ErrorCode::InternalError, e),
+            start.elapsed().as_millis() as u64,
+        ),
+    }
+}
+
+pub fn template_logout(_verbose: bool) -> ResponseEnvelope {
+    let start = std::time::Instant::now();
+    let mut cfg = forge::load_global_config();
+    cfg.preferred_templates.remove("__registry_token__");
+
+    match forge::save_global_config(&cfg) {
+        Ok(()) => {
+            let data = serde_json::json!({ "authenticated": false });
+            ResponseEnvelope::success("template:logout", data, start.elapsed().as_millis() as u64)
+        }
+        Err(e) => ResponseEnvelope::error(
+            "template:logout",
+            ErrorResponse::new(ErrorCode::InternalError, e),
+            start.elapsed().as_millis() as u64,
+        ),
+    }
+}
+
+pub fn template_publish(
+    name: String,
+    version: String,
+    path: Option<String>,
+    _verbose: bool,
+) -> ResponseEnvelope {
+    let start = std::time::Instant::now();
+
+    let cfg = forge::load_global_config();
+    let token = cfg.preferred_templates.get("__registry_token__").cloned();
+    let registry_url = cfg
+        .registry_url
+        .unwrap_or_else(|| "https://registry.tsx.dev".to_string());
+
+    if token.is_none() {
+        return ResponseEnvelope::error(
+            "template:publish",
+            ErrorResponse::new(
+                ErrorCode::Unauthorized,
+                "Not logged in. Run `tsx template login --token <TOKEN>` first.",
+            ),
+            start.elapsed().as_millis() as u64,
+        );
+    }
+
+    let src = path.map(std::path::PathBuf::from).unwrap_or_else(|| {
+        std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
+    });
+
+    if !src.join("manifest.json").exists() {
+        return ResponseEnvelope::error(
+            "template:publish",
+            ErrorResponse::new(
+                ErrorCode::ValidationError,
+                format!("No manifest.json found in {}", src.display()),
+            ),
+            start.elapsed().as_millis() as u64,
+        );
+    }
+
+    // Stub: publishing is not yet implemented server-side.
+    let data = serde_json::json!({
+        "id": name,
+        "version": version,
+        "registry": registry_url,
+        "status": "pending",
+        "message": "Registry publish is not yet available. Check back in a future release.",
+    });
+    ResponseEnvelope::success("template:publish", data, start.elapsed().as_millis() as u64)
 }
 
 pub fn template_config_init(overwrite: bool, _verbose: bool) -> ResponseEnvelope {
