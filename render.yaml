@@ -3,16 +3,22 @@ services:
     runtime: rust
     name: tsx-registry
     region: oregon
-    plan: free
-    buildCommand: cargo build --release -p tsx-registry
+    plan: starter
+    buildCommand: SQLX_OFFLINE=true cargo build --release -p tsx-registry
     startCommand: ./target/release/tsx-registry
     healthCheckPath: /health
+    disk:
+      name: tsx-data
+      mountPath: /data
+      sizeGB: 1
     envVars:
       - key: DATABASE_URL
         sync: false
       - key: TSX_REGISTRY_API_KEY
         sync: false
       - key: DATA_DIR
-        value: /tmp/tsx-data
+        value: /data
       - key: RUST_LOG
         value: tsx_registry=info,tower_http=info
+      - key: SQLX_OFFLINE
+        value: "true"

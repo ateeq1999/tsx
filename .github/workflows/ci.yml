@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main, master]
 
+env:
+  SQLX_OFFLINE: "true"
+
 jobs:
   test:
     name: Test
@@ -15,10 +18,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Run tests
-        run: SQLX_OFFLINE=true cargo test
+        run: cargo test --workspace
 
-      - name: Build release
-        run: SQLX_OFFLINE=true cargo build --release -p tsx
+      - name: Build release (tsx CLI)
+        run: cargo build --release -p tsx
 
       - name: Check binary size
         shell: bash
@@ -38,7 +41,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - run: cargo clippy --all -- -D warnings
+      - run: cargo clippy --workspace -- -D warnings
 
   fmt:
     name: Format
