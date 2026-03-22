@@ -32,6 +32,7 @@ pub mod context;
 pub mod engine;
 pub mod error;
 pub mod filters;
+pub mod lint;
 pub mod manifest;
 pub mod metadata;
 pub mod plan;
@@ -48,6 +49,7 @@ pub use ast::{
     timestamp_col, real_col, raw, to_snake_case, to_pascal_case,
 };
 pub use compose::{ExtendsGraph, check_extends_cycle, extract_extends_path};
+pub use lint::{LintError, LintResult, LintSuggestion, LintWarning, lint_file, lint_template};
 pub use context::ForgeContext;
 pub use engine::Engine;
 pub use error::ForgeError;
