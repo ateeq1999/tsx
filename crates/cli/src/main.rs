@@ -387,6 +387,14 @@ enum Command {
         #[command(subcommand)]
         action: TemplateCmd,
     },
+    /// Start the MCP (Model Context Protocol) server over stdio
+    ///
+    /// Exposes tsx generators and template discovery as MCP tools so agents
+    /// like Claude and Cursor can invoke them directly.
+    ///
+    /// Add to your MCP config:
+    ///   { "mcpServers": { "tsx": { "command": "tsx", "args": ["mcp"] } } }
+    Mcp,
 }
 
 #[derive(Subcommand)]
@@ -971,6 +979,38 @@ enum TemplateCmd {
         /// Command id within the template (e.g. form)
         #[arg(value_name = "COMMAND")]
         command: String,
+    },
+    /// Lint .forge / .jinja template files in a template bundle
+    Lint {
+        /// Path to a template file or directory (default: .tsx/templates/ or templates/)
+        #[arg(value_name = "PATH")]
+        path: Option<String>,
+    },
+    /// Manage forge template configuration
+    Config {
+        #[command(subcommand)]
+        action: TemplateConfigCmd,
+    },
+}
+
+#[derive(Subcommand)]
+enum TemplateConfigCmd {
+    /// Print current global and project template config
+    Show,
+    /// Set a config value in ~/.tsx/config.json
+    Set {
+        /// Config key (e.g. registry_url, or a command like generate:schema)
+        #[arg(value_name = "KEY")]
+        key: String,
+        /// Value to set
+        #[arg(value_name = "VALUE")]
+        value: String,
+    },
+    /// Scaffold ~/.tsx/config.json and .tsx/templates.config.json
+    Init {
+        /// Overwrite existing files
+        #[arg(long)]
+        overwrite: bool,
     },
 }
 
@@ -1659,6 +1699,10 @@ fn main() {
                 }
             }
         }
+        Command::Mcp => {
+            use tsx::commands::mcp;
+            mcp::run_mcp_server();
+        }
         Command::Template { action } => {
             use tsx::commands::template;
             match action {
@@ -1680,6 +1724,20 @@ fn main() {
                 TemplateCmd::Schema { name, command } => {
                     template::template_schema(name, command, cli.verbose).print();
                 }
+                TemplateCmd::Lint { path } => {
+                    template::template_lint(path, cli.verbose).print();
+                }
+                TemplateCmd::Config { action } => match action {
+                    TemplateConfigCmd::Show => {
+                        template::template_config_show(cli.verbose).print();
+                    }
+                    TemplateConfigCmd::Set { key, value } => {
+                        template::template_config_set(key, value, cli.verbose).print();
+                    }
+                    TemplateConfigCmd::Init { overwrite } => {
+                        template::template_config_init(overwrite, cli.verbose).print();
+                    }
+                },
             }
         }
     }

@@ -22,6 +22,7 @@ pub mod plan;
 pub mod publish;
 pub mod registry;
 pub mod run;
+pub mod mcp;
 pub mod stack;
 pub mod subscribe;
 pub mod template;

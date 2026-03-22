@@ -51,6 +51,7 @@ pub use ops::plan;
 pub use ops::publish;
 pub use ops::registry;
 pub use ops::run;
+pub use ops::mcp;
 pub use ops::stack;
 pub use ops::subscribe;
 pub use ops::template;

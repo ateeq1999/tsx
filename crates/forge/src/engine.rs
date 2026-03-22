@@ -5,7 +5,7 @@ use std::path::Path;
 use tera::Tera;
 use walkdir::WalkDir;
 
-use crate::{collector, context::ForgeContext, error::ForgeError, filters, preprocessor, provide, slots, tier::Tier};
+use crate::{cache::TemplateCache, collector, context::ForgeContext, error::ForgeError, filters, preprocessor, provide, slots, tier::Tier};
 
 /// The forge rendering engine.
 ///
@@ -14,8 +14,12 @@ use crate::{collector, context::ForgeContext, error::ForgeError, filters, prepro
 /// - Import hoisting filters: `collect_import`, `collect_import_priority`
 /// - Import drain function: `render_imports()`
 /// - Tier-aware template registry
+/// - Optional LRU source cache to skip redundant preprocessing on repeated `add_raw` calls
 pub struct Engine {
     tera: Tera,
+    /// Optional source-level cache. When set, `add_raw` skips reprocessing
+    /// templates whose preprocessed source is already cached.
+    cache: Option<TemplateCache>,
 }
 
 impl Engine {
@@ -23,7 +27,16 @@ impl Engine {
     pub fn new() -> Self {
         let mut tera = Tera::default();
         register_extensions(&mut tera);
-        Engine { tera }
+        Engine { tera, cache: None }
+    }
+
+    /// Attach a [`TemplateCache`] to this engine.
+    ///
+    /// When a cache is present, `add_raw` stores the preprocessed source so
+    /// identical templates can be re-registered without redundant preprocessing.
+    pub fn with_cache(mut self, cache: TemplateCache) -> Self {
+        self.cache = Some(cache);
+        self
     }
 
     /// Load all `.jinja` and `.forge` template files from `dir` recursively.
@@ -71,16 +84,31 @@ impl Engine {
 
     /// Add a single raw template by name and content string.
     /// If `name` ends in `.forge`, the `@`-directive preprocessor is applied first.
+    ///
+    /// When a [`TemplateCache`] is attached (via [`Engine::with_cache`]), the
+    /// preprocessed source is stored and re-used on subsequent calls with the
+    /// same `name`, avoiding redundant preprocessing.
     pub fn add_raw(&mut self, name: &str, content: &str) -> Result<(), ForgeError> {
+        // Check cache first
+        if let Some(cached) = self.cache.as_ref().and_then(|c| c.get(name)) {
+            return self.tera
+                .add_raw_template(name, &cached)
+                .map_err(|e| ForgeError::LoadError(e.to_string()));
+        }
+
         let processed;
-        let content = if name.ends_with(".forge") {
+        let final_content = if name.ends_with(".forge") {
             processed = preprocessor::preprocess(content);
+            // Store in cache if one is attached
+            if let Some(cache) = &self.cache {
+                cache.put(name, &processed);
+            }
             &processed
         } else {
             content
         };
         self.tera
-            .add_raw_template(name, content)
+            .add_raw_template(name, final_content)
             .map_err(|e| ForgeError::LoadError(e.to_string()))?;
         Ok(())
     }
@@ -136,6 +164,7 @@ impl Default for Engine {
         Self::new()
     }
 }
+
 
 fn register_extensions(tera: &mut Tera) {
     // Case conversion
