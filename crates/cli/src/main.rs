@@ -382,6 +382,11 @@ enum Command {
         #[command(subcommand)]
         action: PackageCmd,
     },
+    /// Manage forge template bundles (list, install, init, info)
+    Template {
+        #[command(subcommand)]
+        action: TemplateCmd,
+    },
 }
 
 #[derive(Subcommand)]
@@ -921,6 +926,52 @@ enum ReplayCmd {
     },
     /// List recorded session files in .tsx/sessions/
     List,
+}
+
+#[derive(Subcommand)]
+enum TemplateCmd {
+    /// List all installed templates with source labels
+    List {
+        /// Filter by source: global, project, or framework
+        #[arg(long, value_name = "SOURCE")]
+        source: Option<String>,
+    },
+    /// Show manifest details for a specific template
+    Info {
+        /// Template id (e.g. my-forms)
+        #[arg(value_name = "NAME")]
+        name: String,
+    },
+    /// Scaffold a new template bundle with manifest.json and README
+    Init {
+        /// Template id / name
+        #[arg(value_name = "NAME")]
+        name: String,
+        /// Output directory (default: ./<name>)
+        #[arg(long, value_name = "DIR")]
+        dest: Option<String>,
+    },
+    /// Install a template bundle from a local directory into ~/.tsx/templates/
+    Install {
+        /// Local path to the template directory
+        #[arg(value_name = "SOURCE")]
+        source: String,
+    },
+    /// Remove an installed template
+    Uninstall {
+        /// Template id to remove
+        #[arg(value_name = "NAME")]
+        name: String,
+    },
+    /// Return the JSON Schema for a template command (for agent autocomplete)
+    Schema {
+        /// Template id
+        #[arg(value_name = "NAME")]
+        name: String,
+        /// Command id within the template (e.g. form)
+        #[arg(value_name = "COMMAND")]
+        command: String,
+    },
 }
 
 /// Parse a `--json` argument, printing a structured error and returning `None` on failure.
@@ -1605,6 +1656,29 @@ fn main() {
                 }
                 PackageCmd::Install { id, registry } => {
                     package::package_install(id, registry).print()
+                }
+            }
+        }
+        Command::Template { action } => {
+            use tsx::commands::template;
+            match action {
+                TemplateCmd::List { source } => {
+                    template::template_list(source, cli.verbose).print();
+                }
+                TemplateCmd::Info { name } => {
+                    template::template_info(name, cli.verbose).print();
+                }
+                TemplateCmd::Init { name, dest } => {
+                    template::template_init(name, dest, cli.verbose).print();
+                }
+                TemplateCmd::Install { source } => {
+                    template::template_install(source, cli.verbose).print();
+                }
+                TemplateCmd::Uninstall { name } => {
+                    template::template_uninstall(name, cli.verbose).print();
+                }
+                TemplateCmd::Schema { name, command } => {
+                    template::template_schema(name, command, cli.verbose).print();
                 }
             }
         }

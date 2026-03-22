@@ -53,6 +53,7 @@ pub use ops::registry;
 pub use ops::run;
 pub use ops::stack;
 pub use ops::subscribe;
+pub use ops::template;
 
 pub use query::ask;
 pub use query::describe;

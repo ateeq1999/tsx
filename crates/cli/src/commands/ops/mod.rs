@@ -24,3 +24,4 @@ pub mod registry;
 pub mod run;
 pub mod stack;
 pub mod subscribe;
+pub mod template;

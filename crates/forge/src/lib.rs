@@ -26,8 +26,10 @@
 //! ```
 
 pub mod ast;
+pub mod cache;
 pub mod collector;
 pub mod compose;
+pub mod config;
 pub mod context;
 pub mod engine;
 pub mod error;
@@ -38,6 +40,7 @@ pub mod metadata;
 pub mod plan;
 pub mod preprocessor;
 pub mod provide;
+pub mod registry;
 pub mod slots;
 pub mod tier;
 pub mod validate;
@@ -48,7 +51,15 @@ pub use ast::{
     pg_table, sqlite_table, uuid_pk, text_col, int_col, bool_col,
     timestamp_col, real_col, raw, to_snake_case, to_pascal_case,
 };
+pub use cache::TemplateCache;
 pub use compose::{ExtendsGraph, check_extends_cycle, extract_extends_path};
+pub use config::{
+    GlobalConfig, ProjectConfig, ResolvedConfig,
+    load_global_config, load_project_config,
+    save_global_config, save_project_config,
+    resolve_template, resolve_config,
+    global_config_path, project_config_path,
+};
 pub use lint::{LintError, LintResult, LintSuggestion, LintWarning, lint_file, lint_template};
 pub use context::ForgeContext;
 pub use engine::Engine;
@@ -60,6 +71,12 @@ pub use manifest::{
 pub use metadata::{parse as parse_frontmatter, FrontMatter};
 pub use plan::{GeneratorPlan, OverwritePolicy, PlanResult, PlanError};
 pub use preprocessor::preprocess;
+pub use registry::{
+    TemplateInfo, TemplateSource,
+    discover_templates, discover_from_source, find_template,
+    global_templates_dir, project_templates_dir,
+    install_from_dir, uninstall, init_template, template_schema,
+};
 pub use tier::Tier;
 pub use validate::{
     ValidationResult, extract_schema, validate_input, validate_template_input,

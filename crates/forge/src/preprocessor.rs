@@ -26,6 +26,10 @@
 //! | `@slot("x") … @end` (in extends child) | `{% block x %} … {% endblock x %}` |
 //! | `@schema({...})` | stripped (metadata only, used by `validate.rs`) |
 //! | `@feature("name") … @end` | `{% if features and 'name' in features %} … {% endif %}` |
+//! | `@macro("name") … @end` | `{% macro name() %} … {% endmacro name %}` |
+//! | `@call("name")` | `{{ self::name() }}` |
+//! | `@call("name", {key: "val"})` | `{{ self::name(key="val") }}` |
+//! | `@hook("before-render") … @end` | stripped (engine-level hook, not a render-time construct) |
 
 /// Preprocess a `.forge` template source, translating `@`-directives to Tera syntax.
 ///
@@ -46,13 +50,17 @@ pub fn preprocess(src: &str) -> String {
     for line in src.lines() {
         let trimmed = line.trim_start();
 
+        // Determine if we are currently inside an @hook block (stripped).
+        let in_hook = block_stack.last() == Some(&BlockKind::Hook);
+
         if let Some(rest) = trimmed.strip_prefix('@') {
             let indent = &line[..line.len() - trimmed.len()];
             if let Some(transformed) =
                 transform_directive(rest, &mut block_stack, extends_mode)
             {
-                // @schema lines produce None (stripped) — skip if empty marker
-                if transformed == "__STRIP__" {
+                // Directives that produce "__STRIP__" are silently removed.
+                // Also skip all content while inside a hook block.
+                if transformed == "__STRIP__" || in_hook {
                     continue;
                 }
                 out.push_str(indent);
@@ -61,15 +69,20 @@ pub fn preprocess(src: &str) -> String {
                 continue;
             }
             // Not a recognised directive — check if it's a method-chain variable reference
-            if let Some(var_expr) = try_method_chain(rest) {
-                out.push_str(indent);
-                out.push_str(&var_expr);
-                out.push('\n');
-                continue;
+            if !in_hook {
+                if let Some(var_expr) = try_method_chain(rest) {
+                    out.push_str(indent);
+                    out.push_str(&var_expr);
+                    out.push('\n');
+                    continue;
+                }
             }
         }
 
-        // Pass through unchanged
+        // Pass through unchanged (skip if inside a hook block)
+        if in_hook {
+            continue;
+        }
         out.push_str(line);
         out.push('\n');
     }
@@ -91,6 +104,10 @@ enum BlockKind {
     ExtendSlot(String),
     /// An `@feature("name") ... @end` conditional block.
     Feature,
+    /// An `@macro("name") ... @end` block mapping to Tera's `{% macro name() %}`.
+    Macro(String),
+    /// An `@hook("...") ... @end` block that is stripped from output.
+    Hook,
 }
 
 /// Try to transform a single `@`-directive (the `@` has already been stripped).
@@ -111,6 +128,8 @@ fn transform_directive(
             Some(BlockKind::For)                 => "{% endfor %}".to_string(),
             Some(BlockKind::Feature)             => "{% endif %}".to_string(),
             Some(BlockKind::ExtendSlot(name))    => format!("{{% endblock {name} %}}"),
+            Some(BlockKind::Macro(name))         => format!("{{% endmacro {name} %}}"),
+            Some(BlockKind::Hook)                => "__STRIP__".to_string(),
             None                                 => "{% endif %}".to_string(), // fallback
         };
         return Some(tag);
@@ -195,6 +214,27 @@ fn transform_directive(
         return Some(format!(
             "{{% if features is defined and '{name}' in features %}}"
         ));
+    }
+
+    // ── @macro("name") ────────────────────────────────────────────────────────
+    // Translates to Tera's native `{% macro name() %} ... {% endmacro name %}`.
+    if let Some(args) = strip_call(rest, "macro") {
+        let (name, _rest) = parse_quoted_string(args.trim());
+        stack.push(BlockKind::Macro(name.clone()));
+        return Some(format!("{{% macro {name}() %}}"));
+    }
+
+    // ── @call("name") / @call("name", {key: "val"}) ───────────────────────────
+    if let Some(args) = strip_call(rest, "call") {
+        return Some(transform_call(&args));
+    }
+
+    // ── @hook("event") ─────────────────────────────────────────────────────────
+    // Hooks are engine-level constructs, not Tera constructs.
+    // The block opener and its body are stripped from the rendered output.
+    if rest.starts_with("hook(") {
+        stack.push(BlockKind::Hook);
+        return Some("__STRIP__".to_string());
     }
 
     None
@@ -336,6 +376,35 @@ fn split_as(expr: &str) -> Option<(&str, &str)> {
     let collection = iter.next()?;
     let var = iter.next()?;
     Some((collection, var))
+}
+
+/// Transform `@call("name")` or `@call("name", {key: "val"})` into a Tera macro call.
+///
+/// `@call("greet")` → `{{ self::greet() }}`
+/// `@call("greet", {name: "World"})` → `{{ self::greet(name="World") }}`
+fn transform_call(args: &str) -> String {
+    let args = args.trim();
+    let (macro_name, rest) = parse_quoted_string(args);
+    let rest = rest.trim();
+
+    // If there's a second argument (the args object), try to parse key=value pairs
+    let call_args = if let Some(obj_str) = rest.strip_prefix(',') {
+        let obj_str = obj_str.trim().trim_start_matches('{').trim_end_matches('}');
+        let mut kv_pairs: Vec<String> = Vec::new();
+        for part in obj_str.split(',') {
+            let part = part.trim();
+            if let Some(colon) = part.find(':') {
+                let key = part[..colon].trim().trim_matches(|c| c == '"' || c == '\'');
+                let val = part[colon + 1..].trim().trim_matches(|c| c == '"' || c == '\'');
+                kv_pairs.push(format!("{}=\"{}\"", key, val));
+            }
+        }
+        kv_pairs.join(", ")
+    } else {
+        String::new()
+    };
+
+    format!("{{{{ self::{}({}) }}}}", macro_name, call_args)
 }
 
 /// Transform `@import` arguments into a Tera import-collector call.
@@ -543,5 +612,36 @@ mod tests {
         assert!(out.contains("features is defined"), "got: {}", out);
         assert!(out.contains("'auth' in features"), "got: {}", out);
         assert!(out.contains("{% endif %}"), "got: {}", out);
+    }
+
+    #[test]
+    fn macro_directive() {
+        let src = "@macro(\"greet\")\nhello\n@end";
+        let out = preprocess(src);
+        assert!(out.contains("{% macro greet() %}"), "got: {}", out);
+        assert!(out.contains("hello"), "got: {}", out);
+        assert!(out.contains("{% endmacro greet %}"), "got: {}", out);
+    }
+
+    #[test]
+    fn call_directive_no_args() {
+        let out = preprocess("@call(\"greet\")");
+        assert!(out.contains("{{ self::greet() }}"), "got: {}", out);
+    }
+
+    #[test]
+    fn call_directive_with_args() {
+        let out = preprocess("@call(\"greet\", {name: \"World\"})");
+        assert!(out.contains("self::greet("), "got: {}", out);
+        assert!(out.contains("name="), "got: {}", out);
+    }
+
+    #[test]
+    fn hook_block_is_stripped() {
+        let src = "@hook(\"before-render\")\nsome setup code\n@end\nhello";
+        let out = preprocess(src);
+        assert!(!out.contains("before-render"), "hook opener should be stripped: {}", out);
+        assert!(!out.contains("some setup code"), "hook body should be stripped: {}", out);
+        assert!(out.contains("hello"), "content after hook should remain: {}", out);
     }
 }
