@@ -792,7 +792,11 @@ enum PatternCmd {
         stop: bool,
     },
     /// List all local packs in .tsx/patterns/
-    List,
+    List {
+        /// Show built-in packs embedded in the binary instead of local packs
+        #[arg(long)]
+        builtin: bool,
+    },
     /// Show details of a specific pack
     Show {
         /// Pack id
@@ -1509,7 +1513,7 @@ fn main() {
             }
             PatternCmd::Run { id, command, args } => {
                 use tsx::commands::pattern;
-                pattern::pattern_run(id, command, args, cli.dry_run, cli.overwrite, cli.verbose).print();
+                pattern::pattern_run(id, command, args, cli.dry_run, cli.overwrite, cli.diff, cli.verbose).print();
             }
             PatternCmd::Install { source, id } => {
                 use tsx::commands::pattern;
@@ -1542,9 +1546,13 @@ fn main() {
                     }
                 }
             }
-            PatternCmd::List => {
+            PatternCmd::List { builtin } => {
                 use tsx::commands::pattern;
-                pattern::pattern_list(cli.verbose).print();
+                if builtin {
+                    pattern::pattern_list_builtin(cli.verbose).print();
+                } else {
+                    pattern::pattern_list(cli.verbose).print();
+                }
             }
             PatternCmd::Show { id } => {
                 use tsx::commands::pattern;

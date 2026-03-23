@@ -1,0 +1,4 @@
+function Providers({ children }: { children: React.ReactNode }) {
+  // [tsx:providers]
+  return <>{children}</>
+}

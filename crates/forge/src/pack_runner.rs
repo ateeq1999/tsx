@@ -33,6 +33,9 @@ pub struct RunOpts {
     pub overwrite: bool,
     /// Which pack command to run. `None` → use the default command.
     pub command: Option<String>,
+    /// Compute a unified diff against existing files instead of writing.
+    /// Implies dry-run (no files are written).
+    pub diff: bool,
 }
 
 /// Result of a `run_pack` call.
@@ -46,6 +49,8 @@ pub struct RunResult {
     pub markers_injected: Vec<(PathBuf, String)>,
     /// Shell commands that were executed.
     pub hooks_run: Vec<String>,
+    /// Unified diffs computed in diff mode: `(file_path, diff_text)`.
+    pub diffs: Vec<(PathBuf, String)>,
 }
 
 /// Render and write a pattern pack to a project.
@@ -97,7 +102,9 @@ pub fn run_pack(
 
         let target = project_root.join(&rendered_path);
 
-        if target.exists() && !opts.overwrite && !opts.dry_run {
+        let effective_dry = opts.dry_run || opts.diff;
+
+        if target.exists() && !opts.overwrite && !effective_dry {
             result.files_skipped.push(target);
             continue;
         }
@@ -106,7 +113,16 @@ pub fn run_pack(
             .render(&output.template, &ctx)
             .map_err(|e| PackRunError::Render(output.template.clone(), e.to_string()))?;
 
-        if opts.dry_run {
+        if opts.diff {
+            let old = std::fs::read_to_string(&target).ok();
+            let diff = simple_diff(
+                &target.to_string_lossy(),
+                old.as_deref(),
+                &content,
+            );
+            result.diffs.push((target.clone(), diff));
+            result.files_written.push(target);
+        } else if opts.dry_run {
             result.files_written.push(target);
         } else {
             if let Some(parent) = target.parent() {
@@ -224,6 +240,47 @@ pub fn inject_marker(
     let new_content = content.replacen(marker, &format!("{marker}\n{line}"), 1);
     std::fs::write(file, new_content).map_err(|e| e.to_string())?;
     Ok(true)
+}
+
+// ---------------------------------------------------------------------------
+// Diff helpers
+// ---------------------------------------------------------------------------
+
+/// Produce a simple unified-style diff string for display.
+///
+/// Not a minimal-edit LCS diff — shows all removed lines then all added lines
+/// per changed hunk, which is clear enough for CLI output without a heavy dep.
+fn simple_diff(path: &str, old: Option<&str>, new_content: &str) -> String {
+    let new_lines: Vec<&str> = new_content.lines().collect();
+
+    let Some(old_content) = old else {
+        // New file: all lines are additions
+        let mut out = format!("--- /dev/null\n+++ b/{path}\n@@ -0,0 +1,{} @@\n", new_lines.len());
+        for line in &new_lines {
+            out.push('+');
+            out.push_str(line);
+            out.push('\n');
+        }
+        return out;
+    };
+
+    let old_lines: Vec<&str> = old_content.lines().collect();
+    if old_lines == new_lines {
+        return format!("(no change: {path})\n");
+    }
+
+    let mut out = format!("--- a/{path}\n+++ b/{path}\n@@ modified @@\n");
+    for line in &old_lines {
+        out.push('-');
+        out.push_str(line);
+        out.push('\n');
+    }
+    for line in &new_lines {
+        out.push('+');
+        out.push_str(line);
+        out.push('\n');
+    }
+    out
 }
 
 // ---------------------------------------------------------------------------

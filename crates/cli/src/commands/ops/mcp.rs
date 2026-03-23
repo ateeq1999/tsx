@@ -398,7 +398,7 @@ fn handle_pattern_run(args: &Value) -> Result<Value, String> {
         .and_then(|v| v.as_object())
         .map(|o| o.iter().map(|(k, v)| format!("{}={}", k, v.as_str().unwrap_or(""))).collect())
         .unwrap_or_default();
-    let resp = crate::commands::pattern::pattern_run(id, command, arg_pairs, dry_run, false, false);
+    let resp = crate::commands::pattern::pattern_run(id, command, arg_pairs, dry_run, false, false, false);
     Ok(serde_json::to_value(resp).unwrap_or(Value::Null))
 }
 

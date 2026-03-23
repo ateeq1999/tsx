@@ -23,6 +23,10 @@ use crate::json::response::ResponseEnvelope;
 use flate2;
 use tar;
 
+/// Built-in pattern packs embedded in the binary at compile time.
+static BUILTIN_PACKS: include_dir::Dir<'_> =
+    include_dir::include_dir!("$CARGO_MANIFEST_DIR/../../patterns");
+
 // ---------------------------------------------------------------------------
 // Data model (matches D3 spec)
 // ---------------------------------------------------------------------------
@@ -603,6 +607,7 @@ pub fn pattern_run(
     arg_pairs: Vec<String>, // "key=value" pairs
     dry_run: bool,
     overwrite: bool,
+    diff: bool,
     _verbose: bool,
 ) -> ResponseEnvelope {
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
@@ -626,7 +631,7 @@ pub fn pattern_run(
         }
     }
 
-    let opts = forge::RunOpts { dry_run, overwrite, command };
+    let opts = forge::RunOpts { dry_run, overwrite, command, diff };
 
     match forge::run_pack(&pack, &pack_dir, args, &cwd, &opts) {
         Ok(result) => {
@@ -652,12 +657,16 @@ pub fn pattern_run(
                 "pattern run",
                 serde_json::json!({
                     "dry_run": dry_run,
+                    "diff": diff,
                     "files_written": result.files_written.iter().map(|p| p.to_string_lossy()).collect::<Vec<_>>(),
                     "files_skipped": result.files_skipped.iter().map(|p| p.to_string_lossy()).collect::<Vec<_>>(),
                     "markers_injected": result.markers_injected.iter().map(|(p, l)| serde_json::json!({
                         "file": p.to_string_lossy(), "line": l,
                     })).collect::<Vec<_>>(),
                     "hooks_run": result.hooks_run,
+                    "diffs": result.diffs.iter().map(|(p, d)| serde_json::json!({
+                        "file": p.to_string_lossy(), "diff": d,
+                    })).collect::<Vec<_>>(),
                 }),
                 0,
             )
@@ -678,6 +687,8 @@ pub fn pattern_install(source: String, id_override: Option<String>, _verbose: bo
         pattern_install_github(&source, id_override, &cwd)
     } else if source.starts_with('@') {
         pattern_install_registry(&source, id_override, &cwd)
+    } else if source.starts_with("builtin:") {
+        pattern_install_builtin(source.trim_start_matches("builtin:"), id_override, &cwd)
     } else {
         pattern_install_local(PathBuf::from(&source), id_override, &cwd)
     }
@@ -806,6 +817,128 @@ fn pattern_install_github(source: &str, id_override: Option<String>, root: &Path
     };
 
     pattern_install_local(pack_src, id_override, root)
+}
+
+/// List pattern packs embedded in the binary.
+pub fn pattern_list_builtin(_verbose: bool) -> ResponseEnvelope {
+    let items: Vec<serde_json::Value> = collect_builtin_pack_paths()
+        .iter()
+        .map(|rel| {
+            let name = rel.replace('\\', "/");
+            serde_json::json!({ "id": name, "source": format!("builtin:{}", name) })
+        })
+        .collect();
+    ResponseEnvelope::success(
+        "pattern list",
+        serde_json::json!({ "count": items.len(), "builtin": true, "patterns": items }),
+        0,
+    )
+}
+
+/// Install a built-in pack (embedded in binary) into `.tsx/patterns/<id>/`.
+///
+/// The `pack_path` is the relative path within the embedded `patterns/` dir,
+/// e.g. `"tanstack-start/todo-with-auth"`.
+fn pattern_install_builtin(pack_path: &str, id_override: Option<String>, root: &Path) -> ResponseEnvelope {
+    let norm = pack_path.replace('\\', "/");
+    let pack_dir = BUILTIN_PACKS.get_dir(&norm);
+
+    let Some(dir) = pack_dir else {
+        let available = collect_builtin_pack_paths().join(", ");
+        return ResponseEnvelope::error(
+            "pattern install",
+            ErrorResponse::new(
+                ErrorCode::ProjectNotFound,
+                format!("Built-in pack '{}' not found. Available: {}", norm, available),
+            ),
+            0,
+        );
+    };
+
+    // Parse pack.json from embedded bytes
+    let manifest_bytes = match dir.get_file(format!("{}/pack.json", norm))
+        .or_else(|| dir.get_file("pack.json"))
+    {
+        Some(f) => f.contents(),
+        None => return ResponseEnvelope::error(
+            "pattern install",
+            ErrorResponse::new(ErrorCode::ValidationError, format!("Built-in pack '{}' has no pack.json", norm)),
+            0,
+        ),
+    };
+    let pack: forge::PackManifest = match serde_json::from_slice(manifest_bytes) {
+        Ok(p) => p,
+        Err(e) => return ResponseEnvelope::error(
+            "pattern install",
+            ErrorResponse::new(ErrorCode::InternalError, format!("Malformed pack.json: {e}")),
+            0,
+        ),
+    };
+
+    let id = id_override.unwrap_or_else(|| pack.id.clone());
+    let dest = forge::PackManifest::dir(root, &id);
+    if let Err(e) = extract_embedded_dir(dir, &dest) {
+        return ResponseEnvelope::error(
+            "pattern install",
+            ErrorResponse::new(ErrorCode::InternalError, format!("Extract failed: {e}")),
+            0,
+        );
+    }
+
+    let source_meta = forge::PackSource {
+        kind: "builtin".to_string(),
+        source: format!("builtin:{}", norm),
+        ref_: pack.version.clone(),
+        installed_at: chrono_now(),
+    };
+    let _ = source_meta.save(root, &id);
+
+    ResponseEnvelope::success(
+        "pattern install",
+        serde_json::json!({
+            "id": id,
+            "version": pack.version,
+            "source": "builtin",
+            "path": dest.to_string_lossy(),
+        }),
+        0,
+    )
+}
+
+/// Walk the embedded BUILTIN_PACKS dir and return relative paths to pack directories
+/// (those that contain a `pack.json` file).
+fn collect_builtin_pack_paths() -> Vec<String> {
+    let mut out = Vec::new();
+    collect_pack_paths_in(&BUILTIN_PACKS, "", &mut out);
+    out
+}
+
+fn collect_pack_paths_in(dir: &include_dir::Dir<'_>, prefix: &str, out: &mut Vec<String>) {
+    // If this dir contains pack.json it's a pack root
+    let prefix_path = if prefix.is_empty() { String::new() } else { format!("{}/", prefix) };
+    if dir.files().any(|f| f.path().file_name().and_then(|n| n.to_str()) == Some("pack.json")) {
+        out.push(prefix.to_string());
+        return; // don't recurse into packs
+    }
+    for sub in dir.dirs() {
+        let name = sub.path().file_name().and_then(|n| n.to_str()).unwrap_or("");
+        let child_prefix = format!("{}{}", prefix_path, name);
+        collect_pack_paths_in(sub, &child_prefix, out);
+    }
+}
+
+/// Recursively extract an embedded `include_dir::Dir` into a filesystem directory.
+fn extract_embedded_dir(dir: &include_dir::Dir<'_>, dest: &Path) -> anyhow::Result<()> {
+    std::fs::create_dir_all(dest)?;
+    for file in dir.files() {
+        let rel = file.path().file_name().unwrap_or(file.path().as_os_str());
+        std::fs::write(dest.join(rel), file.contents())?;
+    }
+    for sub in dir.dirs() {
+        let name = sub.path().file_name().unwrap_or(sub.path().as_os_str());
+        extract_embedded_dir(sub, &dest.join(name))?;
+    }
+    Ok(())
 }
 
 fn pattern_install_registry(source: &str, id_override: Option<String>, root: &Path) -> ResponseEnvelope {
@@ -959,7 +1092,26 @@ pub fn pattern_lint(id: String, _verbose: bool) -> ResponseEnvelope {
         }
     }
 
-    // 2. Load engine and attempt render with dummy context
+    // 2. Validate outputs[].path as Tera expressions (using dummy args)
+    {
+        let mut dummy_args = HashMap::new();
+        for arg in &pack.args {
+            dummy_args.insert(
+                arg.name.clone(),
+                serde_json::Value::String(format!("dummy_{}", arg.name)),
+            );
+        }
+        for output in &pack.outputs {
+            if let Err(e) = forge::interpolate_pack_path(&output.path, &dummy_args) {
+                errors.push(format!(
+                    "output '{}': invalid path expression '{}': {e}",
+                    output.id, output.path
+                ));
+            }
+        }
+    }
+
+    // 3. Load engine, validate @schema directives, and attempt render with dummy context
     let mut engine = forge::Engine::new();
     match engine.load_dir(&pack_dir) {
         Err(e) => errors.push(format!("Engine load error: {e}")),
@@ -969,19 +1121,39 @@ pub fn pattern_lint(id: String, _verbose: bool) -> ResponseEnvelope {
                 ctx.insert_mut(&arg.name, &serde_json::Value::String(format!("dummy_{}", arg.name)));
             }
             for output in &pack.outputs {
-                if let Err(e) = engine.render(&output.template, &ctx) {
-                    errors.push(format!("Render error in '{}': {e}", output.template));
+                // Validate @schema directive JSON syntax
+                let tmpl_path = pack_dir.join(&output.template);
+                if let Ok(src) = std::fs::read_to_string(&tmpl_path) {
+                    if let Some(schema_errors) = lint_schema_directive(&src, &output.template) {
+                        errors.extend(schema_errors);
+                    }
+                }
+                // Render with dummy context
+                match engine.render(&output.template, &ctx) {
+                    Err(e) => {
+                        // Extract line number from tera error if present
+                        let msg = e.to_string();
+                        errors.push(format!("Render error in '{}': {msg}", output.template));
+                    }
+                    Ok(_) => {}
                 }
             }
         }
     }
 
-    // 3. Check marker files reference valid output paths (warn only)
+    // 4. Check marker files reference valid output paths (warn only)
     let mut warnings: Vec<String> = Vec::new();
     for marker in &pack.markers {
         let marker_path = cwd.join(&marker.file);
         if !marker_path.exists() {
             warnings.push(format!("Marker file '{}' not present in project (may be created later)", marker.file));
+        }
+        // Validate marker insert expression
+        let dummy_args: HashMap<String, serde_json::Value> = pack.args.iter()
+            .map(|a| (a.name.clone(), serde_json::Value::String(format!("dummy_{}", a.name))))
+            .collect();
+        if let Err(e) = forge::interpolate_pack_path(&marker.insert, &dummy_args) {
+            errors.push(format!("marker '{}' insert expression '{}' is invalid: {e}", marker.marker, marker.insert));
         }
     }
 
@@ -1007,6 +1179,27 @@ pub fn pattern_lint(id: String, _verbose: bool) -> ResponseEnvelope {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/// Scan a forge template source for `@schema({...})` directives and validate
+/// that each one contains valid JSON. Returns error strings or `None`.
+fn lint_schema_directive(src: &str, template_name: &str) -> Option<Vec<String>> {
+    let mut errs = Vec::new();
+    for (line_no, line) in src.lines().enumerate() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix("@schema(") {
+            // Strip trailing `)`
+            let json_str = rest.trim_end_matches(')').trim();
+            if let Err(e) = serde_json::from_str::<serde_json::Value>(json_str) {
+                errs.push(format!(
+                    "{}:{}: invalid @schema JSON: {e}",
+                    template_name,
+                    line_no + 1
+                ));
+            }
+        }
+    }
+    if errs.is_empty() { None } else { Some(errs) }
+}
 
 fn parse_args_spec(spec: &str) -> Vec<PatternArg> {
     if spec.trim().is_empty() {
