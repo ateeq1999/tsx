@@ -1,0 +1,14 @@
+@set(snake  = name | snake_case)
+@set(pascal = name | pascal_case)
+{{ render_imports() }}
+
+export const Route = createFileRoute('{% block route_path %}/{% endblock %}')({
+{% block route_config %}{% endblock %}
+  component: {% block component_name %}RouteComponent{% endblock %},
+});
+
+{% block component_body %}
+function RouteComponent() {
+  return <div />;
+}
+{% endblock %}

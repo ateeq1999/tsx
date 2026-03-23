@@ -1,0 +1,106 @@
+@schema({
+  "name":     { "type": "string", "required": true  },
+  "has_done": { "type": "bool",   "default": true   },
+  "has_due":  { "type": "bool",   "default": false  }
+})
+@import("@tanstack/react-form", named=["useForm"])
+@import("@tanstack/zod-form-adapter", named=["zodValidator"])
+@set(snake  = name | snake_case)
+@set(pascal = name | pascal_case)
+{{ ("import { create" ~ pascal ~ ", update" ~ pascal ~ " } from '~/server-fns/" ~ snake ~ "'") | collect_import }}
+{{ ("import { insert" ~ pascal ~ "Schema } from '~/db/schema/" ~ snake ~ "'") | collect_import }}
+{{ ("import type { " ~ pascal ~ " } from '~/db/schema/" ~ snake ~ "'") | collect_import }}
+{{ render_imports() }}
+
+interface {{ pascal }}FormProps {
+  defaultValues?: Partial<{{ pascal }}>;
+  onSuccess?: () => void;
+}
+
+export function {{ pascal }}Form({ defaultValues, onSuccess }: {{ pascal }}FormProps) {
+  const isEdit = Boolean(defaultValues?.id);
+
+  const form = useForm({
+    defaultValues: {
+      title: defaultValues?.title ?? '',
+@if(has_done)
+      done:  defaultValues?.done  ?? false,
+@end
+@if(has_due)
+      dueDate: defaultValues?.dueDate ?? null,
+@end
+    },
+    validatorAdapter: zodValidator(),
+    validators: { onChange: insert{{ pascal }}Schema },
+    onSubmit: async ({ value }) => {
+      if (isEdit && defaultValues?.id) {
+        await update{{ pascal }}({ data: { id: defaultValues.id, data: value } });
+      } else {
+        await create{{ pascal }}({ data: value });
+      }
+      onSuccess?.();
+    },
+  });
+
+  return (
+    <form
+      onSubmit={e => { e.preventDefault(); form.handleSubmit(); }}
+      className="space-y-4"
+    >
+      <form.Field name="title">
+        {field => (
+          <div>
+            <label className="text-sm font-medium">Title</label>
+            <input
+              value={field.state.value}
+              onChange={e => field.handleChange(e.target.value)}
+              onBlur={field.handleBlur}
+              placeholder="{{ pascal }} title"
+              className="w-full mt-1 px-3 py-2 border rounded-md text-sm"
+            />
+            {field.state.meta.errors.length > 0 && (
+              <p className="text-destructive text-xs mt-1">{field.state.meta.errors[0]}</p>
+            )}
+          </div>
+        )}
+      </form.Field>
+
+@if(has_due)
+      <form.Field name="dueDate">
+        {field => (
+          <div>
+            <label className="text-sm font-medium">Due Date</label>
+            <input
+              type="date"
+              value={field.state.value
+                ? new Date(field.state.value).toISOString().split('T')[0]
+                : ''}
+              onChange={e => field.handleChange(e.target.value ? new Date(e.target.value) : null)}
+              onBlur={field.handleBlur}
+              className="w-full mt-1 px-3 py-2 border rounded-md text-sm"
+            />
+          </div>
+        )}
+      </form.Field>
+@end
+
+@slot("extra-fields", default="")
+
+@feature("optimistic")
+      {/* optimistic update indicator */}
+@end
+
+      <form.Subscribe selector={s => s.isSubmitting}>
+        {isSubmitting => (
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-60"
+          >
+            {isSubmitting ? 'Saving...' : isEdit ? 'Update {{ pascal }}' : 'Create {{ pascal }}'}
+          </button>
+        )}
+      </form.Subscribe>
+    </form>
+  );
+}

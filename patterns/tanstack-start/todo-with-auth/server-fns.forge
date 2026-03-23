@@ -1,0 +1,95 @@
+@schema({
+  "name":     { "type": "string", "required": true },
+  "has_done": { "type": "bool",   "default": true  }
+})
+@import("@tanstack/start", named=["createServerFn"])
+@import("~/db", named=["db"])
+@import("~/lib/auth-server", named=["getSession"])
+@import("drizzle-orm", named=["eq", "and"])
+@import("zod", named=["z"])
+@set(snake  = name | snake_case)
+@set(pascal = name | pascal_case)
+{{ ("import { " ~ snake ~ ", insert" ~ pascal ~ "Schema, update" ~ pascal ~ "Schema } from '~/db/schema/" ~ snake ~ "'") | collect_import }}
+{{ render_imports() }}
+
+@macro("authCheck")
+    const session = await getSession();
+    if (!session?.user) throw new Error('Unauthorized');
+    const user = session.user;
+@end
+
+// ── list ─────────────────────────────────────────────────────────────────────
+
+export const list{{ pascal }}s = createServerFn({ method: 'GET' })
+  .handler(async () => {
+@call("authCheck")
+    return db.select().from({{ snake }})
+      .where(eq({{ snake }}.userId, user.id))
+      .orderBy({{ snake }}.createdAt);
+  });
+
+// ── get ───────────────────────────────────────────────────────────────────────
+
+export const get{{ pascal }} = createServerFn({ method: 'GET' })
+  .validator(z.object({ id: z.string().uuid() }))
+  .handler(async ({ data }) => {
+@call("authCheck")
+    const [row] = await db.select().from({{ snake }})
+      .where(and(eq({{ snake }}.id, data.id), eq({{ snake }}.userId, user.id)));
+    if (!row) throw new Error('Not found');
+    return row;
+  });
+
+// ── create ────────────────────────────────────────────────────────────────────
+
+export const create{{ pascal }} = createServerFn({ method: 'POST' })
+  .validator(insert{{ pascal }}Schema)
+  .handler(async ({ data }) => {
+@call("authCheck")
+    const [row] = await db
+      .insert({{ snake }}).values({ ...data, userId: user.id }).returning();
+    return row;
+  });
+
+// ── update ────────────────────────────────────────────────────────────────────
+
+export const update{{ pascal }} = createServerFn({ method: 'POST' })
+  .validator(z.object({ id: z.string().uuid(), data: update{{ pascal }}Schema }))
+  .handler(async ({ data: { id, data } }) => {
+@call("authCheck")
+    const [row] = await db.update({{ snake }})
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq({{ snake }}.id, id), eq({{ snake }}.userId, user.id)))
+      .returning();
+    if (!row) throw new Error('Not found');
+    return row;
+  });
+
+// ── delete ────────────────────────────────────────────────────────────────────
+
+export const delete{{ pascal }} = createServerFn({ method: 'POST' })
+  .validator(z.object({ id: z.string().uuid() }))
+  .handler(async ({ data }) => {
+@call("authCheck")
+    await db.delete({{ snake }})
+      .where(and(eq({{ snake }}.id, data.id), eq({{ snake }}.userId, user.id)));
+    return { success: true };
+  });
+
+@if(has_done)
+// ── toggle done ───────────────────────────────────────────────────────────────
+
+export const toggle{{ pascal }}Done = createServerFn({ method: 'POST' })
+  .validator(z.object({ id: z.string().uuid() }))
+  .handler(async ({ data }) => {
+@call("authCheck")
+    const [existing] = await db
+      .select({ done: {{ snake }}.done }).from({{ snake }})
+      .where(and(eq({{ snake }}.id, data.id), eq({{ snake }}.userId, user.id)));
+    if (!existing) throw new Error('Not found');
+    const [row] = await db.update({{ snake }})
+      .set({ done: !existing.done, updatedAt: new Date() })
+      .where(eq({{ snake }}.id, data.id)).returning();
+    return row;
+  });
+@end

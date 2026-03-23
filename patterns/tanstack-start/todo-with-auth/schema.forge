@@ -1,0 +1,33 @@
+@schema({
+  "name":     { "type": "string", "required": true,  "description": "Entity name, singular" },
+  "has_done": { "type": "bool",   "required": false, "default": true  },
+  "has_due":  { "type": "bool",   "required": false, "default": false }
+})
+@import("drizzle-orm/pg-core", named=["pgTable", "text", "boolean", "timestamp", "uuid"])
+@import("drizzle-zod", named=["createInsertSchema"])
+@import("zod", named=["z"])
+@set(snake  = name | snake_case)
+@set(pascal = name | pascal_case)
+{{ render_imports() }}
+
+export const {{ snake }} = pgTable('{{ snake }}', {
+  id:       uuid('id').defaultRandom().primaryKey(),
+  userId:   text('user_id').notNull(),
+  title:    text('title').notNull(),
+@if(has_done)
+  done:     boolean('done').notNull().default(false),
+@end
+@if(has_due)
+  dueDate:  timestamp('due_date', { withTimezone: true }),
+@end
+@include("atoms/drizzle-timestamps.forge")
+});
+
+export const insert{{ pascal }}Schema = createInsertSchema({{ snake }}, {
+  title: z.string().min(1).max(255),
+}).omit({ id: true, userId: true, createdAt: true, updatedAt: true });
+
+export const update{{ pascal }}Schema = insert{{ pascal }}Schema.partial();
+
+export type {{ pascal }}    = typeof {{ snake }}.$inferSelect;
+export type New{{ pascal }} = typeof {{ snake }}.$inferInsert;

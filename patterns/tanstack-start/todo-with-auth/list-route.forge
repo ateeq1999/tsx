@@ -1,0 +1,78 @@
+@schema({
+  "name":       { "type": "string", "required": true  },
+  "has_done":   { "type": "bool",   "default": true   },
+  "has_due":    { "type": "bool",   "default": false  },
+  "auth_guard": { "type": "string", "default": "_protected" }
+})
+@import("@tanstack/react-router", named=["createFileRoute", "Link"])
+@import("react", named=["useState"])
+@set(snake  = name | snake_case)
+@set(pascal = name | pascal_case)
+@set(guard  = auth_guard)
+{{ ("import { list" ~ pascal ~ "s" ~ (", toggle" ~ pascal ~ "Done" if has_done else "") ~ " } from '~/server-fns/" ~ snake ~ "'") | collect_import }}
+{{ ("import { " ~ pascal ~ "Form } from '~/components/" ~ snake ~ "/" ~ pascal ~ "Form'") | collect_import }}
+{{ render_imports() }}
+
+export const Route = createFileRoute('/{{ guard }}/{{ snake }}/')({
+  loader: () => list{{ pascal }}s(),
+  component: {{ pascal }}ListPage,
+});
+
+function {{ pascal }}ListPage() {
+  const items = Route.useLoaderData();
+  const [creating, setCreating] = useState(false);
+
+  return (
+    <div className="max-w-2xl mx-auto py-8 px-4">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-semibold">{{ pascal }}s</h1>
+        <button
+          onClick={() => setCreating(v => !v)}
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm"
+        >
+          {creating ? 'Cancel' : 'New {{ pascal }}'}
+        </button>
+      </div>
+
+      {creating && (
+        <div className="mb-6 p-4 border rounded-lg bg-card">
+          <{{ pascal }}Form onSuccess={() => setCreating(false)} />
+        </div>
+      )}
+
+      <ul className="space-y-2">
+        {items.map(item => (
+          <li key={item.id} className="flex items-center gap-3 p-3 border rounded-lg bg-card">
+@if(has_done)
+            <button
+              onClick={() => toggle{{ pascal }}Done({ data: { id: item.id } })}
+              className={`w-5 h-5 rounded border ${item.done ? 'bg-primary border-primary' : 'border-muted-foreground'}`}
+            />
+@end
+            <Link
+              to={`/{{ guard }}/{{ snake }}/${item.id}`}
+              className="flex-1 text-sm"
+            >
+              {item.title}
+            </Link>
+@if(has_due)
+            {item.dueDate && (
+              <span className="text-xs text-muted-foreground">
+                {new Date(item.dueDate).toLocaleDateString()}
+              </span>
+            )}
+@end
+          </li>
+        ))}
+      </ul>
+
+      {items.length === 0 && (
+        <p className="text-center text-muted-foreground py-12">
+          No {{ snake }}s yet. Create your first one above.
+        </p>
+      )}
+
+@slot("list-footer", default="")
+    </div>
+  );
+}

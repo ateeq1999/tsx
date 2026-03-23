@@ -1,0 +1,47 @@
+@extends("layouts/tsx-route.forge")
+@import("@tanstack/react-router", named=["createFileRoute", "useNavigate"])
+@set(snake  = name | snake_case)
+@set(pascal = name | pascal_case)
+{{ ("import { get" ~ pascal ~ ", delete" ~ pascal ~ " } from '~/server-fns/" ~ snake ~ "'") | collect_import }}
+{{ ("import { " ~ pascal ~ "Form } from '~/components/" ~ snake ~ "/" ~ pascal ~ "Form'") | collect_import }}
+
+@slot("route_path")
+/{{ auth_guard }}/{{ snake }}/$id
+@end
+
+@slot("route_config")
+  loader: ({ params }) => get{{ pascal }}({ data: { id: params.id } }),
+@end
+
+@slot("component_name")
+{{ pascal }}DetailPage
+@end
+
+@slot("component_body")
+function {{ pascal }}DetailPage() {
+  const item = Route.useLoaderData();
+  const nav  = useNavigate();
+
+  async function handleDelete() {
+    if (!confirm('Delete this {{ snake }}?')) return;
+    await delete{{ pascal }}({ data: { id: item.id } });
+    nav({ to: '/{{ auth_guard }}/{{ snake }}' });
+  }
+
+  return (
+    <div className="max-w-xl mx-auto py-8 px-4">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-xl font-semibold">Edit {{ pascal }}</h1>
+        <button onClick={handleDelete} className="text-destructive text-sm hover:underline">
+          Delete
+        </button>
+      </div>
+      <{{ pascal }}Form
+        defaultValues={item}
+        onSuccess={() => nav({ to: '/{{ auth_guard }}/{{ snake }}' })}
+      />
+@slot("detail-extra", default="")
+    </div>
+  );
+}
+@end
