@@ -55,3 +55,4 @@ tokio-util = { version = "0.7", features = ["io"] }
 bytes      = "1"
 flate2     = "1"
 tar        = "0.4"
+urlencoding = "2"

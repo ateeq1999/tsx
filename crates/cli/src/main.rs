@@ -805,7 +805,28 @@ enum PatternCmd {
         #[arg(value_name = "ID")]
         id: String,
     },
-    /// Publish a pattern to the tsx registry
+    /// Publish a pack to the registry
+    Publish {
+        /// Pack id
+        #[arg(value_name = "ID")]
+        id: String,
+        /// Registry URL (overrides .tsx/config.json)
+        #[arg(long)]
+        registry: Option<String>,
+    },
+    /// Search the registry for packs
+    Search {
+        /// Search query
+        #[arg(value_name = "QUERY")]
+        query: String,
+        /// Filter by framework
+        #[arg(long)]
+        framework: Option<String>,
+        /// Registry URL (overrides .tsx/config.json)
+        #[arg(long)]
+        registry: Option<String>,
+    },
+    /// Publish a pattern to the tsx registry (legacy)
     Share {
         /// Pattern id
         #[arg(long)]
@@ -1520,6 +1541,14 @@ fn main() {
             PatternCmd::Remove { id } => {
                 use tsx::commands::pattern;
                 pattern::pattern_remove(id, cli.verbose).print();
+            }
+            PatternCmd::Publish { id, registry } => {
+                use tsx::commands::pattern;
+                pattern::pattern_publish(id, registry, cli.verbose).print();
+            }
+            PatternCmd::Search { query, framework, registry } => {
+                use tsx::commands::pattern;
+                pattern::pattern_search(query, registry, framework, cli.verbose).print();
             }
             PatternCmd::Share { name, version } => {
                 use tsx::commands::pattern;

@@ -299,6 +299,12 @@ async fn main() {
         .route("/v1/packages/{name}/badge.svg", get(routes::feed::download_badge))
         // Auth helpers (used by CLI login)
         .route("/v1/auth/whoami", get(routes::auth_route::whoami))
+        // Pattern packs
+        .route("/v1/patterns",                              get(routes::patterns::list_patterns))
+        .route("/v1/patterns/search",                       get(routes::patterns::search_patterns))
+        .route("/v1/patterns/publish",                      post(routes::patterns::publish_pattern))
+        .route("/v1/patterns/{slug}",                       get(routes::patterns::get_pattern))
+        .route("/v1/patterns/{slug}/{version}/tarball",     get(routes::patterns::download_tarball))
         // User profiles
         .route("/v1/users/{name}/packages", get(routes::users::get_user_packages))
         // Admin

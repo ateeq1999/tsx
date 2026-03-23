@@ -2,6 +2,7 @@ pub mod auth;
 pub mod audit;
 pub mod downloads;
 pub mod packages;
+pub mod patterns;
 pub mod rate_limit;
 pub mod stars;
 pub mod stats;

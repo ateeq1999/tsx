@@ -19,6 +19,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::json::error::{ErrorCode, ErrorResponse};
 use crate::json::response::ResponseEnvelope;
+use flate2;
+use tar;
 
 // ---------------------------------------------------------------------------
 // Data model (matches D3 spec)
@@ -952,6 +954,165 @@ fn tempfile_dir() -> Result<PathBuf, String> {
     let base = std::env::temp_dir().join(format!("tsx-install-{}", chrono_now()));
     std::fs::create_dir_all(&base).map_err(|e| e.to_string())?;
     Ok(base)
+}
+
+/// Publish a pack to the configured registry.
+pub fn pattern_publish(id: String, registry: Option<String>, _verbose: bool) -> ResponseEnvelope {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+
+    let Some(pack) = forge::PackManifest::load(&cwd, &id) else {
+        return ResponseEnvelope::error(
+            "pattern publish",
+            ErrorResponse::new(ErrorCode::ProjectNotFound, format!("Pack '{}' not found. Run `tsx pattern new` or `tsx pattern list`.", id)),
+            0,
+        );
+    };
+
+    let pack_dir = forge::PackManifest::dir(&cwd, &id);
+    let registry_url = registry.unwrap_or_else(|| read_registry_url(&cwd));
+
+    // Bundle pack directory into an in-memory tar.gz
+    let tarball = match bundle_pack_dir(&pack_dir) {
+        Ok(b) => b,
+        Err(e) => return ResponseEnvelope::error(
+            "pattern publish",
+            ErrorResponse::new(ErrorCode::InternalError, format!("Bundle error: {e}")),
+            0,
+        ),
+    };
+
+    // Read README if present
+    let readme = std::fs::read_to_string(pack_dir.join("README.md")).ok();
+
+    // POST multipart to /v1/patterns/publish
+    let manifest_json = serde_json::to_string(&serde_json::json!({
+        "id":          pack.id,
+        "name":        pack.name,
+        "version":     pack.version,
+        "description": pack.description,
+        "author":      pack.author,
+        "framework":   pack.framework,
+        "tags":        pack.tags,
+    })).unwrap_or_default();
+
+    let publish_url = format!("{}/v1/patterns/publish", registry_url.trim_end_matches('/'));
+
+    let client = match reqwest::blocking::Client::builder().user_agent("tsx-cli/0.1").build() {
+        Ok(c) => c,
+        Err(e) => return ResponseEnvelope::error("pattern publish", ErrorResponse::new(ErrorCode::InternalError, e.to_string()), 0),
+    };
+
+    let form = reqwest::blocking::multipart::Form::new()
+        .part("tarball", reqwest::blocking::multipart::Part::bytes(tarball)
+            .file_name(format!("{}-{}.tar.gz", id, pack.version))
+            .mime_str("application/gzip").unwrap())
+        .text("manifest", manifest_json)
+        .text("author", pack.author.clone());
+
+    let form = if let Some(r) = readme {
+        form.text("readme", r)
+    } else {
+        form
+    };
+
+    let slug = if id.contains('/') { id.clone() } else { format!("{}/{}", pack.author, id) };
+
+    match client.post(&publish_url).multipart(form).send() {
+        Ok(resp) if resp.status().is_success() => {
+            ResponseEnvelope::success(
+                "pattern publish",
+                serde_json::json!({
+                    "slug":     slug,
+                    "version":  pack.version,
+                    "registry": registry_url,
+                    "url":      format!("{}/v1/patterns/{}", registry_url.trim_end_matches('/'), slug),
+                }),
+                0,
+            )
+        }
+        Ok(resp) => {
+            let status = resp.status().as_u16();
+            let body = resp.text().unwrap_or_default();
+            ResponseEnvelope::error(
+                "pattern publish",
+                ErrorResponse::new(ErrorCode::InternalError, format!("Registry returned {status}: {body}")),
+                0,
+            )
+        }
+        Err(e) => ResponseEnvelope::error(
+            "pattern publish",
+            ErrorResponse::new(ErrorCode::InternalError, format!("Request failed: {e}")),
+            0,
+        ),
+    }
+}
+
+/// Search the registry for pattern packs.
+pub fn pattern_search(query: String, registry: Option<String>, framework: Option<String>, _verbose: bool) -> ResponseEnvelope {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let registry_url = registry.unwrap_or_else(|| read_registry_url(&cwd));
+
+    let mut search_url = format!(
+        "{}/v1/patterns/search?q={}",
+        registry_url.trim_end_matches('/'),
+        urlencoding_simple(&query),
+    );
+    if let Some(fw) = &framework {
+        search_url.push_str(&format!("&framework={}", urlencoding_simple(fw)));
+    }
+
+    match download_bytes(&search_url) {
+        Ok(bytes) => {
+            match serde_json::from_slice::<serde_json::Value>(&bytes) {
+                Ok(json) => ResponseEnvelope::success("pattern search", json, 0),
+                Err(e) => ResponseEnvelope::error(
+                    "pattern search",
+                    ErrorResponse::new(ErrorCode::InternalError, format!("Parse error: {e}")),
+                    0,
+                ),
+            }
+        }
+        Err(e) => ResponseEnvelope::error(
+            "pattern search",
+            ErrorResponse::new(ErrorCode::InternalError, format!("Request failed: {e}")),
+            0,
+        ),
+    }
+}
+
+/// Read registry URL from `.tsx/config.json`, falling back to localhost.
+fn read_registry_url(root: &Path) -> String {
+    let config_path = root.join(".tsx").join("config.json");
+    if let Ok(content) = std::fs::read_to_string(&config_path) {
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+            if let Some(url) = val["registry"]["url"].as_str() {
+                return url.to_string();
+            }
+        }
+    }
+    "http://localhost:4200".to_string()
+}
+
+/// Bundle a pack directory into an in-memory .tar.gz.
+fn bundle_pack_dir(dir: &Path) -> anyhow::Result<Vec<u8>> {
+    use flate2::{write::GzEncoder, Compression};
+    let mut buf = Vec::new();
+    {
+        let gz = GzEncoder::new(&mut buf, Compression::default());
+        let mut archive = tar::Builder::new(gz);
+        archive.append_dir_all(".", dir)?;
+        archive.finish()?;
+    }
+    Ok(buf)
+}
+
+/// Minimal percent-encode for query string values (no external dep needed).
+fn urlencoding_simple(s: &str) -> String {
+    s.chars().map(|c| match c {
+        'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' | '~' => c.to_string(),
+        ' ' => "+".to_string(),
+        c => format!("%{:02X}", c as u32),
+    }).collect()
 }
 
 /// Download URL to bytes using reqwest blocking.

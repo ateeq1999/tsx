@@ -5,6 +5,7 @@ pub mod discovery;
 pub mod feed;
 pub mod health;
 pub mod packages;
+pub mod patterns;
 pub mod search;
 pub mod stars;
 pub mod stats;
