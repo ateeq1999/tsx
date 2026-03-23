@@ -1,8 +1,8 @@
 {
   "id": "todo-with-auth",
   "name": "Todo Feature with Auth",
-  "version": "1.0.0",
-  "description": "Full CRUD todo feature: Drizzle schema, server functions, list/detail routes with better-auth session guard, TanStack Form.",
+  "version": "1.1.0",
+  "description": "Full CRUD todo feature: Drizzle schema, Zod schemas, server functions (queries/mutations), list/detail routes with better-auth session guard, TanStack Form.",
   "author": "ateeg",
   "framework": "tanstack-start",
   "tags": ["tanstack-start", "drizzle", "crud", "auth", "form"],
@@ -15,26 +15,28 @@
   ],
 
   "outputs": [
-    { "id": "schema",       "template": "schema.forge",       "path": "src/db/schema/{{ name | snake_case }}.ts" },
-    { "id": "server-fns",   "template": "server-fns.forge",   "path": "src/server-fns/{{ name | snake_case }}.ts" },
-    { "id": "list-route",   "template": "list-route.forge",   "path": "src/routes/{{ auth_guard }}/{{ name | snake_case }}/index.tsx" },
-    { "id": "detail-route", "template": "detail-route.forge", "path": "src/routes/{{ auth_guard }}/{{ name | snake_case }}/$id.tsx" },
-    { "id": "form",         "template": "form.forge",          "path": "src/components/{{ name | snake_case }}/{{ name | pascal_case }}Form.tsx" }
+    { "id": "schema",       "template": "schema.forge",      "path": "src/db/schema/{{ name | snake_case }}.ts" },
+    { "id": "zod-schema",   "template": "zod-schema.forge",  "path": "src/schemas/{{ name | snake_case }}.ts" },
+    { "id": "queries",      "template": "queries.forge",     "path": "src/server-fns/{{ name | snake_case }}/queries.ts" },
+    { "id": "mutations",    "template": "mutations.forge",   "path": "src/server-fns/{{ name | snake_case }}/mutations.ts" },
+    { "id": "list-route",   "template": "list-route.forge",  "path": "src/routes/{{ auth_guard }}/{{ name | snake_case }}/index.tsx" },
+    { "id": "detail-route", "template": "detail-route.forge","path": "src/routes/{{ auth_guard }}/{{ name | snake_case }}/$id.tsx" },
+    { "id": "form",         "template": "form.forge",         "path": "src/components/{{ name | snake_case }}/{{ name | pascal_case }}Form.tsx" }
   ],
 
   "commands": {
     "all": {
-      "description": "Generate complete todo feature with auth guard",
-      "outputs": ["schema", "server-fns", "list-route", "detail-route", "form"],
+      "description": "Generate complete feature (schema, Zod, server fns, routes, form)",
+      "outputs": ["schema", "zod-schema", "queries", "mutations", "list-route", "detail-route", "form"],
       "default": true
     },
     "schema": {
       "description": "Drizzle table + Zod schemas only",
-      "outputs": ["schema"]
+      "outputs": ["schema", "zod-schema"]
     },
     "api": {
-      "description": "Server functions (CRUD + optional toggle) only",
-      "outputs": ["server-fns"]
+      "description": "Server functions (queries + mutations) only",
+      "outputs": ["queries", "mutations"]
     },
     "routes": {
       "description": "List route and detail route only",
@@ -55,7 +57,12 @@
     {
       "marker": "// [tsx:server-fns]",
       "file": "src/server-fns/index.ts",
-      "insert": "export * from './{{ name | snake_case }}';"
+      "insert": "export * from './{{ name | snake_case }}/queries';"
+    },
+    {
+      "marker": "// [tsx:server-fns]",
+      "file": "src/server-fns/index.ts",
+      "insert": "export * from './{{ name | snake_case }}/mutations';"
     }
   ],
 

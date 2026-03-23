@@ -3,13 +3,17 @@
   "has_done": { "type": "bool",   "default": true   },
   "has_due":  { "type": "bool",   "default": false  }
 })
-@import("@tanstack/react-form", named=["useForm"])
-@import("@tanstack/zod-form-adapter", named=["zodValidator"])
+@import("@tanstack/react-form", named=["useForm", "revalidateLogic"])
 @set(snake  = name | snake_case)
 @set(pascal = name | pascal_case)
-{{ ("import { create" ~ pascal ~ ", update" ~ pascal ~ " } from '~/server-fns/" ~ snake ~ "'") | collect_import }}
-{{ ("import { insert" ~ pascal ~ "Schema } from '~/db/schema/" ~ snake ~ "'") | collect_import }}
-{{ ("import type { " ~ pascal ~ " } from '~/db/schema/" ~ snake ~ "'") | collect_import }}
+{{ ("import { create" ~ pascal ~ ", update" ~ pascal ~ " } from '@/server-fns/" ~ snake ~ "/mutations'") | collect_import }}
+{{ ("import { create" ~ pascal ~ "Schema } from '@/schemas/" ~ snake ~ "'") | collect_import }}
+{{ ("import type { " ~ pascal ~ " } from '@/db/schema/" ~ snake ~ "'") | collect_import }}
+{{ ("import { FormField } from '@/components/form/form-field'") | collect_import }}
+@if(has_done)
+{{ ("import { FormCheckbox } from '@/components/form/form-checkbox'") | collect_import }}
+@end
+{{ ("import { Button } from '@/components/ui/button'") | collect_import }}
 {{ render_imports() }}
 
 interface {{ pascal }}FormProps {
@@ -24,14 +28,14 @@ export function {{ pascal }}Form({ defaultValues, onSuccess }: {{ pascal }}FormP
     defaultValues: {
       title: defaultValues?.title ?? '',
 @if(has_done)
-      done:  defaultValues?.done  ?? false,
+      done:    defaultValues?.done    ?? false,
 @end
 @if(has_due)
       dueDate: defaultValues?.dueDate ?? null,
 @end
     },
-    validatorAdapter: zodValidator(),
-    validators: { onChange: insert{{ pascal }}Schema },
+    validationLogic: revalidateLogic(),
+    validators: { onDynamic: create{{ pascal }}Schema },
     onSubmit: async ({ value }) => {
       if (isEdit && defaultValues?.id) {
         await update{{ pascal }}({ data: { id: defaultValues.id, data: value } });
@@ -47,60 +51,29 @@ export function {{ pascal }}Form({ defaultValues, onSuccess }: {{ pascal }}FormP
       onSubmit={e => { e.preventDefault(); form.handleSubmit(); }}
       className="space-y-4"
     >
-      <form.Field name="title">
-        {field => (
-          <div>
-            <label className="text-sm font-medium">Title</label>
-            <input
-              value={field.state.value}
-              onChange={e => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-              placeholder="{{ pascal }} title"
-              className="w-full mt-1 px-3 py-2 border rounded-md text-sm"
-            />
-            {field.state.meta.errors.length > 0 && (
-              <p className="text-destructive text-xs mt-1">{field.state.meta.errors[0]}</p>
-            )}
-          </div>
-        )}
-      </form.Field>
+      <FormField form={form} name="title" label="Title" placeholder="{{ pascal }} title" />
 
 @if(has_due)
-      <form.Field name="dueDate">
-        {field => (
-          <div>
-            <label className="text-sm font-medium">Due Date</label>
-            <input
-              type="date"
-              value={field.state.value
-                ? new Date(field.state.value).toISOString().split('T')[0]
-                : ''}
-              onChange={e => field.handleChange(e.target.value ? new Date(e.target.value) : null)}
-              onBlur={field.handleBlur}
-              className="w-full mt-1 px-3 py-2 border rounded-md text-sm"
-            />
-          </div>
-        )}
-      </form.Field>
-@end
+      <FormField form={form} name="dueDate" label="Due Date" type="date" />
 
+@end
+@if(has_done)
+      <FormCheckbox form={form} name="done" label="Done" />
+
+@end
 @slot("extra-fields", default="")
 
 @feature("optimistic")
       {/* optimistic update indicator */}
 @end
 
-      <form.Subscribe selector={s => s.isSubmitting}>
-        {isSubmitting => (
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-60"
-          >
-            {isSubmitting ? 'Saving...' : isEdit ? 'Update {{ pascal }}' : 'Create {{ pascal }}'}
-          </button>
-        )}
-      </form.Subscribe>
+      <Button
+        type="submit"
+        disabled={form.state.isSubmitting}
+        className="w-full"
+      >
+        {form.state.isSubmitting ? 'Saving...' : isEdit ? 'Update {{ pascal }}' : 'Create {{ pascal }}'}
+      </Button>
     </form>
   );
 }

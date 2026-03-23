@@ -1,0 +1,70 @@
+@schema({
+  "name":     { "type": "string", "required": true },
+  "has_done": { "type": "bool",   "default": true  }
+})
+@import("@tanstack/react-start", named=["createServerFn"])
+@import("drizzle-orm", named=["eq", "and"])
+@import("zod", named=["z"])
+@set(snake  = name | snake_case)
+@set(pascal = name | pascal_case)
+{{ ("import { db } from '@/db'") | collect_import }}
+{{ ("import { ensureSession } from '@/server-fns/auth/queries'") | collect_import }}
+{{ ("import { " ~ snake ~ " } from '@/db/schema/" ~ snake ~ "'") | collect_import }}
+{{ ("import { create" ~ pascal ~ "Schema, update" ~ pascal ~ "Schema } from '@/schemas/" ~ snake ~ "'") | collect_import }}
+{{ render_imports() }}
+
+// ── create ────────────────────────────────────────────────────────────────────
+
+export const create{{ pascal }} = createServerFn({ method: 'POST' })
+  .inputValidator(create{{ pascal }}Schema)
+  .handler(async ({ data }) => {
+    const session = await ensureSession();
+    const [row] = await db
+      .insert({{ snake }}).values({ ...data, userId: session.user.id })
+      .returning();
+    return row;
+  });
+
+// ── update ────────────────────────────────────────────────────────────────────
+
+export const update{{ pascal }} = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ id: z.string(), data: update{{ pascal }}Schema }))
+  .handler(async ({ data: { id, data } }) => {
+    const session = await ensureSession();
+    const [row] = await db.update({{ snake }})
+      .set(data)
+      .where(and(eq({{ snake }}.id, id), eq({{ snake }}.userId, session.user.id)))
+      .returning();
+    if (!row) throw new Error('Not found');
+    return row;
+  });
+
+// ── delete ────────────────────────────────────────────────────────────────────
+
+export const delete{{ pascal }} = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ id: z.string() }))
+  .handler(async ({ data }) => {
+    const session = await ensureSession();
+    await db.delete({{ snake }})
+      .where(and(eq({{ snake }}.id, data.id), eq({{ snake }}.userId, session.user.id)));
+    return { success: true };
+  });
+
+@if(has_done)
+// ── toggle done ───────────────────────────────────────────────────────────────
+
+export const toggle{{ pascal }}Done = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ id: z.string() }))
+  .handler(async ({ data }) => {
+    const session = await ensureSession();
+    const [existing] = await db
+      .select({ done: {{ snake }}.done }).from({{ snake }})
+      .where(and(eq({{ snake }}.id, data.id), eq({{ snake }}.userId, session.user.id)));
+    if (!existing) throw new Error('Not found');
+    const [row] = await db.update({{ snake }})
+      .set({ done: !existing.done })
+      .where(eq({{ snake }}.id, data.id))
+      .returning();
+    return row;
+  });
+@end

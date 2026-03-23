@@ -2,8 +2,9 @@
 @import("@tanstack/react-router", named=["createFileRoute", "useNavigate"])
 @set(snake  = name | snake_case)
 @set(pascal = name | pascal_case)
-{{ ("import { get" ~ pascal ~ ", delete" ~ pascal ~ " } from '~/server-fns/" ~ snake ~ "'") | collect_import }}
-{{ ("import { " ~ pascal ~ "Form } from '~/components/" ~ snake ~ "/" ~ pascal ~ "Form'") | collect_import }}
+{{ ("import { get" ~ pascal ~ " } from '@/server-fns/" ~ snake ~ "/queries'") | collect_import }}
+{{ ("import { delete" ~ pascal ~ " } from '@/server-fns/" ~ snake ~ "/mutations'") | collect_import }}
+{{ ("import { " ~ pascal ~ "Form } from '@/components/" ~ snake ~ "/" ~ pascal ~ "Form'") | collect_import }}
 
 @slot("route_path")
 /{{ auth_guard }}/{{ snake }}/$id

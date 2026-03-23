@@ -9,8 +9,8 @@
 @set(snake  = name | snake_case)
 @set(pascal = name | pascal_case)
 @set(guard  = auth_guard)
-{{ ("import { list" ~ pascal ~ "s" ~ (", toggle" ~ pascal ~ "Done" if has_done else "") ~ " } from '~/server-fns/" ~ snake ~ "'") | collect_import }}
-{{ ("import { " ~ pascal ~ "Form } from '~/components/" ~ snake ~ "/" ~ pascal ~ "Form'") | collect_import }}
+{{ ("import { list" ~ pascal ~ "s" ~ (", toggle" ~ pascal ~ "Done" if has_done else "") ~ " } from '@/server-fns/" ~ snake ~ "/queries'") | collect_import }}
+{{ ("import { " ~ pascal ~ "Form } from '@/components/" ~ snake ~ "/" ~ pascal ~ "Form'") | collect_import }}
 {{ render_imports() }}
 
 export const Route = createFileRoute('/{{ guard }}/{{ snake }}/')({
@@ -46,18 +46,20 @@ function {{ pascal }}ListPage() {
 @if(has_done)
             <button
               onClick={() => toggle{{ pascal }}Done({ data: { id: item.id } })}
-              className={`w-5 h-5 rounded border ${item.done ? 'bg-primary border-primary' : 'border-muted-foreground'}`}
+              className={`w-5 h-5 rounded border flex-shrink-0 ${item.done ? 'bg-primary border-primary' : 'border-muted-foreground'}`}
+              aria-label={item.done ? 'Mark incomplete' : 'Mark complete'}
             />
 @end
             <Link
-              to={`/{{ guard }}/{{ snake }}/${item.id}`}
-              className="flex-1 text-sm"
+              to="/{{ guard }}/{{ snake }}/$id"
+              params={{ '{' }} id: item.id {{ '}' }}
+              className="flex-1 text-sm truncate"
             >
               {item.title}
             </Link>
 @if(has_due)
             {item.dueDate && (
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-muted-foreground flex-shrink-0">
                 {new Date(item.dueDate).toLocaleDateString()}
               </span>
             )}
