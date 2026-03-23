@@ -19,6 +19,9 @@
 //! | `tsx_diff` | Diff what a generator would change |
 //! | `tsx_validate_schema` | Validate JSON against a template's @schema |
 //! | `tsx_introspect` | Return the forge system overview |
+//! | `tsx_pattern_list` | List locally installed pattern packs |
+//! | `tsx_pattern_run` | Run a pattern pack to generate files |
+//! | `tsx_pattern_search` | Search the registry for packs |
 //!
 //! # MCP config snippet (Claude / Cursor)
 //!
@@ -191,6 +194,41 @@ fn tool_definitions() -> Value {
             "name": "tsx_introspect",
             "description": "Return a summary of the tsx forge system: installed templates, generators, and configuration.",
             "inputSchema": { "type": "object", "properties": {} }
+        },
+        {
+            "name": "tsx_pattern_list",
+            "description": "List all locally installed pattern packs from .tsx/patterns/ in the current project.",
+            "inputSchema": { "type": "object", "properties": {} }
+        },
+        {
+            "name": "tsx_pattern_run",
+            "description": "Run a pattern pack command to generate code files, inject markers, and execute post-hooks.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "id": { "type": "string", "description": "Pack id (folder name under .tsx/patterns/)" },
+                    "command": { "type": "string", "description": "Named command from pack.json (uses default command if omitted)" },
+                    "args": {
+                        "type": "object",
+                        "description": "Key-value args matching the pack.json args spec (e.g. {\"name\": \"todo\", \"has_done\": \"true\"})",
+                        "additionalProperties": { "type": "string" }
+                    },
+                    "dry_run": { "type": "boolean", "description": "Preview file paths without writing (default: false)" }
+                },
+                "required": ["id"]
+            }
+        },
+        {
+            "name": "tsx_pattern_search",
+            "description": "Search the tsx registry for pattern packs by keyword.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": { "type": "string", "description": "Search keyword" },
+                    "framework": { "type": "string", "description": "Filter by framework slug (e.g. tanstack-start)" }
+                },
+                "required": ["query"]
+            }
         }
     ])
 }
@@ -341,6 +379,40 @@ fn handle_introspect() -> Value {
 }
 
 // ---------------------------------------------------------------------------
+// Pattern pack tool handlers
+// ---------------------------------------------------------------------------
+
+fn handle_pattern_list() -> Value {
+    let resp = crate::commands::pattern::pattern_list(false);
+    serde_json::to_value(resp).unwrap_or(Value::Null)
+}
+
+fn handle_pattern_run(args: &Value) -> Result<Value, String> {
+    let id = args.get("id")
+        .and_then(|v| v.as_str())
+        .ok_or("id is required")?
+        .to_string();
+    let command = args.get("command").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let dry_run = args.get("dry_run").and_then(|v| v.as_bool()).unwrap_or(false);
+    let arg_pairs: Vec<String> = args.get("args")
+        .and_then(|v| v.as_object())
+        .map(|o| o.iter().map(|(k, v)| format!("{}={}", k, v.as_str().unwrap_or(""))).collect())
+        .unwrap_or_default();
+    let resp = crate::commands::pattern::pattern_run(id, command, arg_pairs, dry_run, false, false);
+    Ok(serde_json::to_value(resp).unwrap_or(Value::Null))
+}
+
+fn handle_pattern_search(args: &Value) -> Result<Value, String> {
+    let query = args.get("query")
+        .and_then(|v| v.as_str())
+        .ok_or("query is required")?
+        .to_string();
+    let framework = args.get("framework").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let resp = crate::commands::pattern::pattern_search(query, None, framework, false);
+    Ok(serde_json::to_value(resp).unwrap_or(Value::Null))
+}
+
+// ---------------------------------------------------------------------------
 // Request dispatcher
 // ---------------------------------------------------------------------------
 
@@ -383,6 +455,9 @@ fn dispatch(req: Request, stdout: &mut impl Write) {
                 "tsx_diff" => Ok(handle_generate(&tool_args, true)),
                 "tsx_validate_schema" => handle_validate_schema(&tool_args),
                 "tsx_introspect" => Ok(handle_introspect()),
+                "tsx_pattern_list" => Ok(handle_pattern_list()),
+                "tsx_pattern_run" => handle_pattern_run(&tool_args),
+                "tsx_pattern_search" => handle_pattern_search(&tool_args),
                 unknown => Err(format!("Unknown tool: {}", unknown)),
             };
 

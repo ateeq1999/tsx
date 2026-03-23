@@ -835,6 +835,18 @@ enum PatternCmd {
         #[arg(long)]
         version: Option<String>,
     },
+    /// Remove generated files and reverse marker injections from a pack run
+    Eject {
+        /// Pack id
+        #[arg(value_name = "ID")]
+        id: String,
+    },
+    /// Update installed packs from their original source
+    Update {
+        /// Pack id to update (updates all installed packs if omitted)
+        #[arg(value_name = "ID")]
+        id: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -1553,6 +1565,14 @@ fn main() {
             PatternCmd::Share { name, version } => {
                 use tsx::commands::pattern;
                 pattern::pattern_share(name, version, cli.verbose).print();
+            }
+            PatternCmd::Eject { id } => {
+                use tsx::commands::pattern;
+                pattern::pattern_eject(id, cli.verbose).print();
+            }
+            PatternCmd::Update { id } => {
+                use tsx::commands::pattern;
+                pattern::pattern_update(id, cli.verbose).print();
             }
         },
         Command::Codegen { target } => match target {

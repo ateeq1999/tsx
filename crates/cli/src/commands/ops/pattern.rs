@@ -16,6 +16,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::json::error::{ErrorCode, ErrorResponse};
 use crate::json::response::ResponseEnvelope;
@@ -628,19 +629,39 @@ pub fn pattern_run(
     let opts = forge::RunOpts { dry_run, overwrite, command };
 
     match forge::run_pack(&pack, &pack_dir, args, &cwd, &opts) {
-        Ok(result) => ResponseEnvelope::success(
-            "pattern run",
-            serde_json::json!({
-                "dry_run": dry_run,
-                "files_written": result.files_written.iter().map(|p| p.to_string_lossy()).collect::<Vec<_>>(),
-                "files_skipped": result.files_skipped.iter().map(|p| p.to_string_lossy()).collect::<Vec<_>>(),
-                "markers_injected": result.markers_injected.iter().map(|(p, l)| serde_json::json!({
-                    "file": p.to_string_lossy(), "line": l,
-                })).collect::<Vec<_>>(),
-                "hooks_run": result.hooks_run,
-            }),
-            0,
-        ),
+        Ok(result) => {
+            // Write .generated manifest for `tsx pattern eject` support
+            if !dry_run && !result.files_written.is_empty() {
+                let generated = serde_json::json!({
+                    "pack_id": id,
+                    "generated_at": chrono_now(),
+                    "files": result.files_written.iter()
+                        .map(|p| p.strip_prefix(&cwd).unwrap_or(p).to_string_lossy().replace('\\', "/"))
+                        .collect::<Vec<_>>(),
+                    "markers": result.markers_injected.iter().map(|(p, line)| serde_json::json!({
+                        "file": p.strip_prefix(&cwd).unwrap_or(p).to_string_lossy().replace('\\', "/"),
+                        "line": line,
+                    })).collect::<Vec<_>>(),
+                });
+                let _ = std::fs::write(
+                    pack_dir.join(".generated"),
+                    serde_json::to_string_pretty(&generated).unwrap_or_default(),
+                );
+            }
+            ResponseEnvelope::success(
+                "pattern run",
+                serde_json::json!({
+                    "dry_run": dry_run,
+                    "files_written": result.files_written.iter().map(|p| p.to_string_lossy()).collect::<Vec<_>>(),
+                    "files_skipped": result.files_skipped.iter().map(|p| p.to_string_lossy()).collect::<Vec<_>>(),
+                    "markers_injected": result.markers_injected.iter().map(|(p, l)| serde_json::json!({
+                        "file": p.to_string_lossy(), "line": l,
+                    })).collect::<Vec<_>>(),
+                    "hooks_run": result.hooks_run,
+                }),
+                0,
+            )
+        },
         Err(e) => ResponseEnvelope::error(
             "pattern run",
             ErrorResponse::new(ErrorCode::InternalError, e.to_string()),
@@ -655,6 +676,8 @@ pub fn pattern_install(source: String, id_override: Option<String>, _verbose: bo
 
     if source.starts_with("github:") {
         pattern_install_github(&source, id_override, &cwd)
+    } else if source.starts_with('@') {
+        pattern_install_registry(&source, id_override, &cwd)
     } else {
         pattern_install_local(PathBuf::from(&source), id_override, &cwd)
     }
@@ -741,7 +764,8 @@ fn pattern_install_github(source: &str, id_override: Option<String>, root: &Path
         Err(e) => return ResponseEnvelope::error("pattern install", ErrorResponse::new(ErrorCode::InternalError, e), 0),
     };
 
-    let tarball_bytes = match download_bytes(&tarball_url) {
+    let github_token = std::env::var("GITHUB_TOKEN").ok();
+    let tarball_bytes = match download_bytes_authed(&tarball_url, github_token.as_deref()) {
         Ok(b) => b,
         Err(e) => return ResponseEnvelope::error(
             "pattern install",
@@ -782,6 +806,135 @@ fn pattern_install_github(source: &str, id_override: Option<String>, root: &Path
     };
 
     pattern_install_local(pack_src, id_override, root)
+}
+
+fn pattern_install_registry(source: &str, id_override: Option<String>, root: &Path) -> ResponseEnvelope {
+    // Parse: @scope/name[@version] or scope/name[@version]
+    let spec = source.trim_start_matches('@');
+    let (slug, version) = if let Some(at) = spec.rfind('@') {
+        (spec[..at].to_string(), Some(spec[at + 1..].to_string()))
+    } else {
+        (spec.to_string(), None)
+    };
+
+    let registry_url = read_registry_url(root);
+
+    // GET metadata
+    let meta_url = format!("{}/v1/patterns/{}", registry_url.trim_end_matches('/'), urlencoding_simple(&slug));
+    let meta_bytes = match download_bytes(&meta_url) {
+        Ok(b) => b,
+        Err(e) => return ResponseEnvelope::error(
+            "pattern install",
+            ErrorResponse::new(ErrorCode::InternalError, format!("Registry error: {e}")),
+            0,
+        ),
+    };
+    let meta: serde_json::Value = match serde_json::from_slice(&meta_bytes) {
+        Ok(v) => v,
+        Err(e) => return ResponseEnvelope::error(
+            "pattern install",
+            ErrorResponse::new(ErrorCode::InternalError, format!("Parse error: {e}")),
+            0,
+        ),
+    };
+
+    let ver = version
+        .or_else(|| meta["version"].as_str().map(|s| s.to_string()))
+        .unwrap_or_else(|| "latest".to_string());
+
+    // Download tarball
+    let tarball_url = format!(
+        "{}/v1/patterns/{}/{}/tarball",
+        registry_url.trim_end_matches('/'),
+        urlencoding_simple(&slug),
+        urlencoding_simple(&ver),
+    );
+    let tarball_bytes = match download_bytes(&tarball_url) {
+        Ok(b) => b,
+        Err(e) => return ResponseEnvelope::error(
+            "pattern install",
+            ErrorResponse::new(ErrorCode::InternalError, format!("Download failed: {e}")),
+            0,
+        ),
+    };
+
+    // Verify SHA256 checksum if provided
+    if let Some(expected) = meta["checksum"].as_str().filter(|s| !s.is_empty()) {
+        let actual = format!("{:x}", Sha256::digest(&tarball_bytes));
+        if actual != expected {
+            return ResponseEnvelope::error(
+                "pattern install",
+                ErrorResponse::new(
+                    ErrorCode::ValidationError,
+                    format!("Checksum mismatch: expected {expected}, got {actual}"),
+                ),
+                0,
+            );
+        }
+    }
+
+    // Extract into temp dir
+    let tmp_dir = match tempfile_dir() {
+        Ok(d) => d,
+        Err(e) => return ResponseEnvelope::error("pattern install", ErrorResponse::new(ErrorCode::InternalError, e), 0),
+    };
+    let gz = flate2::read::GzDecoder::new(std::io::Cursor::new(&tarball_bytes));
+    let mut archive = tar::Archive::new(gz);
+    if let Err(e) = archive.unpack(&tmp_dir) {
+        return ResponseEnvelope::error(
+            "pattern install",
+            ErrorResponse::new(ErrorCode::InternalError, format!("Extract failed: {e}")),
+            0,
+        );
+    }
+
+    // Descend into single top-level dir if present (registry tarballs vary)
+    let pack_src = {
+        let entries: Vec<_> = std::fs::read_dir(&tmp_dir)
+            .ok().into_iter().flatten()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().is_dir())
+            .collect();
+        if entries.len() == 1 { entries[0].path() } else { tmp_dir.clone() }
+    };
+
+    let Some(pack) = forge::PackManifest::load_from_dir(&pack_src) else {
+        return ResponseEnvelope::error(
+            "pattern install",
+            ErrorResponse::new(ErrorCode::ValidationError, "No valid pack.json found in registry tarball"),
+            0,
+        );
+    };
+
+    let id = id_override.unwrap_or_else(|| pack.id.clone());
+    let dest = forge::PackManifest::dir(root, &id);
+    if let Err(e) = copy_dir_all(&pack_src, &dest) {
+        return ResponseEnvelope::error(
+            "pattern install",
+            ErrorResponse::new(ErrorCode::InternalError, e.to_string()),
+            0,
+        );
+    }
+
+    let source_meta = forge::PackSource {
+        kind: "registry".to_string(),
+        source: source.to_string(),
+        ref_: ver.clone(),
+        installed_at: chrono_now(),
+    };
+    let _ = source_meta.save(root, &id);
+
+    ResponseEnvelope::success(
+        "pattern install",
+        serde_json::json!({
+            "id": id,
+            "version": ver,
+            "source": "registry",
+            "registry": registry_url,
+            "path": dest.to_string_lossy(),
+        }),
+        0,
+    )
 }
 
 /// Validate a pack: check template files exist and render without errors.
@@ -956,6 +1109,185 @@ fn tempfile_dir() -> Result<PathBuf, String> {
     Ok(base)
 }
 
+/// Eject a pack — delete generated files and reverse marker injections.
+pub fn pattern_eject(id: String, _verbose: bool) -> ResponseEnvelope {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let pack_dir = forge::PackManifest::dir(&cwd, &id);
+
+    if !pack_dir.exists() {
+        return ResponseEnvelope::error(
+            "pattern eject",
+            ErrorResponse::new(ErrorCode::ProjectNotFound, format!("Pack '{}' not found in .tsx/patterns/", id)),
+            0,
+        );
+    }
+
+    let generated_path = pack_dir.join(".generated");
+    let generated_content = match std::fs::read_to_string(&generated_path) {
+        Ok(s) => s,
+        Err(_) => return ResponseEnvelope::error(
+            "pattern eject",
+            ErrorResponse::new(
+                ErrorCode::ValidationError,
+                format!("No .generated manifest for pack '{}'. Run `tsx pattern run {}` first.", id, id),
+            ),
+            0,
+        ),
+    };
+
+    let generated: serde_json::Value = match serde_json::from_str(&generated_content) {
+        Ok(v) => v,
+        Err(e) => return ResponseEnvelope::error(
+            "pattern eject",
+            ErrorResponse::new(ErrorCode::InternalError, format!("Corrupt .generated manifest: {e}")),
+            0,
+        ),
+    };
+
+    let mut deleted: Vec<String> = Vec::new();
+    let mut markers_removed: Vec<String> = Vec::new();
+    let mut errors: Vec<String> = Vec::new();
+
+    // 1. Delete generated output files
+    if let Some(files) = generated["files"].as_array() {
+        for file in files {
+            if let Some(rel) = file.as_str() {
+                let abs = cwd.join(rel);
+                if abs.exists() {
+                    match std::fs::remove_file(&abs) {
+                        Ok(_) => deleted.push(rel.to_string()),
+                        Err(e) => errors.push(format!("Failed to delete {rel}: {e}")),
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Reverse marker injections (remove injected lines from target files)
+    if let Some(markers) = generated["markers"].as_array() {
+        for marker in markers {
+            let file = match marker["file"].as_str() { Some(f) => f, None => continue };
+            let line = match marker["line"].as_str() { Some(l) => l, None => continue };
+            let abs = cwd.join(file);
+            if !abs.exists() { continue; }
+            match std::fs::read_to_string(&abs) {
+                Ok(content) => {
+                    let filtered: Vec<&str> = content.lines().filter(|l| l.trim() != line.trim()).collect();
+                    let new_content = if content.ends_with('\n') {
+                        format!("{}\n", filtered.join("\n"))
+                    } else {
+                        filtered.join("\n")
+                    };
+                    match std::fs::write(&abs, new_content) {
+                        Ok(_) => markers_removed.push(format!("{}: {}", file, line)),
+                        Err(e) => errors.push(format!("Failed to update {file}: {e}")),
+                    }
+                }
+                Err(e) => errors.push(format!("Failed to read {file}: {e}")),
+            }
+        }
+    }
+
+    let _ = std::fs::remove_file(&generated_path);
+
+    if errors.is_empty() {
+        ResponseEnvelope::success(
+            "pattern eject",
+            serde_json::json!({
+                "id": id,
+                "files_deleted": deleted,
+                "markers_removed": markers_removed,
+            }),
+            0,
+        )
+    } else {
+        ResponseEnvelope::error(
+            "pattern eject",
+            ErrorResponse::new(ErrorCode::InternalError, errors.join("\n")),
+            0,
+        )
+    }
+}
+
+/// Update installed packs from their original source.
+pub fn pattern_update(id: Option<String>, _verbose: bool) -> ResponseEnvelope {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+
+    let ids: Vec<String> = if let Some(specific) = id {
+        vec![specific]
+    } else {
+        forge::PackManifest::list(&cwd).into_iter().map(|p| p.id).collect()
+    };
+
+    if ids.is_empty() {
+        return ResponseEnvelope::success(
+            "pattern update",
+            serde_json::json!({ "message": "No packs installed. Run `tsx pattern install` first." }),
+            0,
+        );
+    }
+
+    let mut results: Vec<serde_json::Value> = Vec::new();
+
+    for id in ids {
+        let Some(source_meta) = forge::PackSource::load(&cwd, &id) else {
+            results.push(serde_json::json!({
+                "id": id, "status": "skipped", "reason": "no .source.json (manually placed pack)"
+            }));
+            continue;
+        };
+
+        let current_version = forge::PackManifest::load(&cwd, &id)
+            .map(|p| p.version)
+            .unwrap_or_default();
+
+        let resp = match source_meta.kind.as_str() {
+            "local" => pattern_install_local(PathBuf::from(&source_meta.source), Some(id.clone()), &cwd),
+            "github" => pattern_install_github(&source_meta.source, Some(id.clone()), &cwd),
+            "registry" => {
+                // Strip pinned @version to fetch latest
+                let slug = source_meta.source.trim_start_matches('@');
+                let base = if let Some(at) = slug.rfind('@') { &slug[..at] } else { slug };
+                pattern_install_registry(&format!("@{}", base), Some(id.clone()), &cwd)
+            }
+            _ => {
+                results.push(serde_json::json!({
+                    "id": id, "status": "skipped",
+                    "reason": format!("unknown source kind: {}", source_meta.kind)
+                }));
+                continue;
+            }
+        };
+
+        if resp.success {
+            let new_version = forge::PackManifest::load(&cwd, &id)
+                .map(|p| p.version)
+                .unwrap_or_default();
+            if !current_version.is_empty() && new_version != current_version {
+                results.push(serde_json::json!({
+                    "id": id, "status": "updated",
+                    "from": current_version, "to": new_version,
+                }));
+            } else {
+                results.push(serde_json::json!({
+                    "id": id, "status": "up-to-date", "version": new_version,
+                }));
+            }
+        } else {
+            results.push(serde_json::json!({
+                "id": id, "status": "error",
+                "error": resp.error.as_ref().map(|e| e.message.as_str()).unwrap_or("unknown"),
+            }));
+        }
+    }
+
+    ResponseEnvelope::success(
+        "pattern update",
+        serde_json::json!({ "results": results }),
+        0,
+    )
+}
+
 /// Publish a pack to the configured registry.
 pub fn pattern_publish(id: String, registry: Option<String>, _verbose: bool) -> ResponseEnvelope {
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
@@ -969,6 +1301,13 @@ pub fn pattern_publish(id: String, registry: Option<String>, _verbose: bool) -> 
     };
 
     let pack_dir = forge::PackManifest::dir(&cwd, &id);
+
+    // Lint check before publish
+    let lint_resp = pattern_lint(id.clone(), false);
+    if !lint_resp.success {
+        return lint_resp;
+    }
+
     let registry_url = registry.unwrap_or_else(|| read_registry_url(&cwd));
 
     // Bundle pack directory into an in-memory tar.gz
@@ -1117,12 +1456,20 @@ fn urlencoding_simple(s: &str) -> String {
 
 /// Download URL to bytes using reqwest blocking.
 fn download_bytes(url: &str) -> Result<Vec<u8>, String> {
-    reqwest::blocking::Client::builder()
+    download_bytes_authed(url, None)
+}
+
+/// Download URL to bytes, optionally with a Bearer token (e.g. GITHUB_TOKEN).
+fn download_bytes_authed(url: &str, token: Option<&str>) -> Result<Vec<u8>, String> {
+    let client = reqwest::blocking::Client::builder()
         .user_agent("tsx-cli/0.1")
         .build()
-        .map_err(|e| e.to_string())?
-        .get(url)
-        .send()
+        .map_err(|e| e.to_string())?;
+    let mut req = client.get(url);
+    if let Some(tok) = token {
+        req = req.header("Authorization", format!("Bearer {}", tok));
+    }
+    req.send()
         .map_err(|e| e.to_string())?
         .bytes()
         .map(|b| b.to_vec())
