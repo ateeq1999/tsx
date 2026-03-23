@@ -38,6 +38,8 @@ pub mod filters;
 pub mod lint;
 pub mod manifest;
 pub mod metadata;
+pub mod pack;
+pub mod pack_runner;
 pub mod plan;
 pub mod preprocessor;
 pub mod provide;
@@ -78,6 +80,13 @@ pub use registry::{
     global_templates_dir, project_templates_dir,
     install_from_dir, install_from_npm, install_from_url, install_from_github,
     uninstall, init_template, template_schema,
+};
+pub use pack::{
+    PackArg, PackCommand, PackManifest, PackMarker, PackOutput, PackSource,
+};
+pub use pack_runner::{
+    RunOpts, RunResult, PackRunError,
+    run_pack, interpolate_path as interpolate_pack_path, inject_marker,
 };
 pub use tier::Tier;
 pub use validate::{

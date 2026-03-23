@@ -1,16 +1,16 @@
 //! `tsx pattern` — user-defined generator patterns (D1–D4).
 //!
 //! Patterns let users teach the CLI new generators without writing a full framework package.
-//! They are stored at `.tsx/patterns/<id>/pattern.json` alongside any `.forge` template files.
+//! They are stored at `.tsx/patterns/<id>/pack.json` alongside any `.forge` template files.
 //!
 //! ## Subcommands
-//! - `tsx pattern add` — register a pattern from an existing template + arg spec
-//! - `tsx pattern record` / `tsx pattern record --stop` — watch file changes, extract pattern
-//! - `tsx pattern list` — list all local patterns
-//! - `tsx pattern show <id>` — show pattern details
-//! - `tsx pattern run <id>` — run a pattern (delegates to the `run` infrastructure)
-//! - `tsx pattern share` — publish a pattern to the tsx registry as a micro-package (stub)
-//! - `tsx pattern remove <id>` — remove a pattern
+//! - `tsx pattern new <id>` — scaffold a new pack with starter `pack.json` + `main.forge`
+//! - `tsx pattern run <id>` — run a pack command (renders templates + injects markers)
+//! - `tsx pattern install <source>` — install from local path or `github:user/repo#path@ref`
+//! - `tsx pattern lint <id>` — validate pack templates and manifest
+//! - `tsx pattern list` — list all local packs
+//! - `tsx pattern show <id>` — show pack details
+//! - `tsx pattern remove <id>` — remove a pack
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -364,16 +364,18 @@ pub fn pattern_record_stop(_verbose: bool) -> ResponseEnvelope {
 
 pub fn pattern_list(_verbose: bool) -> ResponseEnvelope {
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let ids = PatternDefinition::list_ids(&cwd);
+    let packs = forge::PackManifest::list(&cwd);
 
-    let patterns: Vec<serde_json::Value> = ids
+    let items: Vec<serde_json::Value> = packs
         .iter()
-        .filter_map(|id| PatternDefinition::load(&cwd, id))
         .map(|p| {
             serde_json::json!({
                 "id": p.id,
+                "name": p.name,
+                "version": p.version,
                 "description": p.description,
-                "args": p.args.iter().map(|a| format!("{}:{}", a.name, a.arg_type)).collect::<Vec<_>>(),
+                "framework": p.framework,
+                "commands": p.commands.keys().collect::<Vec<_>>(),
                 "outputs": p.outputs.len(),
             })
         })
@@ -382,8 +384,8 @@ pub fn pattern_list(_verbose: bool) -> ResponseEnvelope {
     ResponseEnvelope::success(
         "pattern list",
         serde_json::json!({
-            "count": patterns.len(),
-            "patterns": patterns,
+            "count": items.len(),
+            "patterns": items,
         }),
         0,
     )
@@ -391,17 +393,55 @@ pub fn pattern_list(_verbose: bool) -> ResponseEnvelope {
 
 pub fn pattern_show(id: String, _verbose: bool) -> ResponseEnvelope {
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    match PatternDefinition::load(&cwd, &id) {
-        Some(p) => ResponseEnvelope::success(
-            "pattern show",
-            serde_json::to_value(&p).unwrap_or_default(),
-            0,
-        ),
+    match forge::PackManifest::load(&cwd, &id) {
+        Some(pack) => {
+            let pack_dir = forge::PackManifest::dir(&cwd, &id);
+            let forge_files: Vec<String> = std::fs::read_dir(&pack_dir)
+                .into_iter()
+                .flatten()
+                .filter_map(|e| e.ok())
+                .filter(|e| e.path().extension().and_then(|x| x.to_str()) == Some("forge"))
+                .filter_map(|e| e.file_name().to_str().map(|s| s.to_string()))
+                .collect();
+            ResponseEnvelope::success(
+                "pattern show",
+                serde_json::json!({
+                    "id": pack.id,
+                    "name": pack.name,
+                    "version": pack.version,
+                    "description": pack.description,
+                    "framework": pack.framework,
+                    "author": pack.author,
+                    "tags": pack.tags,
+                    "args": pack.args.iter().map(|a| serde_json::json!({
+                        "name": a.name,
+                        "type": a.arg_type,
+                        "required": a.required,
+                        "default": a.default,
+                        "description": a.description,
+                    })).collect::<Vec<_>>(),
+                    "outputs": pack.outputs.iter().map(|o| serde_json::json!({
+                        "id": o.id,
+                        "template": o.template,
+                        "path": o.path,
+                    })).collect::<Vec<_>>(),
+                    "commands": pack.commands.iter().map(|(k, c)| serde_json::json!({
+                        "name": k,
+                        "description": c.description,
+                        "outputs": c.outputs,
+                        "default": c.default,
+                    })).collect::<Vec<_>>(),
+                    "markers": pack.markers.len(),
+                    "forge_files": forge_files,
+                }),
+                0,
+            )
+        }
         None => ResponseEnvelope::error(
             "pattern show",
             ErrorResponse::new(
                 ErrorCode::UnknownCommand,
-                format!("Pattern '{}' not found in .tsx/patterns/", id),
+                format!("Pack '{}' not found in .tsx/patterns/", id),
             ),
             0,
         ),
@@ -461,6 +501,351 @@ pub fn pattern_share(name: String, version: Option<String>, _verbose: bool) -> R
             }),
             0,
         ),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// New pack system commands
+// ---------------------------------------------------------------------------
+
+/// Scaffold a new pack directory with a starter `pack.json` and `main.forge`.
+pub fn pattern_new(
+    id: String,
+    name: Option<String>,
+    description: Option<String>,
+    framework: Option<String>,
+    _verbose: bool,
+) -> ResponseEnvelope {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let pack_dir = forge::PackManifest::dir(&cwd, &id);
+
+    if pack_dir.exists() {
+        return ResponseEnvelope::error(
+            "pattern new",
+            ErrorResponse::new(ErrorCode::ValidationError, format!("Pack '{}' already exists at {}", id, pack_dir.display())),
+            0,
+        );
+    }
+
+    let mut commands = std::collections::HashMap::new();
+    commands.insert("all".to_string(), forge::PackCommand {
+        description: "Generate all outputs".to_string(),
+        outputs: vec!["main".to_string()],
+        default: true,
+    });
+
+    let pack = forge::PackManifest {
+        id: id.clone(),
+        name: name.unwrap_or_else(|| id.clone()),
+        version: "1.0.0".to_string(),
+        description: description.unwrap_or_else(|| format!("Pattern pack: {}", id)),
+        author: String::new(),
+        framework: framework.unwrap_or_default(),
+        tags: Vec::new(),
+        args: vec![forge::PackArg {
+            name: "name".to_string(),
+            arg_type: "string".to_string(),
+            required: true,
+            default: None,
+            description: "Feature name".to_string(),
+            options: Vec::new(),
+        }],
+        outputs: vec![forge::PackOutput {
+            id: "main".to_string(),
+            template: "main.forge".to_string(),
+            path: "src/{{ name | snake_case }}.ts".to_string(),
+        }],
+        commands,
+        markers: Vec::new(),
+        post_hooks: std::collections::HashMap::new(),
+    };
+
+    if let Err(e) = pack.save(&cwd) {
+        return ResponseEnvelope::error(
+            "pattern new",
+            ErrorResponse::new(ErrorCode::InternalError, e.to_string()),
+            0,
+        );
+    }
+
+    let forge_content = "// {{ name | pascal_case }}\nexport const {{ name | pascal_case }} = () => {\n  // TODO: implement\n};\n";
+    let forge_path = pack_dir.join("main.forge");
+    if let Err(e) = std::fs::write(&forge_path, forge_content) {
+        return ResponseEnvelope::error(
+            "pattern new",
+            ErrorResponse::new(ErrorCode::InternalError, e.to_string()),
+            0,
+        );
+    }
+
+    ResponseEnvelope::success(
+        "pattern new",
+        serde_json::json!({
+            "id": id,
+            "pack_dir": pack_dir.to_string_lossy(),
+            "files_created": ["pack.json", "main.forge"],
+        }),
+        0,
+    )
+    .with_next_steps(vec![
+        format!("Edit the template at {}", forge_path.display()),
+        format!("Run with: tsx pattern run {}", id),
+    ])
+}
+
+/// Run a pack command — render templates, inject markers, run post-hooks.
+pub fn pattern_run(
+    id: String,
+    command: Option<String>,
+    arg_pairs: Vec<String>, // "key=value" pairs
+    dry_run: bool,
+    overwrite: bool,
+    _verbose: bool,
+) -> ResponseEnvelope {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+
+    let Some(pack) = forge::PackManifest::load(&cwd, &id) else {
+        return ResponseEnvelope::error(
+            "pattern run",
+            ErrorResponse::new(ErrorCode::ProjectNotFound, format!("Pack '{}' not found in .tsx/patterns/", id)),
+            0,
+        );
+    };
+
+    let pack_dir = forge::PackManifest::dir(&cwd, &id);
+
+    let mut args = HashMap::new();
+    for pair in &arg_pairs {
+        if let Some(eq) = pair.find('=') {
+            let key = pair[..eq].trim().to_string();
+            let val = pair[eq + 1..].to_string();
+            args.insert(key, serde_json::Value::String(val));
+        }
+    }
+
+    let opts = forge::RunOpts { dry_run, overwrite, command };
+
+    match forge::run_pack(&pack, &pack_dir, args, &cwd, &opts) {
+        Ok(result) => ResponseEnvelope::success(
+            "pattern run",
+            serde_json::json!({
+                "dry_run": dry_run,
+                "files_written": result.files_written.iter().map(|p| p.to_string_lossy()).collect::<Vec<_>>(),
+                "files_skipped": result.files_skipped.iter().map(|p| p.to_string_lossy()).collect::<Vec<_>>(),
+                "markers_injected": result.markers_injected.iter().map(|(p, l)| serde_json::json!({
+                    "file": p.to_string_lossy(), "line": l,
+                })).collect::<Vec<_>>(),
+                "hooks_run": result.hooks_run,
+            }),
+            0,
+        ),
+        Err(e) => ResponseEnvelope::error(
+            "pattern run",
+            ErrorResponse::new(ErrorCode::InternalError, e.to_string()),
+            0,
+        ),
+    }
+}
+
+/// Install a pack from a local path or `github:user/repo[#subpath][@ref]`.
+pub fn pattern_install(source: String, id_override: Option<String>, _verbose: bool) -> ResponseEnvelope {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+
+    if source.starts_with("github:") {
+        pattern_install_github(&source, id_override, &cwd)
+    } else {
+        pattern_install_local(PathBuf::from(&source), id_override, &cwd)
+    }
+}
+
+fn pattern_install_local(src: PathBuf, id_override: Option<String>, root: &Path) -> ResponseEnvelope {
+    let Some(pack) = forge::PackManifest::load_from_dir(&src) else {
+        return ResponseEnvelope::error(
+            "pattern install",
+            ErrorResponse::new(
+                ErrorCode::ValidationError,
+                format!("No valid pack.json found in {}", src.display()),
+            ),
+            0,
+        );
+    };
+
+    let id = id_override.unwrap_or_else(|| pack.id.clone());
+    let dest = forge::PackManifest::dir(root, &id);
+
+    if let Err(e) = copy_dir_all(&src, &dest) {
+        return ResponseEnvelope::error(
+            "pattern install",
+            ErrorResponse::new(ErrorCode::InternalError, e.to_string()),
+            0,
+        );
+    }
+
+    let source_meta = forge::PackSource {
+        kind: "local".to_string(),
+        source: src.to_string_lossy().to_string(),
+        ref_: String::new(),
+        installed_at: chrono_now(),
+    };
+    let _ = source_meta.save(root, &id);
+
+    ResponseEnvelope::success(
+        "pattern install",
+        serde_json::json!({
+            "id": id,
+            "version": pack.version,
+            "source": "local",
+            "path": dest.to_string_lossy(),
+        }),
+        0,
+    )
+}
+
+fn pattern_install_github(source: &str, id_override: Option<String>, root: &Path) -> ResponseEnvelope {
+    // Parse: github:user/repo[#sub/path[@ref]]
+    let spec = source.trim_start_matches("github:");
+
+    // Split #subpath first
+    let (repo_and_ref, subpath_raw) = if let Some(hash) = spec.find('#') {
+        (&spec[..hash], Some(&spec[hash + 1..]))
+    } else {
+        (spec, None)
+    };
+
+    // Split @ref from repo
+    let (repo, git_ref) = if let Some(at) = repo_and_ref.rfind('@') {
+        (&repo_and_ref[..at], &repo_and_ref[at + 1..])
+    } else {
+        (repo_and_ref, "HEAD")
+    };
+
+    // Split @ref from subpath if present
+    let (subpath, git_ref) = match subpath_raw {
+        Some(s) => {
+            if let Some(at) = s.rfind('@') {
+                (Some(&s[..at]), &s[at + 1..])
+            } else {
+                (Some(s), git_ref)
+            }
+        }
+        None => (None, git_ref),
+    };
+
+    let tarball_url = format!("https://api.github.com/repos/{}/tarball/{}", repo, git_ref);
+
+    // Download tarball into a temp dir
+    let tmp_dir = match tempfile_dir() {
+        Ok(d) => d,
+        Err(e) => return ResponseEnvelope::error("pattern install", ErrorResponse::new(ErrorCode::InternalError, e), 0),
+    };
+
+    let tarball_bytes = match download_bytes(&tarball_url) {
+        Ok(b) => b,
+        Err(e) => return ResponseEnvelope::error(
+            "pattern install",
+            ErrorResponse::new(ErrorCode::InternalError, format!("Download failed: {e}")),
+            0,
+        ),
+    };
+
+    // Extract tarball
+    let gz = flate2::read::GzDecoder::new(std::io::Cursor::new(&tarball_bytes));
+    let mut archive = tar::Archive::new(gz);
+    if let Err(e) = archive.unpack(&tmp_dir) {
+        return ResponseEnvelope::error(
+            "pattern install",
+            ErrorResponse::new(ErrorCode::InternalError, format!("Extract failed: {e}")),
+            0,
+        );
+    }
+
+    // GitHub tarballs extract into a single top-level directory like `user-repo-<sha>/`
+    let extracted_root = match std::fs::read_dir(&tmp_dir)
+        .ok()
+        .and_then(|mut e| e.next())
+        .and_then(|e| e.ok())
+        .map(|e| e.path())
+    {
+        Some(p) => p,
+        None => return ResponseEnvelope::error(
+            "pattern install",
+            ErrorResponse::new(ErrorCode::InternalError, "Tarball appears empty"),
+            0,
+        ),
+    };
+
+    let pack_src = match subpath {
+        Some(s) => extracted_root.join(s),
+        None => extracted_root,
+    };
+
+    pattern_install_local(pack_src, id_override, root)
+}
+
+/// Validate a pack: check template files exist and render without errors.
+pub fn pattern_lint(id: String, _verbose: bool) -> ResponseEnvelope {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+
+    let Some(pack) = forge::PackManifest::load(&cwd, &id) else {
+        return ResponseEnvelope::error(
+            "pattern lint",
+            ErrorResponse::new(ErrorCode::ProjectNotFound, format!("Pack '{}' not found in .tsx/patterns/", id)),
+            0,
+        );
+    };
+
+    let pack_dir = forge::PackManifest::dir(&cwd, &id);
+    let mut errors: Vec<String> = Vec::new();
+
+    // 1. Check all template files exist on disk
+    for output in &pack.outputs {
+        if !pack_dir.join(&output.template).exists() {
+            errors.push(format!("Template '{}' missing for output '{}'", output.template, output.id));
+        }
+    }
+
+    // 2. Load engine and attempt render with dummy context
+    let mut engine = forge::Engine::new();
+    match engine.load_dir(&pack_dir) {
+        Err(e) => errors.push(format!("Engine load error: {e}")),
+        Ok(_) => {
+            let mut ctx = forge::ForgeContext::new();
+            for arg in &pack.args {
+                ctx.insert_mut(&arg.name, &serde_json::Value::String(format!("dummy_{}", arg.name)));
+            }
+            for output in &pack.outputs {
+                if let Err(e) = engine.render(&output.template, &ctx) {
+                    errors.push(format!("Render error in '{}': {e}", output.template));
+                }
+            }
+        }
+    }
+
+    // 3. Check marker files reference valid output paths (warn only)
+    let mut warnings: Vec<String> = Vec::new();
+    for marker in &pack.markers {
+        let marker_path = cwd.join(&marker.file);
+        if !marker_path.exists() {
+            warnings.push(format!("Marker file '{}' not present in project (may be created later)", marker.file));
+        }
+    }
+
+    if errors.is_empty() {
+        ResponseEnvelope::success(
+            "pattern lint",
+            serde_json::json!({
+                "id": id,
+                "status": "ok",
+                "warnings": warnings,
+            }),
+            0,
+        )
+    } else {
+        ResponseEnvelope::error(
+            "pattern lint",
+            ErrorResponse::new(ErrorCode::ValidationError, errors.join("\n")),
+            0,
+        )
     }
 }
 
@@ -541,6 +926,46 @@ fn chrono_now() -> String {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| format!("{}", d.as_secs()))
         .unwrap_or_else(|_| "0".to_string())
+}
+
+/// Recursively copy `src` directory into `dst`.
+fn copy_dir_all(src: &Path, dst: &Path) -> anyhow::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in walkdir::WalkDir::new(src).min_depth(1) {
+        let entry = entry?;
+        let rel = entry.path().strip_prefix(src)?;
+        let target = dst.join(rel);
+        if entry.file_type().is_dir() {
+            std::fs::create_dir_all(&target)?;
+        } else {
+            if let Some(parent) = target.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            std::fs::copy(entry.path(), &target)?;
+        }
+    }
+    Ok(())
+}
+
+/// Create a unique temporary directory under the system temp path.
+fn tempfile_dir() -> Result<PathBuf, String> {
+    let base = std::env::temp_dir().join(format!("tsx-install-{}", chrono_now()));
+    std::fs::create_dir_all(&base).map_err(|e| e.to_string())?;
+    Ok(base)
+}
+
+/// Download URL to bytes using reqwest blocking.
+fn download_bytes(url: &str) -> Result<Vec<u8>, String> {
+    reqwest::blocking::Client::builder()
+        .user_agent("tsx-cli/0.1")
+        .build()
+        .map_err(|e| e.to_string())?
+        .get(url)
+        .send()
+        .map_err(|e| e.to_string())?
+        .bytes()
+        .map(|b| b.to_vec())
+        .map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

@@ -725,6 +725,48 @@ enum SnapshotCmd {
 
 #[derive(Subcommand)]
 enum PatternCmd {
+    /// Scaffold a new pack with starter pack.json and main.forge
+    New {
+        /// Pack id (becomes the folder name under .tsx/patterns/)
+        #[arg(value_name = "ID")]
+        id: String,
+        /// Display name
+        #[arg(long)]
+        name: Option<String>,
+        /// Human-readable description
+        #[arg(long)]
+        description: Option<String>,
+        /// Target framework (e.g. tanstack-start)
+        #[arg(long)]
+        framework: Option<String>,
+    },
+    /// Run a pack command — render templates and inject markers
+    Run {
+        /// Pack id
+        #[arg(value_name = "ID")]
+        id: String,
+        /// Named command from pack.json (uses default command if omitted)
+        #[arg(long)]
+        command: Option<String>,
+        /// Template args as key=value pairs (e.g. --arg name=Todo --arg entity=todo)
+        #[arg(long = "arg", value_name = "KEY=VALUE")]
+        args: Vec<String>,
+    },
+    /// Install a pack from a local path or github:user/repo[#subpath][@ref]
+    Install {
+        /// Source: ./path/to/pack or github:user/repo#subpath@ref
+        #[arg(value_name = "SOURCE")]
+        source: String,
+        /// Override the pack id instead of using the id from pack.json
+        #[arg(long)]
+        id: Option<String>,
+    },
+    /// Validate a pack's templates and manifest
+    Lint {
+        /// Pack id
+        #[arg(value_name = "ID")]
+        id: String,
+    },
     /// Register a new generator pattern from a template file
     Add {
         /// Pattern id / name (e.g. "add-service")
@@ -749,17 +791,17 @@ enum PatternCmd {
         #[arg(long)]
         stop: bool,
     },
-    /// List all local patterns in .tsx/patterns/
+    /// List all local packs in .tsx/patterns/
     List,
-    /// Show details of a specific pattern
+    /// Show details of a specific pack
     Show {
-        /// Pattern id
+        /// Pack id
         #[arg(value_name = "ID")]
         id: String,
     },
-    /// Remove a pattern
+    /// Remove a pack
     Remove {
-        /// Pattern id
+        /// Pack id
         #[arg(value_name = "ID")]
         id: String,
     },
@@ -1428,6 +1470,22 @@ fn main() {
             }
         },
         Command::Pattern { action } => match action {
+            PatternCmd::New { id, name, description, framework } => {
+                use tsx::commands::pattern;
+                pattern::pattern_new(id, name, description, framework, cli.verbose).print();
+            }
+            PatternCmd::Run { id, command, args } => {
+                use tsx::commands::pattern;
+                pattern::pattern_run(id, command, args, cli.dry_run, cli.overwrite, cli.verbose).print();
+            }
+            PatternCmd::Install { source, id } => {
+                use tsx::commands::pattern;
+                pattern::pattern_install(source, id, cli.verbose).print();
+            }
+            PatternCmd::Lint { id } => {
+                use tsx::commands::pattern;
+                pattern::pattern_lint(id, cli.verbose).print();
+            }
             PatternCmd::Add { name, description, template, args } => {
                 use tsx::commands::pattern;
                 pattern::pattern_add(name, description, template, args, cli.verbose).print();
