@@ -4,6 +4,14 @@
   "description": "Generate a typed TanStack Start server function",
   "token_estimate": 25,
   "output_paths": ["server-functions/{{name}}.ts"],
+  "init_once": ["src/server-fns/index.ts"],
+  "markers": [
+    {
+      "marker": "// [tsx:server-fns]",
+      "file": "src/server-fns/index.ts",
+      "insert": "export * from './{{name}}';"
+    }
+  ],
   "next_steps": [
     "Run `tsx run add-query --json '{\"name\":\"{{name}}\"}' ` to create a query hook that calls this function"
   ],

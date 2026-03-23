@@ -4,6 +4,14 @@
   "description": "Generate a Drizzle ORM schema table definition",
   "token_estimate": 30,
   "output_paths": ["db/schema/{{name}}.ts"],
+  "init_once": ["db/schema/index.ts"],
+  "markers": [
+    {
+      "marker": "// [tsx:schemas]",
+      "file": "db/schema/index.ts",
+      "insert": "export * from './{{name}}';"
+    }
+  ],
   "next_steps": [
     "Run `tsx add migration` to apply the schema to your database",
     "Run `tsx run add-server-fn --json '{\"name\":\"{{name}}\"}' ` to create server functions for this table"

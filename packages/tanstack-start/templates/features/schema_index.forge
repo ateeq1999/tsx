@@ -1,0 +1,4 @@
+// db/schema/index.ts — re-export all Drizzle table schemas
+// This file is managed by the tsx CLI. Add new schemas below the marker.
+
+// [tsx:schemas]

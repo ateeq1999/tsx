@@ -1,0 +1,8 @@
+import { createMiddleware } from '@tanstack/start';
+
+// [tsx:middleware]
+
+export const loggingMiddleware = createMiddleware().server(async ({ next, request }) => {
+  console.log(`[${request.method}] ${request.url}`);
+  return next();
+});

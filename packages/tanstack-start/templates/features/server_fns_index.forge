@@ -1,0 +1,4 @@
+// src/server-fns/index.ts — re-export all TanStack Start server functions
+// This file is managed by the tsx CLI. Add new modules below the marker.
+
+// [tsx:server-fns]
