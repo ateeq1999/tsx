@@ -1,5 +1,5 @@
-pub mod auth;
 pub mod audit;
+pub mod auth;
 pub mod downloads;
 pub mod packages;
 pub mod patterns;
@@ -8,25 +8,23 @@ pub mod stars;
 pub mod stats;
 pub mod webhooks;
 
-pub use auth::{AuthUser, validate_session_token, validate_api_key};
-pub use audit::{insert_audit, get_audit_log};
-pub use downloads::{increment_downloads, get_download_stats};
+pub use audit::{get_audit_log, insert_audit};
+pub use auth::{validate_api_key, validate_session_token, AuthUser};
+pub use downloads::{get_download_stats, increment_downloads};
 pub use packages::{
-    UpsertPkg, UpsertVersion,
-    upsert_package, upsert_version,
-    get_package,
-    get_versions, get_tarball_path,
-    get_recent, get_latest_version, search, suggest_packages,
-    get_packages_by_author,
-    update_readme, update_description, yank_version, delete_package, set_deprecated,
+    delete_package, get_latest_version, get_package, get_packages_by_author, get_recent,
+    get_tarball_path, get_versions, search, set_deprecated, suggest_packages, update_description,
+    update_readme, upsert_package, upsert_version, yank_version, UpsertPkg, UpsertVersion,
 };
 pub use rate_limit::check_rate_limit;
-pub use stars::{star_package, unstar_package, get_star_count, is_starred, get_starred_packages, get_starred_package_rows};
+pub use stars::{
+    get_star_count, get_starred_package_rows, get_starred_packages, is_starred, star_package,
+    unstar_package,
+};
 pub use stats::get_stats;
 pub use webhooks::{
+    create_webhook, delete_webhook, get_active_webhooks_for_event, get_webhook, list_webhooks,
     Webhook,
-    create_webhook, list_webhooks, get_webhook, delete_webhook,
-    get_active_webhooks_for_event,
 };
 
 use anyhow::{Context, Result};

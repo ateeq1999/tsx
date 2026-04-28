@@ -346,7 +346,7 @@ pub async fn update_package(
 
 // ── PUT /v1/packages/:name/deprecate ──────────────────────────────────────────
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, utoipa::ToSchema)]
 pub struct DeprecateBody {
     /// Deprecation message, or null / empty string to un-deprecate.
     pub message: Option<String>,
