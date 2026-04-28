@@ -44,7 +44,7 @@ Run the server locally:
 
 ```bash
 cargo run -p tsx-registry
-# Server starts on http://localhost:8080
+# Server starts on http://localhost:8282
 ```
 
 ### Running Tests

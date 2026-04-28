@@ -40,10 +40,10 @@ WORKDIR /app
 
 COPY --from=builder /app/target/release/tsx-registry /usr/local/bin/tsx-registry
 
-# Railway injects PORT at runtime; default to 8080 for local testing.
-ENV PORT=8080
+# Railway injects PORT at runtime; default to 8282 for local testing.
+ENV PORT=8282
 ENV DATA_DIR=/app/data
 
-EXPOSE 8080
+EXPOSE 8282
 
 CMD ["tsx-registry"]

@@ -20,10 +20,10 @@ services:
       context: ../..
       dockerfile: crates/registry-server/Dockerfile
     ports:
-      - "8080:8080"
+      - "8282:8282"
     environment:
       DATABASE_URL: postgresql://tsx:tsx@postgres:5432/tsx_registry
-      PORT: 8080
+      PORT: 8282
       DATA_DIR: /data
     volumes:
       - registry_data:/data

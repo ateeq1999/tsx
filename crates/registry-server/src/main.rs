@@ -43,7 +43,7 @@
 //! | `DATABASE_URL`         | yes      | Neon PostgreSQL connection string                |
 //! | `TSX_REGISTRY_API_KEY` | no       | Bearer token for admin + publish (open if unset) |
 //! | `DATA_DIR`             | no       | Tarball storage path (default `./data`)          |
-//! | `PORT`                 | no       | Listen port (default 8080, Railway sets this)    |
+//! | `PORT`                 | no       | Listen port (default 8282, Railway sets this)    |
 
 mod db;
 mod routes;
@@ -136,12 +136,8 @@ use axum::{
     routing::{delete, get, post, put},
     Router,
 };
-use utoipa::OpenApi as _;
 use sqlx::postgres::PgPoolOptions;
-use std::{
-    path::PathBuf,
-    sync::Arc,
-};
+use std::{path::PathBuf, sync::Arc};
 use tokio::net::TcpListener;
 use tower_http::{
     compression::CompressionLayer,
@@ -149,6 +145,7 @@ use tower_http::{
     trace::TraceLayer,
 };
 use tracing::info;
+use utoipa::OpenApi as _;
 
 /// Shared application state passed to all route handlers.
 pub struct AppState {
@@ -171,24 +168,24 @@ async fn main() {
         .init();
 
     // ── Config from environment ────────────────────────────────────────────
-    let database_url = std::env::var("DATABASE_URL")
-        .expect("DATABASE_URL must be set");
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
-    let data_dir = PathBuf::from(
-        std::env::var("DATA_DIR").unwrap_or_else(|_| "./data".to_string()),
-    );
+    let data_dir =
+        PathBuf::from(std::env::var("DATA_DIR").unwrap_or_else(|_| "./data".to_string()));
 
     let api_key = std::env::var("TSX_REGISTRY_API_KEY").ok();
 
     let port: u16 = std::env::var("PORT")
         .ok()
         .and_then(|p| p.parse().ok())
-        .unwrap_or(8080);
+        .unwrap_or(8282);
 
     // ── Storage directories ────────────────────────────────────────────────
-    tokio::fs::create_dir_all(&data_dir).await
+    tokio::fs::create_dir_all(&data_dir)
+        .await
         .expect("Failed to create DATA_DIR");
-    tokio::fs::create_dir_all(data_dir.join("tarballs")).await
+    tokio::fs::create_dir_all(data_dir.join("tarballs"))
+        .await
         .expect("Failed to create DATA_DIR/tarballs");
 
     // ── Database pool ──────────────────────────────────────────────────────
@@ -201,7 +198,8 @@ async fn main() {
     info!("Connected to PostgreSQL (Neon)");
 
     // Run forward-only SQL migrations at startup
-    db::run_migrations(&pool).await
+    db::run_migrations(&pool)
+        .await
         .expect("Failed to apply database migrations");
 
     info!("Database migrations applied");
@@ -266,54 +264,93 @@ async fn main() {
         // Search
         .route("/v1/search", get(routes::search::search))
         // Packages
-        .route("/v1/packages",              get(routes::packages::list_packages))
-        .route("/v1/packages/publish",      post(routes::packages::publish))
-        .route("/v1/packages/{name}",        get(routes::packages::get_package))
-        .route("/v1/packages/{name}/{version}", get(routes::packages::get_package_at_version))
-        .route("/v1/packages/{name}",        put(routes::packages::update_package))
-        .route("/v1/packages/{name}",        delete(routes::packages::delete_package))
-        .route("/v1/packages/{name}/versions",
-            get(routes::packages::get_package_versions))
-        .route("/v1/packages/{name}/readme",
-            get(routes::packages::get_readme).put(routes::packages::update_readme))
-        .route("/v1/packages/{name}/stats/downloads",
-            get(routes::packages::get_download_stats))
-        .route("/v1/packages/{name}/{version}/tarball",
-            get(routes::packages::download_tarball))
-        .route("/v1/packages/{name}/deprecate",
-            put(routes::packages::deprecate_package))
-        .route("/v1/packages/{name}/versions/{version}",
-            delete(routes::packages::yank_version))
+        .route("/v1/packages", get(routes::packages::list_packages))
+        .route("/v1/packages/publish", post(routes::packages::publish))
+        .route("/v1/packages/{name}", get(routes::packages::get_package))
+        .route(
+            "/v1/packages/{name}/{version}",
+            get(routes::packages::get_package_at_version),
+        )
+        .route("/v1/packages/{name}", put(routes::packages::update_package))
+        .route(
+            "/v1/packages/{name}",
+            delete(routes::packages::delete_package),
+        )
+        .route(
+            "/v1/packages/{name}/versions",
+            get(routes::packages::get_package_versions),
+        )
+        .route(
+            "/v1/packages/{name}/readme",
+            get(routes::packages::get_readme).put(routes::packages::update_readme),
+        )
+        .route(
+            "/v1/packages/{name}/stats/downloads",
+            get(routes::packages::get_download_stats),
+        )
+        .route(
+            "/v1/packages/{name}/{version}/tarball",
+            get(routes::packages::download_tarball),
+        )
+        .route(
+            "/v1/packages/{name}/deprecate",
+            put(routes::packages::deprecate_package),
+        )
+        .route(
+            "/v1/packages/{name}/versions/{version}",
+            delete(routes::packages::yank_version),
+        )
         // Package starring
-        .route("/v1/packages/{name}/star",
+        .route(
+            "/v1/packages/{name}/star",
             get(routes::stars::get_star_status)
-            .post(routes::stars::star_package)
-            .delete(routes::stars::unstar_package))
+                .post(routes::stars::star_package)
+                .delete(routes::stars::unstar_package),
+        )
         // Webhooks
-        .route("/v1/webhooks",      post(routes::webhooks::create_webhook))
-        .route("/v1/webhooks",       get(routes::webhooks::list_webhooks))
-        .route("/v1/webhooks/{id}", delete(routes::webhooks::delete_webhook))
+        .route("/v1/webhooks", post(routes::webhooks::create_webhook))
+        .route("/v1/webhooks", get(routes::webhooks::list_webhooks))
+        .route(
+            "/v1/webhooks/{id}",
+            delete(routes::webhooks::delete_webhook),
+        )
         .route("/v1/account/starred", get(routes::stars::list_starred))
         .route("/v1/search/suggest", get(routes::search::suggest))
         .route("/v1/feed.xml", get(routes::feed::rss_feed))
-        .route("/v1/packages/{name}/badge.svg", get(routes::feed::download_badge))
+        .route(
+            "/v1/packages/{name}/badge.svg",
+            get(routes::feed::download_badge),
+        )
         // Auth helpers (used by CLI login)
         .route("/v1/auth/whoami", get(routes::auth_route::whoami))
         // Pattern packs
-        .route("/v1/patterns",                              get(routes::patterns::list_patterns))
-        .route("/v1/patterns/search",                       get(routes::patterns::search_patterns))
-        .route("/v1/patterns/publish",                      post(routes::patterns::publish_pattern))
-        .route("/v1/patterns/{slug}",                       get(routes::patterns::get_pattern))
-        .route("/v1/patterns/{slug}/{version}/tarball",     get(routes::patterns::download_tarball))
+        .route("/v1/patterns", get(routes::patterns::list_patterns))
+        .route(
+            "/v1/patterns/search",
+            get(routes::patterns::search_patterns),
+        )
+        .route(
+            "/v1/patterns/publish",
+            post(routes::patterns::publish_pattern),
+        )
+        .route("/v1/patterns/{slug}", get(routes::patterns::get_pattern))
+        .route(
+            "/v1/patterns/{slug}/{version}/tarball",
+            get(routes::patterns::download_tarball),
+        )
         // User profiles
-        .route("/v1/users/{name}/packages", get(routes::users::get_user_packages))
+        .route(
+            "/v1/users/{name}/packages",
+            get(routes::users::get_user_packages),
+        )
         // Admin
-        .route("/v1/admin/audit-log",   get(routes::admin::get_audit_log))
+        .route("/v1/admin/audit-log", get(routes::admin::get_audit_log))
         .route("/v1/admin/rate-limits", get(routes::admin::get_rate_limits))
         // OpenAPI spec
-        .route("/api-docs/openapi.json", get(|| async {
-            axum::response::Json(ApiDoc::openapi())
-        }))
+        .route(
+            "/api-docs/openapi.json",
+            get(|| async { axum::response::Json(ApiDoc::openapi()) }),
+        )
         .with_state(state)
         .layer(cors)
         .layer(CompressionLayer::new())
@@ -322,10 +359,10 @@ async fn main() {
     // ── Listener ───────────────────────────────────────────────────────────
     // Bind to IPv6 all-interfaces ([::]) which also accepts IPv4 on Railway.
     let addr = std::net::SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], port));
-    let listener = TcpListener::bind(addr).await
+    let listener = TcpListener::bind(addr)
+        .await
         .expect("Failed to bind TCP listener");
 
     info!(%addr, "Registry server listening");
-    axum::serve(listener, app).await
-        .expect("Server error");
+    axum::serve(listener, app).await.expect("Server error");
 }

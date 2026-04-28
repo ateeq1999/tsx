@@ -26,11 +26,11 @@ WORKDIR /app
 
 COPY --from=builder /app/target/release/tsx-registry /usr/local/bin/tsx-registry
 
-ENV PORT=8080
+ENV PORT=8282
 ENV DATA_DIR=/data
 
 VOLUME ["/data"]
 
-EXPOSE 8080
+EXPOSE 8282
 
 CMD ["tsx-registry"]
