@@ -304,12 +304,43 @@ Copy-Item target\release\tsx.exe C:\Windows\System32\
 Copy-Item target\release\tsx-registry.exe C:\Windows\System32\
 ```
 
-**Method 2: Add Cargo bin to System PATH**
-```powershell
-$cargoBin = "$env:USERPROFILE\.cargo\bin"
-[Environment]::SetEnvironmentVariable("Path", "$env:Path;$cargoBin", "Machine")
+**Method 2: Add Cargo bin to System PATH (setx)**
 
-# Restart PowerShell after running this
+Using `setx` command (from Microsoft docs: https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/setx):
+
+```powershell
+# View current system PATH
+setx /M PATH
+
+# Add Cargo bin to system PATH (run as Admin)
+setx /M PATH "%PATH%;%USERPROFILE%\.cargo\bin"
+
+# Or using PowerShell:
+$currentPath = [Environment]::GetEnvironmentVariable("Path", "Machine")
+$newPath = $currentPath + ";$env:USERPROFILE\.cargo\bin"
+setx /M PATH "$newPath"
+```
+
+> **Note:** After using `setx`, restart PowerShell/Terminal for changes to take effect.
+
+**Method 3: Add Project Binaries to User PATH (setx)**
+
+```powershell
+# Add project binaries to user PATH
+setx PATH "%PATH%;D:\DEV\open-source\tsx\target\release"
+
+# Or using PowerShell:
+$currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
+$newPath = $currentPath + ";D:\DEV\open-source\tsx\target\release"
+[Environment]::SetEnvironmentVariable("Path", "$newPath", "User")
+```
+
+**Method 4: Copy Binaries to System Directory**
+
+```powershell
+# Copy binaries to a directory already in PATH (run as Admin)
+Copy-Item target\release\tsx.exe C:\Windows\System32\
+Copy-Item target\release\tsx-registry.exe C:\Windows\System32\
 ```
 
 **Method 3: Add Project Binaries to User PATH**
