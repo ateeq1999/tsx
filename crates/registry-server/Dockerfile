@@ -1,11 +1,17 @@
 # ── Stage 1: Build ────────────────────────────────────────────────────────────
-FROM rust:1.82-slim AS builder
+FROM rust:1.88-slim AS builder
 
 WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Cache dependency compilation separately from source changes.
 COPY Cargo.toml Cargo.lock ./
 COPY crates/ crates/
+COPY migrations/ migrations/
 
 RUN cargo build --release -p tsx-registry
 
