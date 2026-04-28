@@ -361,40 +361,33 @@ enum Command {
     },
     /// Start the Language Server (LSP) for .tsx/ config and .forge template files
     Lsp,
-    /// Run any installed framework generator by id or command name
-    Run {
-        /// Generator id (e.g. `add-schema`) or command name (e.g. `add:schema`).
-        /// Omit to list all available generators.
-        #[arg(value_name = "ID")]
-        id: Option<String>,
-        /// Framework slug — auto-detected from package.json when omitted
+    /// Add directory to PATH (Windows: setx, Unix: export)
+    Path {
+        /// Directory to add (default: current directory)
+        #[arg(value_name = "DIR")]
+        directory: Option<String>,
+        /// Persist to profile (default: true on Windows, depends on shell on Unix)
         #[arg(long)]
-        fw: Option<String>,
-        /// Generator input as a JSON object
-        #[arg(long)]
-        json: Option<String>,
-        /// List all available generators (optionally filtered by --fw)
+        permanent: bool,
+        /// List current PATH entries
         #[arg(long)]
         list: bool,
     },
-    /// Author tools for creating and publishing registry packages
-    Package {
+    /// Android Debug Bridge commands
+    Adb {
         #[command(subcommand)]
-        action: PackageCmd,
+        action: AdbCmd,
     },
-    /// Manage forge template bundles (list, install, init, info)
-    Template {
+    /// Flutter development commands
+    Flutter {
         #[command(subcommand)]
-        action: TemplateCmd,
+        action: FlutterCmd,
     },
-    /// Start the MCP (Model Context Protocol) server over stdio
-    ///
-    /// Exposes tsx generators and template discovery as MCP tools so agents
-    /// like Claude and Cursor can invoke them directly.
-    ///
-    /// Add to your MCP config:
-    ///   { "mcpServers": { "tsx": { "command": "tsx", "args": ["mcp"] } } }
-    Mcp,
+    /// Find and kill processes using a specific port
+    Port {
+        #[command(subcommand)]
+        action: PortCmd,
+    },
 }
 
 #[derive(Subcommand)]
@@ -1113,6 +1106,70 @@ enum TemplateConfigCmd {
         /// Overwrite existing files
         #[arg(long)]
         overwrite: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum AdbCmd {
+    /// Kill the ADB server
+    Kill,
+    /// Start the ADB server
+    Start,
+    /// Get ADB status and list devices
+    Status,
+    /// Reverse a port from device to host
+    Reverse {
+        /// Port to reverse
+        #[arg(long, default_value = "3333")]
+        port: u16,
+    },
+    /// Execute arbitrary adb command
+    Exec {
+        /// Arguments to pass to adb
+        args: Vec<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum FlutterCmd {
+    /// Run Flutter app
+    Run {
+        /// Device ID to run on
+        #[arg(long)]
+        device: Option<String>,
+        /// Build mode: debug, profile, release
+        #[arg(long, default_value = "profile")]
+        mode: String,
+        /// Port to run on
+        #[arg(long)]
+        port: Option<u16>,
+    },
+    /// Build Flutter app
+    Build {
+        /// Build target: apk, appbundle, ios, etc.
+        #[arg(long)]
+        target: Option<String>,
+        /// Build in release mode
+        #[arg(long)]
+        release: bool,
+    },
+    /// Clean build artifacts
+    Clean,
+    /// Get packages (flutter pub get)
+    PubGet,
+}
+
+#[derive(Subcommand)]
+enum PortCmd {
+    /// Find processes using a specific port
+    Find {
+        /// Port number
+        port: u16,
+    },
+    /// Kill all processes using a specific port
+    Kill {
+        /// Port number
+        port: u16,
     },
 }
 
@@ -1885,6 +1942,44 @@ fn main() {
                 TemplateCmd::Publish { name, version, path } => {
                     template::template_publish(name, version, path, cli.verbose).print();
                 }
+            }
+        }
+        Command::Path { directory, permanent, list } => {
+            use tsx::commands::ops::path;
+            if list {
+                path::path_list().print();
+            } else {
+                path::path_add(directory, permanent).print();
+            }
+        }
+        Command::Adb { action } => {
+            use tsx::commands::ops::adb;
+            match action {
+                AdbCmd::Kill => adb::adb_kill().print(),
+                AdbCmd::Start => adb::adb_start().print(),
+                AdbCmd::Status => adb::adb_status().print(),
+                AdbCmd::Reverse { port } => adb::adb_reverse(port).print(),
+                AdbCmd::Exec { args } => adb::adb_exec(args).print(),
+            }
+        }
+        Command::Flutter { action } => {
+            use tsx::commands::ops::flutter;
+            match action {
+                FlutterCmd::Run { device, mode, port } => {
+                    flutter::flutter_run(mode, device, port).print();
+                }
+                FlutterCmd::Build { target, release } => {
+                    flutter::flutter_build(target, release).print();
+                }
+                FlutterCmd::Clean => flutter::flutter_clean().print(),
+                FlutterCmd::PubGet => flutter::flutter_pub_get().print(),
+            }
+        }
+        Command::Port { action } => {
+            use tsx::commands::ops::port;
+            match action {
+                PortCmd::Find { port } => port::find_process_by_port(port).print(),
+                PortCmd::Kill { port } => port::kill_all_port(port).print(),
             }
         }
     }

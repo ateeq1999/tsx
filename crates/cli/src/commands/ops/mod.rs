@@ -1,4 +1,5 @@
 pub mod analyze;
+pub mod adb;
 pub mod atoms;
 pub mod audit;
 pub mod batch;
@@ -6,9 +7,12 @@ pub mod build;
 pub mod codegen;
 pub mod config;
 pub mod env;
+pub mod flutter;
 pub mod lint_template;
 pub mod migrate;
+pub mod path;
 pub mod pattern;
+pub mod port;
 pub mod replay;
 pub mod repl;
 pub mod snapshot;
