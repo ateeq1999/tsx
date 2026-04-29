@@ -48,20 +48,34 @@ With tsx:
 
 ## Installation
 
+### Quick Install
+
+**Via Cargo (Rust required):**
 ```bash
 cargo install tsx
 ```
 
-Or build from source:
+**Via Pre-built Binary (Linux/macOS):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/ateeq1999/tsx/main/scripts/install.sh | sh
+```
 
+**Via Winget (Windows):**
+```powershell
+winget install tsx
+```
+
+**Build from Source:**
 ```bash
 git clone https://github.com/ateeq1999/tsx.git
 cd tsx
 cargo build --release
-# binary: target/release/tsx.exe  (Windows) or target/release/tsx
+# binary: target/release/tsx.exe (Windows) or target/release/tsx
 ```
 
-**Requirements:** Rust 1.70+. No Node.js, no npm, no runtime dependencies — single statically-linked binary (~11 MB).
+**Requirements:** Rust 1.88+ (for building), PostgreSQL 14+ (for registry server). No Node.js or npm required — single statically-linked binary (~11 MB).
+
+> **Full installation guide** with Docker setup, registry server, platform-specific instructions, and troubleshooting: see [INSTALL.md](INSTALL.md)
 
 ---
 
@@ -429,6 +443,94 @@ Start a Server-Sent Events server for external tool integration.
 ```bash
 tsx subscribe --port 7331
 ```
+
+---
+
+### Utility Commands
+
+#### `tsx path` — Manage system PATH
+
+Add current directory or specified directory to system PATH:
+
+```bash
+# Add current directory to PATH (session-only)
+tsx path .
+
+# Add specific directory
+tsx path /path/to/add
+
+# Add permanently (Windows: setx, Unix: shell profile)
+tsx path . --permanent
+
+# List current PATH entries
+tsx path --list
+```
+
+**Windows:** Uses `setx /M PATH` (requires admin) for permanent addition.
+**Unix:** Appends export to `.bashrc` or `.zshrc`.
+
+#### `tsx adb` — Android Debug Bridge
+
+Manage ADB server and devices:
+
+```bash
+# Kill ADB server
+tsx adb kill
+
+# Start ADB server
+tsx adb start
+
+# Check ADB status and list devices
+tsx adb status
+
+# Reverse port from device to host
+tsx adb reverse --port 3333
+
+# Execute arbitrary adb command
+tsx adb exec devices -l
+```
+
+#### `tsx flutter` — Flutter Development
+
+Run Flutter commands through tsx:
+
+```bash
+# Run Flutter app in profile mode (default)
+tsx flutter run
+
+# Run in debug mode on specific device
+tsx flutter run --mode debug --device emulator-5554
+
+# Run on custom port
+tsx flutter run --port 8080
+
+# Build APK
+tsx flutter build --target apk
+
+# Build in release mode
+tsx flutter build --release
+
+# Clean build artifacts
+tsx flutter clean
+
+# Get packages
+tsx flutter pub-get
+```
+
+#### `tsx port` — Port/Process Management
+
+Find and kill processes using specific ports:
+
+```bash
+# Find processes using port 8080
+tsx port find --port 8080
+
+# Kill all processes using port 3000
+tsx port kill --port 3000
+```
+
+**Windows:** Uses `netstat -ano` and `taskkill /F /PID`.
+**Unix:** Uses `lsof -ti` and `kill -9`.
 
 ---
 

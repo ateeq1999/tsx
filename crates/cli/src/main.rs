@@ -388,6 +388,34 @@ enum Command {
         #[command(subcommand)]
         action: PortCmd,
     },
+    /// Run any installed framework generator by id or command name
+    Run {
+        /// Generator id (e.g. `add-schema`) or command name (e.g. `add:schema`).
+        /// Omit to list all available generators.
+        #[arg(value_name = "ID")]
+        id: Option<String>,
+        /// Framework slug — auto-detected from package.json if omitted
+        #[arg(long)]
+        fw: Option<String>,
+        /// Generator input as a JSON object
+        #[arg(long)]
+        json: Option<String>,
+        /// List all available generators (optionally filtered by --fw)
+        #[arg(long)]
+        list: bool,
+    },
+    /// Start the MCP (Model Context Protocol) server over stdio
+    Mcp,
+    /// Manage installed template plugins
+    Template {
+        #[command(subcommand)]
+        action: TemplateCmd,
+    },
+    /// Install and inspect packages from the tsx registry
+    Package {
+        #[command(subcommand)]
+        action: PackageCmd,
+    },
 }
 
 #[derive(Subcommand)]
@@ -1164,11 +1192,13 @@ enum PortCmd {
     /// Find processes using a specific port
     Find {
         /// Port number
+        #[arg(long)]
         port: u16,
     },
     /// Kill all processes using a specific port
     Kill {
         /// Port number
+        #[arg(long)]
         port: u16,
     },
 }

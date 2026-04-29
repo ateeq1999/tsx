@@ -2,22 +2,25 @@ use crate::json::response::ResponseEnvelope;
 use crate::json::error::{ErrorResponse, ErrorCode};
 use std::process::{Command, Stdio};
 
-pub fn flutter_run(mode: String, device: Option<String>, port: Option<u16>) -> ResponseEnvelop {
+pub fn flutter_run(mode: String, device: Option<String>, port: Option<u16>) -> ResponseEnvelope {
     let start = std::time::Instant::now();
 
     let mut cmd = Command::new("flutter");
 
-    if device.is_some() {
-        cmd.arg("-d").arg(device.unwrap());
+    // -d is a global Flutter option so it can precede the subcommand
+    if let Some(ref d) = device {
+        cmd.arg("-d").arg(d);
     }
+
+    // "run" must come before run-specific options like --port
+    cmd.arg("run");
+    cmd.arg(format!("--{}", mode));
 
     if let Some(p) = port {
         cmd.arg("--port").arg(p.to_string());
     }
 
     let output = cmd
-        .arg("run")
-        .arg(format!("--{}", mode))
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output();
@@ -37,9 +40,9 @@ pub fn flutter_run(mode: String, device: Option<String>, port: Option<u16>) -> R
                 "exit_code": o.status.code().unwrap_or(-1)
             });
             if o.status.success() {
-                ResponseEnvelop::success("flutter", result, start.elapsed().as_millis() as u64)
+                ResponseEnvelope::success("flutter", result, start.elapsed().as_millis() as u64)
             } else {
-                ResponseEnvelop::error(
+                ResponseEnvelope::error(
                     "flutter",
                     ErrorResponse::new(
                         ErrorCode::InternalError,
@@ -50,7 +53,7 @@ pub fn flutter_run(mode: String, device: Option<String>, port: Option<u16>) -> R
             }
         }
         Err(e) => {
-            ResponseEnvelop::error(
+            ResponseEnvelope::error(
                 "flutter",
                 ErrorResponse::new(
                     ErrorCode::InternalError,
@@ -62,14 +65,14 @@ pub fn flutter_run(mode: String, device: Option<String>, port: Option<u16>) -> R
     }
 }
 
-pub fn flutter_build(target: Option<String>, release: bool) -> ResponseEnvelop {
+pub fn flutter_build(target: Option<String>, release: bool) -> ResponseEnvelope {
     let start = std::time::Instant::now();
 
     let mut cmd = Command::new("flutter");
 
     cmd.arg("build");
 
-    if let Some(t) = target {
+    if let Some(ref t) = target {
         cmd.arg(t);
     }
 
@@ -96,9 +99,9 @@ pub fn flutter_build(target: Option<String>, release: bool) -> ResponseEnvelop {
                 "exit_code": o.status.code().unwrap_or(-1)
             });
             if o.status.success() {
-                ResponseEnvelop::success("flutter", result, start.elapsed().as_millis() as u64)
+                ResponseEnvelope::success("flutter", result, start.elapsed().as_millis() as u64)
             } else {
-                ResponseEnvelop::error(
+                ResponseEnvelope::error(
                     "flutter",
                     ErrorResponse::new(
                         ErrorCode::InternalError,
@@ -109,7 +112,7 @@ pub fn flutter_build(target: Option<String>, release: bool) -> ResponseEnvelop {
             }
         }
         Err(e) => {
-            ResponseEnvelop::error(
+            ResponseEnvelope::error(
                 "flutter",
                 ErrorResponse::new(
                     ErrorCode::InternalError,
@@ -121,36 +124,39 @@ pub fn flutter_build(target: Option<String>, release: bool) -> ResponseEnvelop {
     }
 }
 
-pub fn flutter_clean() -> ResponseEnvelop {
+pub fn flutter_clean() -> ResponseEnvelope {
     let start = std::time::Instant::now();
 
     let output = Command::new("flutter")
         .arg("clean")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .output();
 
     match output {
         Ok(o) => {
             let stdout = String::from_utf8_lossy(&o.stdout).to_string();
+            let stderr = String::from_utf8_lossy(&o.stderr).to_string();
             let result = serde_json::json!({
                 "command": "clean",
                 "status": if o.status.success() { "success" } else { "error" },
                 "output": stdout
             });
             if o.status.success() {
-                ResponseEnvelop::success("flutter", result, start.elapsed().as_millis() as u64)
+                ResponseEnvelope::success("flutter", result, start.elapsed().as_millis() as u64)
             } else {
-                ResponseEnvelop::error(
+                ResponseEnvelope::error(
                     "flutter",
                     ErrorResponse::new(
                         ErrorCode::InternalError,
-                        stdout,
+                        format!("Flutter clean failed: {}", stderr),
                     ),
                     start.elapsed().as_millis() as u64,
                 )
             }
         }
         Err(e) => {
-            ResponseEnvelop::error(
+            ResponseEnvelope::error(
                 "flutter",
                 ErrorResponse::new(
                     ErrorCode::InternalError,
@@ -162,36 +168,39 @@ pub fn flutter_clean() -> ResponseEnvelop {
     }
 }
 
-pub fn flutter_pub_get() -> ResponseEnvelop {
+pub fn flutter_pub_get() -> ResponseEnvelope {
     let start = std::time::Instant::now();
 
     let output = Command::new("flutter")
         .args(["pub", "get"])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .output();
 
     match output {
         Ok(o) => {
             let stdout = String::from_utf8_lossy(&o.stdout).to_string();
+            let stderr = String::from_utf8_lossy(&o.stderr).to_string();
             let result = serde_json::json!({
                 "command": "pub get",
                 "status": if o.status.success() { "success" } else { "error" },
                 "output": stdout
             });
             if o.status.success() {
-                ResponseEnvelop::success("flutter", result, start.elapsed().as_millis() as u64)
+                ResponseEnvelope::success("flutter", result, start.elapsed().as_millis() as u64)
             } else {
-                ResponseEnvelop::error(
+                ResponseEnvelope::error(
                     "flutter",
                     ErrorResponse::new(
                         ErrorCode::InternalError,
-                        stdout,
+                        format!("Flutter pub get failed: {}", stderr),
                     ),
                     start.elapsed().as_millis() as u64,
                 )
             }
         }
         Err(e) => {
-            ResponseEnvelop::error(
+            ResponseEnvelope::error(
                 "flutter",
                 ErrorResponse::new(
                     ErrorCode::InternalError,

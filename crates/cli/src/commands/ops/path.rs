@@ -1,10 +1,15 @@
 use crate::json::response::ResponseEnvelope;
 use crate::json::error::{ErrorResponse, ErrorCode};
 use std::env;
-use std::fs;
-use std::io;
 use std::path::PathBuf;
 use std::process::Command;
+#[cfg(not(windows))]
+use std::io::Write;
+
+#[cfg(windows)]
+const PATH_SEP: char = ';';
+#[cfg(not(windows))]
+const PATH_SEP: char = ':';
 
 #[cfg(windows)]
 fn get_system_path() -> std::io::Result<String> {
@@ -102,7 +107,7 @@ pub fn path_add(directory: Option<String>, permanent: bool) -> ResponseEnvelope 
         Err(_) => String::new(),
     };
 
-    if current_path.split(';').any(|p| PathBuf::from(p) == canonical) {
+    if current_path.split(PATH_SEP).any(|p| PathBuf::from(p) == canonical) {
         let result = serde_json::json!({
             "directory": dir_str,
             "permanent": permanent,
@@ -116,7 +121,7 @@ pub fn path_add(directory: Option<String>, permanent: bool) -> ResponseEnvelope 
     if permanent {
         #[cfg(windows)]
         {
-            let new_path = format!("{};{}", current_path, dir_str);
+            let new_path = format!("{}{}{}", current_path, PATH_SEP, dir_str);
             if let Err(e) = set_system_path(&new_path) {
                 return ResponseEnvelope::error(
                     "path",
@@ -143,7 +148,7 @@ pub fn path_add(directory: Option<String>, permanent: bool) -> ResponseEnvelope 
         }
     } else {
         // Just for current session
-        let new_path = format!("{};{}", current_path, dir_str);
+        let new_path = format!("{}{}{}", current_path, PATH_SEP, dir_str);
         env::set_var("PATH", &new_path);
     }
 
@@ -165,7 +170,7 @@ pub fn path_list() -> ResponseEnvelope {
         Err(_) => String::new(),
     };
 
-    let paths: Vec<&str> = current_path.split(';').collect();
+    let paths: Vec<&str> = current_path.split(PATH_SEP).collect();
 
     let result = serde_json::json!({
         "current_path": current_path,

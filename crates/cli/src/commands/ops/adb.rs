@@ -1,6 +1,6 @@
 use crate::json::response::ResponseEnvelope;
 use crate::json::error::{ErrorResponse, ErrorCode};
-use std::process::{Command, Stdio};
+use std::process::Command;
 
 pub fn adb_kill() -> ResponseEnvelope {
     let start = std::time::Instant::now();

@@ -1,14 +1,14 @@
 use crate::json::response::ResponseEnvelope;
 use crate::json::error::{ErrorResponse, ErrorCode};
-use std::process::{Command, Stdio};
+use std::process::Command;
 
 #[cfg(windows)]
-pub fn find_process_by_port(port: u16) -> ResponseEnvelop {
+pub fn find_process_by_port(port: u16) -> ResponseEnvelope {
     let start = std::time::Instant::now();
 
-    // Use netstat to find process using the port
-    let output = Command::new("netstat")
-        .args(["-ano", "|", "findstr", &format!(":{}", port)])
+    // Use cmd /C to pipe netstat through findstr (pipe is a shell feature)
+    let output = Command::new("cmd")
+        .args(["/C", &format!("netstat -ano | findstr :{}", port)])
         .output();
 
     match output {
@@ -44,10 +44,10 @@ pub fn find_process_by_port(port: u16) -> ResponseEnvelop {
                 "processes": processes
             });
 
-            ResponseEnvelop::success("port", result, start.elapsed().as_millis() as u64)
+            ResponseEnvelope::success("port", result, start.elapsed().as_millis() as u64)
         }
         Err(e) => {
-            ResponseEnvelop::error(
+            ResponseEnvelope::error(
                 "port",
                 ErrorResponse::new(
                     ErrorCode::InternalError,
@@ -60,12 +60,12 @@ pub fn find_process_by_port(port: u16) -> ResponseEnvelop {
 }
 
 #[cfg(windows)]
-pub fn kill_process_by_port(port: u16) -> ResponseEnvelop {
+pub fn kill_process_by_port(port: u16) -> ResponseEnvelope {
     let start = std::time::Instant::now();
 
-    // First find the PID
-    let output = Command::new("netstat")
-        .args(["-ano", "|", "findstr", &format!(":{}", port)])
+    // Use cmd /C to pipe netstat through findstr (pipe is a shell feature)
+    let output = Command::new("cmd")
+        .args(["/C", &format!("netstat -ano | findstr :{}", port)])
         .output();
 
     match output {
@@ -113,9 +113,9 @@ pub fn kill_process_by_port(port: u16) -> ResponseEnvelop {
             });
 
             if errors.is_empty() {
-                ResponseEnvelop::success("port", result, start.elapsed().as_millis() as u64)
+                ResponseEnvelope::success("port", result, start.elapsed().as_millis() as u64)
             } else {
-                ResponseEnvelop::error(
+                ResponseEnvelope::error(
                     "port",
                     ErrorResponse::new(
                         ErrorCode::InternalError,
@@ -126,7 +126,7 @@ pub fn kill_process_by_port(port: u16) -> ResponseEnvelop {
             }
         }
         Err(e) => {
-            ResponseEnvelop::error(
+            ResponseEnvelope::error(
                 "port",
                 ErrorResponse::new(
                     ErrorCode::InternalError,
@@ -139,7 +139,7 @@ pub fn kill_process_by_port(port: u16) -> ResponseEnvelop {
 }
 
 #[cfg(unix)]
-pub fn find_process_by_port(port: u16) -> ResponseEnvelop {
+pub fn find_process_by_port(port: u16) -> ResponseEnvelope {
     let start = std::time::Instant::now();
 
     let output = Command::new("lsof")
@@ -174,10 +174,10 @@ pub fn find_process_by_port(port: u16) -> ResponseEnvelop {
                 "processes": processes
             });
 
-            ResponseEnvelop::success("port", result, start.elapsed().as_millis() as u64)
+            ResponseEnvelope::success("port", result, start.elapsed().as_millis() as u64)
         }
         Err(e) => {
-            ResponseEnvelop::error(
+            ResponseEnvelope::error(
                 "port",
                 ErrorResponse::new(
                     ErrorCode::InternalError,
@@ -190,7 +190,7 @@ pub fn find_process_by_port(port: u16) -> ResponseEnvelop {
 }
 
 #[cfg(unix)]
-pub fn kill_process_by_port(port: u16) -> ResponseEnvelop {
+pub fn kill_process_by_port(port: u16) -> ResponseEnvelope {
     let start = std::time::Instant::now();
 
     let output = Command::new("lsof")
@@ -241,9 +241,9 @@ pub fn kill_process_by_port(port: u16) -> ResponseEnvelop {
             });
 
             if errors.is_empty() {
-                ResponseEnvelop::success("port", result, start.elapsed().as_millis() as u64)
+                ResponseEnvelope::success("port", result, start.elapsed().as_millis() as u64)
             } else {
-                ResponseEnvelop::error(
+                ResponseEnvelope::error(
                     "port",
                     ErrorResponse::new(
                         ErrorCode::InternalError,
@@ -254,7 +254,7 @@ pub fn kill_process_by_port(port: u16) -> ResponseEnvelop {
             }
         }
         Err(e) => {
-            ResponseEnvelop::error(
+            ResponseEnvelope::error(
                 "port",
                 ErrorResponse::new(
                     ErrorCode::InternalError,
@@ -266,6 +266,6 @@ pub fn kill_process_by_port(port: u16) -> ResponseEnvelop {
     }
 }
 
-pub fn kill_all_port(port: u16) -> ResponseEnvelop {
+pub fn kill_all_port(port: u16) -> ResponseEnvelope {
     kill_process_by_port(port)
 }
