@@ -5,6 +5,16 @@ pub mod ops;
 pub mod package;
 pub mod query;
 
+// --- Single-action commands, one folder each ---
+pub mod docs;
+pub mod fmt;
+pub mod tui;
+pub mod watch;
+
+// --- Multi-action command groups, folderized (types.rs/utils.rs/one file per action) ---
+pub mod pattern;
+pub mod registry;
+
 // --- Re-exports at flat paths (used by main.rs and batch.rs) ---
 pub use generate::add_feature;
 pub use generate::add_form;
@@ -38,7 +48,6 @@ pub use ops::context;
 pub use ops::env;
 pub use ops::lint_template;
 pub use ops::migrate;
-pub use ops::pattern;
 pub use ops::replay;
 pub use ops::repl;
 pub use ops::snapshot;
@@ -49,7 +58,6 @@ pub use ops::list;
 pub use ops::pkg;
 pub use ops::plan;
 pub use ops::publish;
-pub use ops::registry;
 pub use ops::run;
 pub use ops::mcp;
 pub use ops::stack;

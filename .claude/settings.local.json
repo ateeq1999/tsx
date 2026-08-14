@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(cargo check *)"
+      "Bash(cargo check *)",
+      "Bash(xargs wc -l)",
+      "Bash(./target/debug/tsx.exe --help)",
+      "Bash(./target/debug/tsx.exe atoms *)",
+      "Bash(git stash *)",
+      "Bash(cargo test *)",
+      "Bash(echo \"EXIT:$?\")"
     ]
   }
 }
