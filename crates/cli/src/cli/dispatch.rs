@@ -105,33 +105,33 @@ pub fn dispatch(cli: Cli, json_input: Option<String>) {
         }
         Command::Framework { action } => match action {
             FrameworkCmd::Init { name } => {
-                use tsx::commands::framework_cmd;
-                let result = framework_cmd::framework_init(name, cli.verbose);
+                use tsx::commands::framework;
+                let result = framework::framework_init(name, cli.verbose);
                 result.print();
             }
             FrameworkCmd::Validate { path } => {
-                use tsx::commands::framework_cmd;
-                let result = framework_cmd::framework_validate(path, cli.verbose);
+                use tsx::commands::framework;
+                let result = framework::framework_validate(path, cli.verbose);
                 result.print();
             }
             FrameworkCmd::Preview { template, data } => {
-                use tsx::commands::framework_cmd;
-                let result = framework_cmd::framework_preview(template, data, cli.verbose);
+                use tsx::commands::framework;
+                let result = framework::framework_preview(template, data, cli.verbose);
                 result.print();
             }
             FrameworkCmd::Add { source } => {
-                use tsx::commands::framework_cmd;
-                let result = framework_cmd::framework_add(source, cli.verbose);
+                use tsx::commands::framework;
+                let result = framework::framework_add(source, cli.verbose);
                 result.print();
             }
             FrameworkCmd::List => {
-                use tsx::commands::framework_cmd;
-                let result = framework_cmd::framework_list(cli.verbose);
+                use tsx::commands::framework;
+                let result = framework::framework_list(cli.verbose);
                 result.print();
             }
             FrameworkCmd::Publish { path, dry_run, registry, api_key } => {
-                use tsx::commands::framework_cmd;
-                let result = framework_cmd::framework_publish(path, dry_run, registry, api_key, cli.verbose);
+                use tsx::commands::framework;
+                let result = framework::framework_publish(path, dry_run, registry, api_key, cli.verbose);
                 result.print();
             }
         },

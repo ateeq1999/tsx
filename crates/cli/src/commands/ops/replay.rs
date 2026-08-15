@@ -383,7 +383,7 @@ fn execute_step(
     dry_run: bool,
     _root: &Path,
 ) -> Result<Vec<String>, String> {
-    use crate::commands::ops::batch;
+    use crate::commands::batch;
 
     let result = batch::execute_command_pub(
         &step.command,

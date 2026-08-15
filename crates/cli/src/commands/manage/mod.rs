@@ -6,7 +6,6 @@ pub mod auth;
 pub mod create;
 pub mod dev;
 pub mod doctor;
-pub mod framework_cmd;
 pub mod init;
 pub mod plugin;
 pub mod self_update;

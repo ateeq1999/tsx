@@ -124,7 +124,7 @@ pub fn generate(
     };
 
     // Dispatch through the batch execute_command machinery
-    use crate::commands::ops::batch::execute_command_pub;
+    use crate::commands::batch::execute_command_pub;
     match execute_command_pub(&spec.command, &options, overwrite, dry_run) {
         Ok(files_created) => {
             let duration_ms = start.elapsed().as_millis() as u64;
