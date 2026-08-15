@@ -12,19 +12,6 @@ const PATH_SEP: char = ';';
 const PATH_SEP: char = ':';
 
 #[cfg(windows)]
-fn get_system_path() -> std::io::Result<String> {
-    // Use setx to get the system PATH
-    let output = Command::new("cmd")
-        .args(["/C", "echo %PATH%"])
-        .output()?;
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-    } else {
-        Err(std::io::Error::new(std::io::ErrorKind::Other, "Failed to get PATH"))
-    }
-}
-
-#[cfg(windows)]
 fn set_system_path(new_path: &str) -> std::io::Result<()> {
     // Use setx to set the system PATH (requires admin)
     let status = Command::new("setx")
@@ -38,11 +25,6 @@ fn set_system_path(new_path: &str) -> std::io::Result<()> {
             "Failed to set system PATH. Try running as Administrator.",
         ))
     }
-}
-
-#[cfg(unix)]
-fn get_system_path() -> std::io::Result<String> {
-    env::var("PATH").map_err(|e| std::io::Error::new(std::io::ErrorKind::NotFound, e))
 }
 
 #[cfg(unix)]

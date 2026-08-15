@@ -1,10 +1,11 @@
+use crate::execution::ExecutionContext;
 use crate::output::CommandResult;
 use crate::schemas::AddAuthGuardArgs;
 use crate::utils::paths::find_project_root;
 use std::fs;
 use std::path::PathBuf;
 
-pub fn add_auth_guard(args: AddAuthGuardArgs, _overwrite: bool, dry_run: bool, _diff_only: bool) -> CommandResult {
+pub fn add_auth_guard(args: AddAuthGuardArgs, ctx: &ExecutionContext) -> CommandResult {
     let root = match find_project_root() {
         Ok(r) => r,
         Err(e) => return CommandResult::err("add:auth-guard", e.to_string()),
@@ -81,7 +82,7 @@ pub fn add_auth_guard(args: AddAuthGuardArgs, _overwrite: bool, dry_run: bool, _
         );
     }
 
-    if dry_run {
+    if ctx.dry_run {
         return CommandResult::ok(
             "add:auth-guard",
             vec![route_file.to_string_lossy().to_string()],

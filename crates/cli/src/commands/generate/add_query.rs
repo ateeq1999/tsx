@@ -1,3 +1,4 @@
+use crate::execution::ExecutionContext;
 use crate::output::CommandResult;
 use crate::render::render_and_write;
 use crate::schemas::AddQueryArgs;
@@ -5,7 +6,7 @@ use crate::utils::format::format_typescript;
 use crate::utils::paths::resolve_output_path;
 use crate::utils::validate::validate_identifier;
 
-pub fn add_query(args: AddQueryArgs, overwrite: bool, dry_run: bool, diff_only: bool) -> CommandResult {
+pub fn add_query(args: AddQueryArgs, ctx: &ExecutionContext) -> CommandResult {
     if let Err(e) = validate_identifier(&args.name) {
         return CommandResult::err("add:query", format!("Invalid name: {}", e));
     }
@@ -24,8 +25,8 @@ pub fn add_query(args: AddQueryArgs, overwrite: bool, dry_run: bool, diff_only: 
         ),
         |root| resolve_output_path(root, &format!("queries/{}.ts", args.name)),
         format_typescript,
-        overwrite,
-        dry_run,
-        diff_only,
+        ctx.overwrite,
+        ctx.dry_run,
+        ctx.diff,
     )
 }

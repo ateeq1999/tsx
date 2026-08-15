@@ -1,6 +1,7 @@
 //! Single-command execution — the shared machinery `batch`, `run`, `generate`,
 //! `repl`, and `replay` all use to dispatch one command by id.
 
+use crate::execution::ExecutionContext;
 use crate::framework::command_registry::CommandRegistry;
 use crate::json::error::ErrorCode;
 
@@ -23,12 +24,13 @@ pub(super) fn execute_command(
 ) -> Result<Vec<String>, (ErrorCode, String)> {
     let options_str = serde_json::to_string(options)
         .map_err(|e| (ErrorCode::InvalidPayload, e.to_string()))?;
+    let ctx = ExecutionContext { overwrite, dry_run, diff: false, verbose: false };
 
     macro_rules! dispatch {
         ($args_type:ty, $handler:expr) => {{
             let args: $args_type = serde_json::from_str(&options_str)
                 .map_err(|e| (ErrorCode::ValidationError, e.to_string()))?;
-            let result = $handler(args, overwrite, dry_run, false);
+            let result = $handler(args, &ctx);
             if result.success {
                 Ok(result.files_created)
             } else {

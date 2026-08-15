@@ -9,7 +9,8 @@
       "Bash(cargo test *)",
       "Bash(echo \"EXIT:$?\")",
       "Bash(cargo build *)",
-      "Bash(git check-ignore *)"
+      "Bash(git check-ignore *)",
+      "Bash(awk '$1>400')"
     ]
   }
 }

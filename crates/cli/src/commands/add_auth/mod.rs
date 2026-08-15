@@ -1,3 +1,4 @@
+use crate::execution::ExecutionContext;
 use crate::output::CommandResult;
 use crate::render::render_and_write;
 use crate::schemas::AddAuthArgs;
@@ -6,7 +7,7 @@ use crate::utils::paths::resolve_output_path;
 use std::path::Path;
 use std::process::Command;
 
-pub fn add_auth(args: AddAuthArgs, overwrite: bool, dry_run: bool, diff_only: bool) -> CommandResult {
+pub fn add_auth(args: AddAuthArgs, ctx: &ExecutionContext) -> CommandResult {
     let mut result = render_and_write(
         "add:auth",
         "features/auth_config.jinja",
@@ -17,12 +18,12 @@ pub fn add_auth(args: AddAuthArgs, overwrite: bool, dry_run: bool, diff_only: bo
         ),
         |root| resolve_output_path(root, "lib/auth.ts"),
         format_typescript,
-        overwrite,
-        dry_run,
-        diff_only,
+        ctx.overwrite,
+        ctx.dry_run,
+        ctx.diff,
     );
 
-    if result.success && !dry_run {
+    if result.success && !ctx.dry_run {
         match install_better_auth() {
             Ok(msg) => result.files_created.push(msg),
             Err(e) => result.warnings.push(format!("better-auth install failed: {}", e)),

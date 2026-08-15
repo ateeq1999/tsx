@@ -1,3 +1,4 @@
+use crate::execution::ExecutionContext;
 use crate::output::CommandResult;
 use crate::render::render_and_write;
 use crate::schemas::AddPageArgs;
@@ -5,7 +6,7 @@ use crate::utils::format::format_tsx;
 use crate::utils::paths::resolve_output_path;
 use crate::utils::validate::validate_route_path;
 
-pub fn add_page(args: AddPageArgs, overwrite: bool, dry_run: bool, diff_only: bool) -> CommandResult {
+pub fn add_page(args: AddPageArgs, ctx: &ExecutionContext) -> CommandResult {
     if let Err(e) = validate_route_path(&args.path) {
         return CommandResult::err("add:page", format!("Invalid path: {}", e));
     }
@@ -23,8 +24,8 @@ pub fn add_page(args: AddPageArgs, overwrite: bool, dry_run: bool, diff_only: bo
         ),
         move |root| resolve_output_path(root, &format!("routes/{route_path}.tsx")),
         format_tsx,
-        overwrite,
-        dry_run,
-        diff_only,
+        ctx.overwrite,
+        ctx.dry_run,
+        ctx.diff,
     )
 }
