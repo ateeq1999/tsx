@@ -1,4 +1,4 @@
-use crate::commands::manage::auth::load_credentials;
+use crate::commands::auth::load_credentials;
 use crate::output::CommandResult;
 
 /// `tsx pkg publish`

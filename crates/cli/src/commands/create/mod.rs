@@ -111,7 +111,7 @@ pub fn create(
             "init" => {
                 // Handle init specially — calls init::init()
                 let name = step.args.get("name").and_then(|v| v.as_str()).map(|s| s.to_string());
-                let result = crate::commands::manage::init::init(name, None);
+                let result = crate::commands::init::init(name, None);
                 if result.success {
                     steps_succeeded += 1;
                     all_files_created.extend(result.files_created);
@@ -124,7 +124,7 @@ pub fn create(
             }
             "add:migration" => {
                 // Handle migration specially — no args
-                let result = crate::commands::manage::add_migration::add_migration();
+                let result = crate::commands::add_migration::add_migration();
                 if result.success {
                     steps_succeeded += 1;
                     all_files_created.extend(result.files_created);

@@ -1,4 +1,4 @@
-use crate::commands::manage::auth::load_credentials;
+use crate::commands::auth::load_credentials;
 use crate::output::CommandResult;
 
 use super::utils::{split_name_version, url_encode, DEFAULT_REGISTRY_URL};

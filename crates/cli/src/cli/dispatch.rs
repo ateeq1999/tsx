@@ -336,7 +336,7 @@ pub fn dispatch(cli: Cli, json_input: Option<String>) {
         Command::Completions { shell } => {
             use clap_complete::generate;
             use std::io::Write;
-            use tsx::commands::manage::completions;
+            use tsx::commands::completions;
 
             match completions::resolve_shell(&shell) {
                 Err(_) => completions::unknown_shell_error(&shell).print(),
@@ -349,7 +349,7 @@ pub fn dispatch(cli: Cli, json_input: Option<String>) {
             }
         }
         Command::Doctor => {
-            use tsx::commands::manage::doctor;
+            use tsx::commands::doctor;
             doctor::doctor().print();
         }
         Command::LintTemplate { path } => {
@@ -636,7 +636,7 @@ pub fn dispatch(cli: Cli, json_input: Option<String>) {
             }
         }
         Command::Path { directory, permanent, list } => {
-            use tsx::commands::ops::path;
+            use tsx::commands::path;
             if list {
                 path::path_list().print();
             } else {
@@ -644,7 +644,7 @@ pub fn dispatch(cli: Cli, json_input: Option<String>) {
             }
         }
         Command::Adb { action } => {
-            use tsx::commands::ops::adb;
+            use tsx::commands::adb;
             match action {
                 AdbCmd::Kill => adb::adb_kill().print(),
                 AdbCmd::Start => adb::adb_start().print(),
@@ -654,7 +654,7 @@ pub fn dispatch(cli: Cli, json_input: Option<String>) {
             }
         }
         Command::Flutter { action } => {
-            use tsx::commands::ops::flutter;
+            use tsx::commands::flutter;
             match action {
                 FlutterCmd::Run { device, mode, port } => {
                     flutter::flutter_run(mode, device, port).print();
@@ -667,7 +667,7 @@ pub fn dispatch(cli: Cli, json_input: Option<String>) {
             }
         }
         Command::Port { action } => {
-            use tsx::commands::ops::port;
+            use tsx::commands::port;
             match action {
                 PortCmd::Find { port } => port::find_process_by_port(port).print(),
                 PortCmd::Kill { port } => port::kill_all_port(port).print(),

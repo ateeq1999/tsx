@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::commands::manage::auth::load_credentials;
+use crate::commands::auth::load_credentials;
 use crate::output::CommandResult;
 
 use super::types::{load_pkg_index, save_pkg_index, InstalledPkg};
